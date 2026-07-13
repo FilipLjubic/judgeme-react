@@ -10,9 +10,15 @@ The repository now contains a production-buildable Hydrogen integration harness 
 
 - `packages/judgeme-react` is the framework-neutral React package.
 - `examples/hydrogen` is the Shopify integration and browser compatibility harness.
-- The root npm workspace provides one lockfile and repeatable test, typecheck, lint, and build commands.
+- The root Bun workspace provides one lockfile and repeatable test, typecheck, lint, and build commands.
 
 The harness was generated from Shopify's current TypeScript starter on 2026-07-13. It uses Hydrogen `2026.4.3`, React Router `7.16.0`, React `18.3`, and Vite `8`.
+
+Both the root and example `dev` scripts pin the local storefront to `http://localhost:3001`. Port 3000 is reserved for another local project.
+
+## Package manager
+
+The repository uses Bun 1.3.14 for dependency installation, workspace scripts, and local CLI execution. `bun.lock` is the only dependency lockfile. Node remains in the engine contract because Hydrogen and the package test suite still target Node-compatible runtimes.
 
 ## Headless channel connection
 
@@ -76,15 +82,17 @@ The package is private at version `0.0.0` during contract research, preventing a
 The following checks passed on 2026-07-13:
 
 ```text
-npm test
-npm run typecheck
-npm run lint
-npm run build
+bun run test
+bun run typecheck
+bun run lint
+bun run build
 ```
 
 The production build includes both client and Oxygen-compatible server bundles. Shopify CLI warns that it cannot find a lockfile inside `examples/hydrogen`; the repository intentionally has one workspace lockfile at the root. Deployment packaging should be validated before the first Oxygen deployment, or the check should be disabled only after confirming the deployment installs from the workspace root.
 
 A live MiniOxygen smoke test with the real credentials returned `200` for `/` and `/collections/all`. The rendered HTML contained the intentionally public Judge.me configuration and contained neither private token. `/account/login` correctly reported that local Customer Account OAuth requires `shopify hydrogen dev --customer-account-push` and a `*.tryhydrogen.dev` tunnel.
+
+The installed Shopify CLI accepts `hydrogen dev --port <value>`. A local startup check on 2026-07-13 confirmed that the repository's `bun run dev` command binds MiniOxygen to port 3001.
 
 The Headless Storefront API currently returns zero products even though the Online Store has the Wall Art Poster product. Products still need to be published to the Headless sales channel before product routes and product-specific widgets can be exercised through Hydrogen. Changing sales-channel availability is Shopify state and should be done deliberately, not hidden inside project initialization.
 

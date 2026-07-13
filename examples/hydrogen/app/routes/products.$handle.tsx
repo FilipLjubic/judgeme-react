@@ -13,9 +13,12 @@ import {ProductImage} from '~/components/ProductImage';
 import {ProductForm} from '~/components/ProductForm';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import {
-  fetchLegacyReviewWidget,
+  fetchLegacyStorefrontWidgets,
+  FloatingReviewsTab,
   getShopifyNumericId,
   LegacyReviewWidget,
+  ReviewsCarousel,
+  StarRatingBadge,
 } from '@judgeme-react/core';
 
 export const meta: Route.MetaFunction = ({data}) => {
@@ -32,14 +35,14 @@ export async function loader(args: Route.LoaderArgs) {
   // Await the critical data required to render initial state of the page
   const criticalData = await loadCriticalData(args);
   const {env} = args.context;
-  const reviewWidget = await loadReviewWidget({
+  const judgeMeWidgets = await loadJudgeMeWidgets({
     productId: criticalData.product.id,
     publicToken: env.JUDGEME_PUBLIC_TOKEN,
     shopDomain: env.JUDGEME_SHOP_DOMAIN ?? env.PUBLIC_STORE_DOMAIN,
     signal: args.request.signal,
   });
 
-  return {...criticalData, reviewWidget};
+  return {...criticalData, judgeMeWidgets};
 }
 
 /**
@@ -73,7 +76,7 @@ async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
   };
 }
 
-async function loadReviewWidget({
+async function loadJudgeMeWidgets({
   productId,
   publicToken,
   shopDomain,
@@ -87,20 +90,20 @@ async function loadReviewWidget({
   if (!publicToken) return null;
 
   try {
-    return await fetchLegacyReviewWidget({
+    return await fetchLegacyStorefrontWidgets({
       productId: getShopifyNumericId(productId),
       publicToken,
       shopDomain,
       signal,
     });
   } catch (error) {
-    console.error('Unable to load the Judge.me Review Widget', error);
+    console.error('Unable to load the Judge.me product widgets', error);
     return null;
   }
 }
 
 export default function Product() {
-  const {product, reviewWidget} = useLoaderData<typeof loader>();
+  const {product, judgeMeWidgets} = useLoaderData<typeof loader>();
 
   // Optimistically selects a variant with given available variant information
   const selectedVariant = useOptimisticVariant(
@@ -125,6 +128,16 @@ export default function Product() {
       <ProductImage image={selectedVariant?.image} />
       <div className="product-main">
         <h1>{title}</h1>
+        {judgeMeWidgets ? (
+          <StarRatingBadge
+            className="product-rating"
+            data={{
+              ...judgeMeWidgets.starRatingBadge,
+              ...judgeMeWidgets.resources,
+            }}
+            includeStyles={false}
+          />
+        ) : null}
         <ProductPrice
           price={selectedVariant?.price}
           compareAtPrice={selectedVariant?.compareAtPrice}
@@ -143,8 +156,34 @@ export default function Product() {
         <div dangerouslySetInnerHTML={{__html: descriptionHtml}} />
         <br />
       </div>
-      {reviewWidget ? (
-        <LegacyReviewWidget className="product-reviews" data={reviewWidget} />
+      {judgeMeWidgets ? (
+        <ReviewsCarousel
+          className="product-reviews-carousel"
+          data={{
+            ...judgeMeWidgets.reviewsCarousel,
+            ...judgeMeWidgets.resources,
+          }}
+          includeStyles={false}
+        />
+      ) : null}
+      {judgeMeWidgets ? (
+        <LegacyReviewWidget
+          className="product-reviews"
+          data={{
+            ...judgeMeWidgets.reviewWidget,
+            ...judgeMeWidgets.resources,
+          }}
+        />
+      ) : null}
+      {judgeMeWidgets ? (
+        <FloatingReviewsTab
+          data={{
+            ...judgeMeWidgets.floatingReviewsTab,
+            ...judgeMeWidgets.resources,
+          }}
+          includeStyles={false}
+          position="right"
+        />
       ) : null}
       <Analytics.ProductView
         data={{

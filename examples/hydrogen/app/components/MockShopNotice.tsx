@@ -11,7 +11,7 @@ export function MockShopNotice() {
           this project yet.
         </p>
         <p>
-          Link a store by running <code>npx shopify hydrogen link</code> in your
+          Link a store by running <code>bunx shopify hydrogen link</code> in your
           terminal.
         </p>
       </div>

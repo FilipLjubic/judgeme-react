@@ -1,9 +1,19 @@
 export { createJudgeMeConfig, normalizeShopDomain } from "./config.js";
-export { fetchLegacyReviewWidget } from "./legacy-api.js";
+export {
+  fetchFloatingReviewsTab,
+  fetchLegacyProductWidgets,
+  fetchLegacyReviewWidget,
+  fetchLegacyStorefrontWidgets,
+  fetchReviewsCarousel,
+  fetchStarRatingBadge,
+} from "./legacy-api.js";
+export {FloatingReviewsTab} from "./floating-reviews-tab.js";
 export { LegacyReviewWidget } from "./legacy-review-widget.js";
 export { JudgeMeProvider, useJudgeMe } from "./provider.js";
+export {ReviewsCarousel} from "./reviews-carousel.js";
 export { AUTO_ENGINE_ORDER, resolveJudgeMeEngine } from "./runtime.js";
 export { getShopifyNumericId } from "./shopify.js";
+export { StarRatingBadge } from "./star-rating-badge.js";
 export { JUDGE_ME_WIDGETS } from "./types.js";
 export type {
   JudgeMeContextActions,
@@ -18,9 +28,27 @@ export type {
   ResolvedJudgeMeEngine,
 } from "./types.js";
 export type {
+  FetchFloatingReviewsTabOptions,
+  FetchLegacyProductWidgetsOptions,
   FetchLegacyReviewWidgetOptions,
+  FetchLegacyStorefrontWidgetsOptions,
+  FetchReviewsCarouselOptions,
+  FetchStarRatingBadgeOptions,
+  FloatingReviewsTabData,
+  FloatingReviewsTabMarkup,
+  FloatingReviewsTabSource,
   JudgeMeJsonValue,
   JudgeMeRuntimeSettings,
+  LegacyProductWidgetMarkup,
+  LegacyProductWidgetsData,
   LegacyReviewWidgetData,
+  LegacyShopWidgetMarkup,
+  LegacyStorefrontWidgetsData,
+  LegacyWidgetResources,
+  ReviewsCarouselData,
+  StarRatingBadgeData,
 } from "./legacy-api.js";
+export type {FloatingReviewsTabProps} from "./floating-reviews-tab.js";
 export type { LegacyReviewWidgetProps } from "./legacy-review-widget.js";
+export type { StarRatingBadgeProps } from "./star-rating-badge.js";
+export type {ReviewsCarouselProps} from "./reviews-carousel.js";

@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createJudgeMeConfig,
+  fetchFloatingReviewsTab,
+  fetchLegacyProductWidgets,
   fetchLegacyReviewWidget,
+  fetchLegacyStorefrontWidgets,
+  fetchReviewsCarousel,
+  fetchStarRatingBadge,
   getShopifyNumericId,
   resolveJudgeMeEngine,
 } from "../dist/index.js";
@@ -111,6 +116,319 @@ test("fetches and normalizes a complete legacy Review Widget payload", async () 
   assert.match(data.styles, /jdgm-rev/);
   assert.equal(data.settings.widget_version, "3.0");
   assert.equal(data.settings.review_widget_revamp_enabled, false);
+});
+
+test("fetches both product widgets with one shared resource request pair", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+    const endpoint = url.pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+    assert.equal(url.searchParams.get("api_token"), "public-token");
+
+    if (endpoint === "product_review") {
+      assert.equal(url.searchParams.get("external_id"), "12345");
+      return Response.json({
+        product_external_id: 12345,
+        widget: "<div class='jdgm-rev-widg'>Reviews</div>",
+      });
+    }
+
+    if (endpoint === "preview_badge") {
+      assert.equal(url.searchParams.get("external_id"), "12345");
+      return Response.json({
+        product_external_id: 12345,
+        badge:
+          "<div class='jdgm-prev-badge' data-average-rating='4.78' data-number-of-reviews='837'>Five stars</div>",
+      });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          "<script class='jdgm-settings-script'>window.jdgmSettings={\"widget_version\":\"3.0\",\"review_widget_revamp_enabled\":true};</script><style>.jdgm-star{color:teal}</style>",
+      });
+    }
+
+    return Response.json({
+      html_miracle: "<style>.jdgm-prev-badge{display:block}</style>",
+    });
+  };
+
+  const data = await fetchLegacyProductWidgets({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    productId: "gid://shopify/Product/12345",
+    fetch: mockFetch,
+  });
+
+  assert.deepEqual(requestedEndpoints.sort(), [
+    "html_miracle",
+    "preview_badge",
+    "product_review",
+    "settings",
+  ]);
+  assert.equal(data.reviewWidget.productId, "12345");
+  assert.match(data.reviewWidget.html, /jdgm-rev-widg/);
+  assert.equal(data.starRatingBadge.productId, "12345");
+  assert.match(data.starRatingBadge.html, /data-average-rating='4.78'/);
+  assert.match(data.resources.styles, /color:teal/);
+  assert.match(data.resources.styles, /jdgm-prev-badge/);
+  assert.equal(data.resources.settings.review_widget_revamp_enabled, false);
+});
+
+test("fetches a standalone Star Rating Badge payload", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const endpoint = new URL(input).pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    if (endpoint === "preview_badge") {
+      return Response.json({
+        product_external_id: 12345,
+        badge:
+          "<div class='jdgm-prev-badge' data-number-of-reviews='837'>Five stars</div>",
+      });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          "<script class='jdgm-settings-script'>window.jdgmSettings={};</script>",
+      });
+    }
+
+    return Response.json({html_miracle: ""});
+  };
+
+  const data = await fetchStarRatingBadge({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    productId: "12345",
+    fetch: mockFetch,
+  });
+
+  assert.deepEqual(requestedEndpoints.sort(), [
+    "html_miracle",
+    "preview_badge",
+    "settings",
+  ]);
+  assert.equal(data.productId, "12345");
+  assert.match(data.html, /jdgm-prev-badge/);
+});
+
+test("fetches a standalone classic Reviews Carousel payload", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+    const endpoint = url.pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+    assert.equal(url.searchParams.get("api_token"), "public-token");
+    assert.equal(url.searchParams.has("external_id"), false);
+
+    if (endpoint === "featured_carousel") {
+      return Response.json({
+        featured_carousel:
+          "<section class='jdgm-widget jdgm-carousel'><article class='jdgm-carousel-item'>A review</article></section>",
+      });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          "<script class='jdgm-settings-script'>window.jdgmSettings={\"featured_carousel_theme\":\"default\"};</script><style>.jdgm-carousel{color:teal}</style>",
+      });
+    }
+
+    return Response.json({html_miracle: ""});
+  };
+
+  const data = await fetchReviewsCarousel({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    fetch: mockFetch,
+  });
+
+  assert.deepEqual(requestedEndpoints.sort(), [
+    "featured_carousel",
+    "html_miracle",
+    "settings",
+  ]);
+  assert.match(data.html, /jdgm-carousel-item/);
+  assert.match(data.styles, /color:teal/);
+  assert.equal(data.settings.featured_carousel_theme, "default");
+});
+
+test("fetches an exact Floating Reviews Tab when Judge.me provides one", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+    const endpoint = url.pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    if (endpoint === "reviews_tab") {
+      assert.equal(url.searchParams.get("page"), "1");
+      assert.equal(url.searchParams.get("per_page"), "5");
+      return Response.json({
+        page: 1,
+        reviews_tab: {
+          html: "<section class='jdgm-widget jdgm-revs-tab'><div class='jdgm-revs-tab-btn'>Reviews</div><section class='jdgm-revs-tab__wrapper'></section></section>",
+        },
+      });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          "<script class='jdgm-settings-script'>window.jdgmSettings={\"floating_tab_button_name\":\"Reviews\"};</script>",
+      });
+    }
+
+    return Response.json({html_miracle: ""});
+  };
+
+  const data = await fetchFloatingReviewsTab({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    fetch: mockFetch,
+  });
+
+  assert.deepEqual(requestedEndpoints.sort(), [
+    "html_miracle",
+    "reviews_tab",
+    "settings",
+  ]);
+  assert.equal(data.source, "reviews-tab");
+  assert.match(data.html, /jdgm-revs-tab-btn/);
+});
+
+test("builds a Free-plan Floating Reviews Tab from All Reviews data", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+    const endpoint = url.pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    if (endpoint === "reviews_tab") {
+      return Response.json({page: 1, reviews_tab: null});
+    }
+
+    if (endpoint === "all_reviews_page") {
+      assert.equal(url.searchParams.get("review_type"), "shop-reviews");
+      return Response.json({
+        all_reviews:
+          "<article class='jdgm-rev' data-review-id='example'>A store review</article>",
+        all_reviews_header:
+          "<div class='jdgm-all-reviews__header' data-number-of-reviews='12' data-average-rating='4.75' data-number-of-product-reviews='9' data-number-of-shop-reviews='3'></div>",
+      });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          "<script class='jdgm-settings-script'>window.jdgmSettings={\"widget_first_sub_tab\":\"shop-reviews\",\"floating_tab_button_name\":\"Our feedback\",\"floating_tab_title\":\"What customers say\",\"all_reviews_page_load_more_text\":\"More feedback\"};</script><style>.jdgm-revs-tab{color:teal}</style>",
+      });
+    }
+
+    return Response.json({html_miracle: ""});
+  };
+
+  const data = await fetchFloatingReviewsTab({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    fetch: mockFetch,
+  });
+
+  assert.deepEqual(requestedEndpoints.sort(), [
+    "all_reviews_page",
+    "html_miracle",
+    "reviews_tab",
+    "settings",
+  ]);
+  assert.equal(data.source, "all-reviews-page-fallback");
+  assert.match(data.html, /data-number-of-product-reviews="9"/);
+  assert.match(data.html, /data-tabname="shop-reviews"/);
+  assert.match(data.html, /Our feedback/);
+  assert.match(data.html, /What customers say/);
+  assert.match(data.html, /More feedback/);
+  assert.match(data.html, /A store review/);
+  assert.match(data.styles, /color:teal/);
+});
+
+test("fetches all implemented storefront widgets with shared resources", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+    const endpoint = url.pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    if (endpoint === "product_review") {
+      return Response.json({
+        product_external_id: 12345,
+        widget: "<div class='jdgm-rev-widg'>Reviews</div>",
+      });
+    }
+
+    if (endpoint === "preview_badge") {
+      return Response.json({
+        product_external_id: 12345,
+        badge: "<div class='jdgm-prev-badge'>Five stars</div>",
+      });
+    }
+
+    if (endpoint === "featured_carousel") {
+      assert.equal(url.searchParams.has("external_id"), false);
+      return Response.json({
+        featured_carousel:
+          "<section class='jdgm-widget jdgm-carousel'>Featured reviews</section>",
+      });
+    }
+
+    if (endpoint === "reviews_tab") {
+      assert.equal(url.searchParams.has("external_id"), false);
+      return Response.json({
+        page: 1,
+        reviews_tab: {
+          html: "<section class='jdgm-widget jdgm-revs-tab'><div class='jdgm-revs-tab-btn'>Reviews</div><section class='jdgm-revs-tab__wrapper'></section></section>",
+        },
+      });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          "<script class='jdgm-settings-script'>window.jdgmSettings={};</script><style>.jdgm-widget{color:teal}</style>",
+      });
+    }
+
+    return Response.json({html_miracle: ""});
+  };
+
+  const data = await fetchLegacyStorefrontWidgets({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    productId: "gid://shopify/Product/12345",
+    fetch: mockFetch,
+  });
+
+  assert.deepEqual(requestedEndpoints.sort(), [
+    "featured_carousel",
+    "html_miracle",
+    "preview_badge",
+    "product_review",
+    "reviews_tab",
+    "settings",
+  ]);
+  assert.equal(data.reviewWidget.productId, "12345");
+  assert.equal(data.starRatingBadge.productId, "12345");
+  assert.match(data.reviewsCarousel.html, /Featured reviews/);
+  assert.equal(data.floatingReviewsTab.source, "reviews-tab");
+  assert.match(data.floatingReviewsTab.html, /jdgm-revs-tab-btn/);
+  assert.match(data.resources.styles, /color:teal/);
 });
 
 test("rejects executable markup returned by the Widget API", async () => {

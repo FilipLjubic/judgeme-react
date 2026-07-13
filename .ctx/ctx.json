@@ -131,9 +131,9 @@
       "kind": "notes",
       "url": "file:///Users/panda/Code/judgeme-react/docs/research/hydrogen-harness-2026-07-13.md",
       "reason": null,
-      "current": "20260713T105021Z-802f605b9e43",
-      "created_at": "2026-07-13T10:43:12Z",
-      "updated_at": "2026-07-13T10:50:21Z"
+      "current": "20260713T125320Z-79084b2b5ac4",
+      "created_at": "2026-07-13T12:43:54Z",
+      "updated_at": "2026-07-13T12:53:20Z"
     },
     {
       "id": "f0e256b23db89f55",
@@ -144,6 +144,46 @@
       "current": "20260713T115103Z-058f69b9fdce",
       "created_at": "2026-07-13T11:46:42Z",
       "updated_at": "2026-07-13T11:51:03Z"
+    },
+    {
+      "id": "b74b588ed37d26ce",
+      "label": "star-rating-badge-spike-2026-07-13",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/star-rating-badge-spike-2026-07-13.md",
+      "reason": null,
+      "current": "20260713T120448Z-f023081808cc",
+      "created_at": "2026-07-13T12:04:48Z",
+      "updated_at": "2026-07-13T12:04:48Z"
+    },
+    {
+      "id": "8989e82be4443ba6",
+      "label": "reviews-carousel-spike-2026-07-13",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/reviews-carousel-spike-2026-07-13.md",
+      "reason": null,
+      "current": "20260713T122101Z-707f6d9a0d6e",
+      "created_at": "2026-07-13T12:14:57Z",
+      "updated_at": "2026-07-13T12:21:01Z"
+    },
+    {
+      "id": "d6349a7d9a03d42b",
+      "label": "floating-reviews-tab-spike-2026-07-13",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/floating-reviews-tab-spike-2026-07-13.md",
+      "reason": null,
+      "current": "20260713T124018Z-7c881b426d24",
+      "created_at": "2026-07-13T12:40:18Z",
+      "updated_at": "2026-07-13T12:40:18Z"
+    },
+    {
+      "id": "817bc68b32db395e",
+      "label": "judge-me-floating-reviews-tab",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/8415920-floating-reviews-tab",
+      "reason": null,
+      "current": "20260713T124030Z-91aefbae2c69",
+      "created_at": "2026-07-13T12:40:25Z",
+      "updated_at": "2026-07-13T12:40:25Z"
     }
   ]
 }
