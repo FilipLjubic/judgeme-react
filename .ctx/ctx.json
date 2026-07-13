@@ -244,6 +244,26 @@
       "current": "20260713T172814Z-914505189d81",
       "created_at": "2026-07-13T17:23:56Z",
       "updated_at": "2026-07-13T17:28:14Z"
+    },
+    {
+      "id": "c7f28319f0b45caa",
+      "label": "judge-me-testimonials-carousel",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/11625803-testimonials-carousel",
+      "reason": null,
+      "current": "20260713T185022Z-694b4107da87",
+      "created_at": "2026-07-13T18:50:16Z",
+      "updated_at": "2026-07-13T18:50:16Z"
+    },
+    {
+      "id": "d7304f0e7d495c14",
+      "label": "testimonials-carousel-spike-2026-07-13",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/testimonials-carousel-spike-2026-07-13.md",
+      "reason": null,
+      "current": "20260713T190142Z-76e3683d0e91",
+      "created_at": "2026-07-13T19:00:50Z",
+      "updated_at": "2026-07-13T19:01:42Z"
     }
   ]
 }

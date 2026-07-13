@@ -4,6 +4,10 @@ import type {
   CardsCarouselData,
 } from "./cards-carousel-api.js";
 import type { ReviewsGridData } from "./reviews-grid-api.js";
+import type {
+  TestimonialsCarouselConfig,
+  TestimonialsCarouselData,
+} from "./testimonials-carousel-api.js";
 
 const JUDGE_ME_API_HOST = "https://api.judge.me";
 const JUDGE_ME_CDN_API_HOST = "https://cdn.judge.me/";
@@ -14,6 +18,7 @@ const CAROUSEL_STYLES_FILE = "carousels.css";
 const CAROUSEL_RUNTIME_FILE = "carousels.js";
 const CAROUSEL_CARDS_FILE = "media_carousel.js";
 const CAROUSEL_NAVIGATION_FILE = "video_carousel.js";
+const CAROUSEL_TESTIMONIALS_FILE = "testimonials_carousel.js";
 const EXACT_RUNTIME_TIMEOUT_MS = 15_000;
 const CAROUSEL_PLAY_BUTTON_SVG =
   '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 20C0 8.95431 8.95431 0 20 0C31.0457 0 40 8.95431 40 20C40 31.0457 31.0457 40 20 40C8.95431 40 0 31.0457 0 20Z" fill="black" fill-opacity="0.36"/><path d="M16 13L28 20L16 27V13Z" fill="white"/></svg>';
@@ -38,12 +43,15 @@ interface ExactJudgeMeRuntime {
   debugLog?: (...values: unknown[]) => void;
 }
 
-interface CardsCarouselMode {
+interface CarouselMode {
   carousel_style: string;
   index: number;
+  interactionCleanup?: () => void;
   resizeObserver?: ResizeObserver;
   revCount: number;
-  reviews: CardsCarouselData["page"]["reviews"];
+  reviews:
+    | CardsCarouselData["page"]["reviews"]
+    | TestimonialsCarouselData["page"]["reviews"];
   root: HTMLElement;
   slideInterval: ReturnType<typeof setInterval> | null;
 }
@@ -69,16 +77,38 @@ interface CardsCarouselRuntimeConfig extends Record<string, unknown> {
   transition_speed: number;
 }
 
-interface CardsCarouselUtils {
+interface TestimonialsCarouselRuntimeConfig extends Record<string, unknown> {
+  carousel_style: string;
+  carousel_type: "testimonials";
+  design_mode: boolean;
+  max_reviews: number;
+  min_reviews: number;
+  primary_lang: string;
+  product_name_text_size: TestimonialsCarouselConfig["productNameTextSize"];
+  quote_marks_size: TestimonialsCarouselConfig["quoteMarksSize"];
+  reviews_selection: TestimonialsCarouselConfig["reviewSelection"];
+  show_sample_reviews: boolean;
+  star_rating: TestimonialsCarouselConfig["starRating"];
+  stars_color: string;
+  stars_size: TestimonialsCarouselConfig["starsSize"];
+  transition_speed: number;
+  verified_badge_style: "icon" | "text";
+}
+
+type CarouselRuntimeConfig =
+  | CardsCarouselRuntimeConfig
+  | TestimonialsCarouselRuntimeConfig;
+
+interface CarouselUtils {
   attachCarouselLightbox: (
     root: HTMLElement,
-    mode: CardsCarouselMode,
-    config: CardsCarouselRuntimeConfig,
+    mode: CarouselMode,
+    config: CarouselRuntimeConfig,
   ) => void;
   buildCards: (
     root: HTMLElement,
-    config: CardsCarouselRuntimeConfig,
-    builder: CardsCarouselBuilder,
+    config: CarouselRuntimeConfig,
+    builder: CarouselBuilder,
   ) => void;
   setAverage: (root: HTMLElement, rating: number) => void;
   setStarsColor: (
@@ -86,20 +116,21 @@ interface CardsCarouselUtils {
     config: CardsCarouselRuntimeConfig,
   ) => void;
   setVerified: (root: HTMLElement) => void;
-  showCard: (root: HTMLElement, mode: CardsCarouselMode) => void;
+  showCard: (root: HTMLElement, mode: CarouselMode) => void;
   updateHeaderText: (
     root: HTMLElement,
-    config: CardsCarouselRuntimeConfig,
+    config: CarouselRuntimeConfig,
   ) => void;
 }
 
-type CardsCarouselBuilder = (
+type CarouselBuilder = (
   root: HTMLElement,
-  config: CardsCarouselRuntimeConfig,
-  mode: CardsCarouselMode,
+  config: CarouselRuntimeConfig,
+  mode: CarouselMode,
 ) => void;
 
-interface CardsCarouselElement extends HTMLElement {
+interface CarouselElement extends HTMLElement {
+  _clickHandler?: EventListener;
   _initialPositioningComplete?: boolean;
   _videoCarouselInitialized?: boolean;
   _videoCarouselInstance?: { destroy?: () => void };
@@ -109,9 +140,10 @@ interface ExactJudgeMeWindow extends Window {
   jdgm?: ExactJudgeMeRuntime;
   judgeme?: ExactJudgeMeRuntime;
   jdgmSettings?: JudgeMeRuntimeSettings;
-  jdgmBuildMediaCards?: CardsCarouselBuilder;
-  jdgmCarouselMode?: Record<string, CardsCarouselMode>;
-  jdgmCarouselUtils?: CardsCarouselUtils;
+  jdgmBuildMediaCards?: CarouselBuilder;
+  jdgmBuildTestimonialCards?: CarouselBuilder;
+  jdgmCarouselMode?: Record<string, CarouselMode>;
+  jdgmCarouselUtils?: CarouselUtils;
   jdgmHideArrows?: (
     root: HTMLElement,
     config: CardsCarouselRuntimeConfig,
@@ -141,6 +173,14 @@ export interface InitializeCardsCarouselOptions {
   publicToken?: string;
 }
 
+export interface InitializeTestimonialsCarouselOptions {
+  assetBaseUrl: string;
+  blockId: string;
+  container: HTMLElement;
+  data: TestimonialsCarouselData;
+  publicToken?: string;
+}
+
 let exactRuntimeShopDomain: string | undefined;
 let exactRuntimeAssetBaseUrl: string | undefined;
 let moduleInstance = 0;
@@ -151,6 +191,11 @@ const modulePromises = new Map<string, Promise<void>>();
 const reviewsGridInitializers = new WeakMap<HTMLElement, Promise<void>>();
 const cardsCarouselInitializers = new WeakMap<HTMLElement, Promise<void>>();
 const cardsCarouselDisposals = new WeakMap<HTMLElement, number>();
+const testimonialsCarouselInitializers = new WeakMap<
+  HTMLElement,
+  Promise<void>
+>();
+const testimonialsCarouselDisposals = new WeakMap<HTMLElement, number>();
 
 /** Loads Judge.me's deployment-specific v3 Reviews Grid module for one root. */
 export function initializeReviewsGrid(
@@ -190,6 +235,33 @@ export function initializeCardsCarousel(
   return initializer;
 }
 
+/** Loads Judge.me's exact Testimonials Carousel scripts and v3 lightbox. */
+export function initializeTestimonialsCarousel(
+  options: InitializeTestimonialsCarouselOptions,
+): Promise<void> {
+  if (typeof window !== "undefined") {
+    const pendingDisposal = testimonialsCarouselDisposals.get(
+      options.container,
+    );
+    if (pendingDisposal !== undefined) {
+      window.clearTimeout(pendingDisposal);
+      testimonialsCarouselDisposals.delete(options.container);
+    }
+  }
+
+  const existing = testimonialsCarouselInitializers.get(options.container);
+  if (existing) return existing;
+
+  const initializer = initializeTestimonialsCarouselRoot(options).catch(
+    (error) => {
+      testimonialsCarouselInitializers.delete(options.container);
+      throw error;
+    },
+  );
+  testimonialsCarouselInitializers.set(options.container, initializer);
+  return initializer;
+}
+
 /** Releases root-local observers and timers after an SPA unmount. */
 export function disposeCardsCarousel(
   container: HTMLElement,
@@ -198,7 +270,7 @@ export function disposeCardsCarousel(
   if (typeof window === "undefined") return;
 
   const runtimeWindow = window as ExactJudgeMeWindow;
-  const carousel = container as CardsCarouselElement;
+  const carousel = container as CarouselElement;
   const initializer = cardsCarouselInitializers.get(container);
   const timeoutId = window.setTimeout(() => {
     cardsCarouselDisposals.delete(container);
@@ -208,7 +280,12 @@ export function disposeCardsCarousel(
 
       mode.resizeObserver?.disconnect();
       if (mode.slideInterval) window.clearInterval(mode.slideInterval);
+      mode.interactionCleanup?.();
       carousel._videoCarouselInstance?.destroy?.();
+      if (carousel._clickHandler) {
+        carousel.removeEventListener("click", carousel._clickHandler);
+        delete carousel._clickHandler;
+      }
       delete runtimeWindow.jdgmCarouselMode?.[blockId];
       cardsCarouselInitializers.delete(container);
     };
@@ -218,6 +295,39 @@ export function disposeCardsCarousel(
   }, 0);
 
   cardsCarouselDisposals.set(container, timeoutId);
+}
+
+/** Releases Testimonials Carousel timers and listeners after an SPA unmount. */
+export function disposeTestimonialsCarousel(
+  container: HTMLElement,
+  blockId: string,
+): void {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = window as ExactJudgeMeWindow;
+  const carousel = container as CarouselElement;
+  const initializer = testimonialsCarouselInitializers.get(container);
+  const timeoutId = window.setTimeout(() => {
+    testimonialsCarouselDisposals.delete(container);
+    const cleanup = () => {
+      const mode = runtimeWindow.jdgmCarouselMode?.[blockId];
+      if (mode?.root !== container) return;
+
+      if (mode.slideInterval) window.clearInterval(mode.slideInterval);
+      mode.interactionCleanup?.();
+      if (carousel._clickHandler) {
+        carousel.removeEventListener("click", carousel._clickHandler);
+        delete carousel._clickHandler;
+      }
+      delete runtimeWindow.jdgmCarouselMode?.[blockId];
+      testimonialsCarouselInitializers.delete(container);
+    };
+
+    if (initializer) void initializer.then(cleanup, cleanup);
+    else cleanup();
+  }, 0);
+
+  testimonialsCarouselDisposals.set(container, timeoutId);
 }
 
 /** Moves an initialized Cards Carousel without CSP-unsafe inline handlers. */
@@ -230,6 +340,14 @@ export function moveCardsCarousel(
   const runtimeWindow = window as ExactJudgeMeWindow;
   if (direction === "next") runtimeWindow.jdgmNextCard?.(blockId);
   else runtimeWindow.jdgmPreviousCard?.(blockId);
+}
+
+/** Moves an initialized Testimonials Carousel. */
+export function moveTestimonialsCarousel(
+  blockId: string,
+  direction: "next" | "previous",
+): void {
+  moveCardsCarousel(blockId, direction);
 }
 
 async function initializeReviewsGridRoot({
@@ -313,7 +431,7 @@ async function initializeCardsCarouselRoot({
   }
 
   const config = createCardsCarouselRuntimeConfig(data);
-  const mode: CardsCarouselMode = {
+  const mode: CarouselMode = {
     carousel_style: config.carousel_style,
     index: 0,
     resizeObserver: undefined,
@@ -353,11 +471,95 @@ async function initializeCardsCarouselRoot({
     ).toString(),
     "cards-carousel-navigation",
   );
-  await waitForCardsCarousel(container as CardsCarouselElement, mode.revCount);
+  await waitForCardsCarousel(container as CarouselElement, mode.revCount);
 
   container.removeAttribute("data-entry-point");
   runtimeWindow.jdgm?.debugLog?.(
     "[judgeme-react] Cards Carousel exact adapter ready",
+  );
+}
+
+async function initializeTestimonialsCarouselRoot({
+  assetBaseUrl,
+  blockId,
+  container,
+  data,
+  publicToken,
+}: InitializeTestimonialsCarouselOptions): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = configureExactRuntime({
+    assetBaseUrl,
+    settings: data.settings,
+    shopDomain: data.shopDomain,
+    publicToken,
+  });
+
+  await Promise.all([
+    loadStylesheet(new URL(CAROUSEL_STYLES_FILE, assetBaseUrl).toString()),
+    loadManifestStyles(assetBaseUrl, CAROUSEL_LIGHTBOX_ENTRY_KEY),
+  ]);
+  await loadScript(
+    new URL(CAROUSEL_RUNTIME_FILE, assetBaseUrl).toString(),
+    "testimonials-carousel-runtime",
+  );
+  await loadScript(
+    new URL(CAROUSEL_TESTIMONIALS_FILE, assetBaseUrl).toString(),
+    "testimonials-carousel-builder",
+  );
+
+  const manifest = await getManifest(assetBaseUrl);
+  const lightboxFile = getManifestFile(manifest, CAROUSEL_LIGHTBOX_ENTRY_KEY);
+  await loadModuleOnce(
+    new URL(lightboxFile, assetBaseUrl).toString(),
+    "testimonials-carousel-lightbox",
+  );
+
+  const utils = runtimeWindow.jdgmCarouselUtils;
+  const buildCards = runtimeWindow.jdgmBuildTestimonialCards;
+  if (!utils || !buildCards) {
+    throw new Error(
+      "Judge.me's Testimonials Carousel runtime did not initialize.",
+    );
+  }
+
+  const config = createTestimonialsCarouselRuntimeConfig(data);
+  const mode: CarouselMode = {
+    carousel_style: config.carousel_style,
+    index: 0,
+    revCount: data.page.reviews.length,
+    reviews: data.page.reviews,
+    root: container,
+    slideInterval: null,
+  };
+  runtimeWindow.jdgmCarouselMode ??= {};
+  runtimeWindow.jdgmCarouselMode[blockId] = mode;
+
+  utils.setAverage(container, data.aggregate.rating);
+  utils.setVerified(container);
+  utils.updateHeaderText(container, config);
+  utils.buildCards(container, config, buildCards);
+  utils.attachCarouselLightbox(container, mode, config);
+  container.style.setProperty("--slides-count", String(mode.revCount));
+
+  if (mode.revCount >= config.min_reviews) {
+    container.classList.remove("jdgm-hidden");
+  }
+
+  utils.showCard(container, mode);
+  startTestimonialsAutoRotation(
+    runtimeWindow,
+    container,
+    blockId,
+    mode,
+    config.transition_speed,
+  );
+
+  await waitForTestimonialsCarousel(container, mode.revCount);
+
+  container.removeAttribute("data-entry-point");
+  runtimeWindow.jdgm?.debugLog?.(
+    "[judgeme-react] Testimonials Carousel exact adapter ready",
   );
 }
 
@@ -442,6 +644,90 @@ function createCardsCarouselRuntimeConfig(
     transition_speed: config.transitionSpeed,
     url: `https://${data.shopDomain}`,
   };
+}
+
+function createTestimonialsCarouselRuntimeConfig(
+  data: TestimonialsCarouselData,
+): TestimonialsCarouselRuntimeConfig {
+  const config = data.config;
+
+  return {
+    carousel_style: "default",
+    carousel_type: "testimonials",
+    collection_id: config.collectionId,
+    design_mode: false,
+    max_reviews: config.maxReviews,
+    min_reviews: 1,
+    platform: "shopify",
+    primary_lang: config.primaryLanguage,
+    product_id: data.productId,
+    product_ids: config.selectedProductIds,
+    product_name_text_size: config.productNameTextSize,
+    quote_marks_size: config.quoteMarksSize,
+    reviews_selection: config.reviewSelection,
+    show_sample_reviews: false,
+    shop_aggregates: { reviewCount: data.aggregate.count },
+    star_rating: config.starRating,
+    stars_color: config.starsAndQuoteMarksColor,
+    stars_size: config.starsSize,
+    transition_speed: config.transitionSpeed,
+    url: `https://${data.shopDomain}`,
+    verified_badge_style:
+      config.verifiedReviewer === "badge" ? "icon" : "text",
+  };
+}
+
+function startTestimonialsAutoRotation(
+  runtimeWindow: ExactJudgeMeWindow,
+  container: HTMLElement,
+  blockId: string,
+  mode: CarouselMode,
+  transitionSpeed: number,
+): void {
+  if (transitionSpeed <= 0 || mode.revCount <= 1) return;
+
+  let pointerInside = false;
+  let focusInside = false;
+  const stop = () => {
+    if (mode.slideInterval) window.clearInterval(mode.slideInterval);
+    mode.slideInterval = null;
+  };
+  const start = () => {
+    if (pointerInside || focusInside || mode.slideInterval) return;
+    mode.slideInterval = window.setInterval(() => {
+      runtimeWindow.jdgmNextCard?.(blockId);
+    }, transitionSpeed * 1_000);
+  };
+  const handleMouseEnter = () => {
+    pointerInside = true;
+    stop();
+  };
+  const handleMouseLeave = () => {
+    pointerInside = false;
+    start();
+  };
+  const handleFocusIn = () => {
+    focusInside = true;
+    stop();
+  };
+  const handleFocusOut = (event: FocusEvent) => {
+    if (container.contains(event.relatedTarget as Node | null)) return;
+    focusInside = false;
+    start();
+  };
+
+  container.addEventListener("mouseenter", handleMouseEnter);
+  container.addEventListener("mouseleave", handleMouseLeave);
+  container.addEventListener("focusin", handleFocusIn);
+  container.addEventListener("focusout", handleFocusOut);
+  mode.interactionCleanup = () => {
+    stop();
+    container.removeEventListener("mouseenter", handleMouseEnter);
+    container.removeEventListener("mouseleave", handleMouseLeave);
+    container.removeEventListener("focusin", handleFocusIn);
+    container.removeEventListener("focusout", handleFocusOut);
+  };
+  start();
 }
 
 function createReviewsGridBootstrap(
@@ -714,7 +1000,7 @@ function waitForReviewsGrid(container: HTMLElement): Promise<void> {
 }
 
 function waitForCardsCarousel(
-  container: CardsCarouselElement,
+  container: CarouselElement,
   reviewCount: number,
 ): Promise<void> {
   if (isCardsCarouselReady(container, reviewCount)) return Promise.resolve();
@@ -754,6 +1040,49 @@ function waitForCardsCarousel(
   });
 }
 
+function waitForTestimonialsCarousel(
+  container: HTMLElement,
+  reviewCount: number,
+): Promise<void> {
+  if (isTestimonialsCarouselReady(container, reviewCount)) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (error?: Error) => {
+      if (settled) return;
+
+      settled = true;
+      observer.disconnect();
+      window.clearTimeout(timeoutId);
+
+      if (error) reject(error);
+      else resolve();
+    };
+    const check = () => {
+      if (isTestimonialsCarouselReady(container, reviewCount)) settle();
+    };
+    const observer = new MutationObserver(check);
+    observer.observe(container, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+    const timeoutId = window.setTimeout(() => {
+      if (isTestimonialsCarouselReady(container, reviewCount)) {
+        settle();
+      } else {
+        settle(
+          new Error(
+            "Judge.me did not finish initializing Testimonials Carousel.",
+          ),
+        );
+      }
+    }, EXACT_RUNTIME_TIMEOUT_MS);
+  });
+}
+
 function isReviewsGridReady(container: HTMLElement): boolean {
   return (
     container.classList.contains("jdgm-widget-revamp") &&
@@ -762,7 +1091,7 @@ function isReviewsGridReady(container: HTMLElement): boolean {
 }
 
 function isCardsCarouselReady(
-  container: CardsCarouselElement,
+  container: CarouselElement,
   reviewCount: number,
 ): boolean {
   return (
@@ -770,6 +1099,19 @@ function isCardsCarouselReady(
     (reviewCount === 0 ||
       (container.querySelector(".jdgm-card") !== null &&
         container._initialPositioningComplete === true))
+  );
+}
+
+function isTestimonialsCarouselReady(
+  container: HTMLElement,
+  reviewCount: number,
+): boolean {
+  if (reviewCount === 0) return true;
+
+  return (
+    !container.classList.contains("jdgm-hidden") &&
+    container.querySelectorAll(".jdgm-testimonial").length === reviewCount &&
+    container.querySelector(".jdgm-testimonial.active") !== null
   );
 }
 

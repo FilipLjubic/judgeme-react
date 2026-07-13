@@ -513,8 +513,6 @@ button.reset:hover:not(:has(> *)) {
 
 .product-main {
   align-self: start;
-  position: sticky;
-  top: 6rem;
 }
 
 .product-price-on-sale {
@@ -550,36 +548,22 @@ button.reset:hover:not(:has(> *)) {
   width: 100%;
 }
 
-.product-reviews {
+.product-widgets {
   grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3rem, 6vw, 6rem);
   min-width: 0;
-  margin-block: 2rem;
+  padding-block: clamp(2rem, 4vw, 4rem);
 }
 
-.product-reviews-carousel {
-  grid-column: 1 / -1;
+.product-widgets > * {
   min-width: 0;
-  margin-block: 3rem 1rem;
+  width: 100%;
 }
 
 .product-reviews-counter {
-  grid-column: 1 / -1;
-  min-width: 0;
-  margin-block: 2rem 0;
   text-align: center;
-}
-
-.product-all-reviews {
-  grid-column: 1 / -1;
-  min-width: 0;
-  margin-block: 2rem;
-}
-
-.product-reviews-grid {
-  grid-column: 1 / -1;
-  min-width: 0;
-  margin-block: 2rem;
-  width: 100%;
 }
 
 .product-rating {

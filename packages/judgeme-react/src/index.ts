@@ -32,6 +32,13 @@ export {
 export { AUTO_ENGINE_ORDER, resolveJudgeMeEngine } from "./runtime.js";
 export { getShopifyNumericId } from "./shopify.js";
 export { StarRatingBadge } from "./star-rating-badge.js";
+export { TestimonialsCarousel } from "./testimonials-carousel.js";
+export {
+  createTestimonialsCarouselData,
+  fetchTestimonialsCarousel,
+  fetchTestimonialsCarouselPage,
+  normalizeTestimonialsCarouselConfig,
+} from "./testimonials-carousel-api.js";
 export { JUDGE_ME_WIDGETS } from "./types.js";
 export type {
   JudgeMeContextActions,
@@ -97,6 +104,27 @@ export type {
 export type { FloatingReviewsTabProps } from "./floating-reviews-tab.js";
 export type { LegacyReviewWidgetProps } from "./legacy-review-widget.js";
 export type { StarRatingBadgeProps } from "./star-rating-badge.js";
+export type { TestimonialsCarouselProps } from "./testimonials-carousel.js";
+export type {
+  CreateTestimonialsCarouselDataOptions,
+  FetchTestimonialsCarouselOptions,
+  FetchTestimonialsCarouselPageOptions,
+  TestimonialsCarouselArrowsPosition,
+  TestimonialsCarouselCardHeight,
+  TestimonialsCarouselConfig,
+  TestimonialsCarouselCornerStyle,
+  TestimonialsCarouselData,
+  TestimonialsCarouselPageData,
+  TestimonialsCarouselProductNameTextSize,
+  TestimonialsCarouselQuoteMarksSize,
+  TestimonialsCarouselQuoteMarksStyle,
+  TestimonialsCarouselReview,
+  TestimonialsCarouselSelection,
+  TestimonialsCarouselStarRating,
+  TestimonialsCarouselStarsSize,
+  TestimonialsCarouselTextSize,
+  TestimonialsCarouselVerifiedReviewer,
+} from "./testimonials-carousel-api.js";
 export type { ReviewsCarouselProps } from "./reviews-carousel.js";
 export type { ReviewsGridProps } from "./reviews-grid.js";
 export type {
