@@ -30,6 +30,11 @@ export interface JudgeMePublicConfig {
   shopDomain: string;
   /** Judge.me's public Widget API token. Safe to expose to browser code. */
   publicToken?: string;
+  /**
+   * Current Judge.me Shopify extension `assets/` URL. Exact v3 widgets load
+   * their module graph from this deployment-specific base.
+   */
+  v3AssetBaseUrl?: string;
   /** The first runtime strategy to try. Defaults to `auto`. */
   defaultEngine?: JudgeMeEngine;
 }
@@ -37,6 +42,7 @@ export interface JudgeMePublicConfig {
 export interface NormalizedJudgeMePublicConfig {
   shopDomain: string;
   publicToken?: string;
+  v3AssetBaseUrl?: string;
   defaultEngine: JudgeMeEngine;
 }
 

@@ -1,6 +1,6 @@
 # Judge.me React Hydrogen harness
 
-This is the real-store integration harness for `@judgeme-react/core`. It mounts the implemented `StarRatingBadge`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, and `FloatingReviewsTab` on product routes. It is not a second publishable package.
+This is the real-store integration harness for `@judgeme-react/core`. It mounts the implemented `StarRatingBadge`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, `FloatingReviewsTab`, and `ReviewsGrid` on product routes. It is not a second publishable package.
 
 ## Local setup
 
@@ -19,11 +19,14 @@ Populate `.env` with the Shopify Headless channel values and these Judge.me valu
 ```dotenv
 JUDGEME_SHOP_DOMAIN=store.myshopify.com
 JUDGEME_PUBLIC_TOKEN=your-public-widget-api-token
+JUDGEME_V3_ASSET_BASE_URL=https://cdn.shopify.com/extensions/current-deployment/judgeme-handle/assets/
 ```
 
 `JUDGEME_PRIVATE_TOKEN` is reserved for future server-only adapters. The current product widgets do not use it, and it must never be sent through route data or React context.
 
-Open a published product at `/products/<handle>`. The route fetches the product badge, shop-wide counter, classic carousel, legacy Review Widget, All Reviews Widget, and Floating Reviews Tab before returning loader data. It server-renders all six with one shared settings/CSS payload, then initializes Judge.me's CDN runtime after hydration. The All Reviews response supplies the counter aggregates and is also reused for the floating tab when Judge.me returns no official tab markup on a Free-plan store.
+Open a published product at `/products/<handle>`. The route fetches the product badge, shop-wide counter, classic carousel, legacy Review Widget, All Reviews Widget, Floating Reviews Tab, and v3 Reviews Grid before returning loader data. The six legacy components share one settings/CSS payload; the grid reuses those settings and aggregates while adding one tokenless CDN request. The All Reviews response supplies the counter aggregates and is also reused for the floating tab when Judge.me returns no official tab markup on a Free-plan store.
+
+`JUDGEME_V3_ASSET_BASE_URL` is the current Judge.me Shopify extension `assets/` directory visible in the theme's app-embed loader. It is deployment-specific and should be refreshed when Judge.me publishes a new extension build.
 
 ## CSP
 
@@ -31,6 +34,7 @@ The tested host policy is in `app/entry.server.tsx`. When changing it:
 
 - preserve `'self'` when supplying a custom Hydrogen `scriptSrc`;
 - allow Judge.me's CDN, API, media, and frame hosts;
+- allow `cdn.shopify.com` in `scriptSrc`, `styleSrc`, `connectSrc`, `fontSrc`, and `imgSrc` for v3 manifests, modules, CSS, fonts, and images;
 - allow `judgeme-public-images.imgix.net` in both `connectSrc` and `imgSrc` because the branded verification helper fetches its SVG before rendering it;
 - use `workerSrc: ["'self'", 'blob:']` for Vite's local blob worker instead of adding `blob:` to `scriptSrc`.
 
@@ -43,6 +47,6 @@ bun run typecheck
 bun run build
 ```
 
-Compilation checks do not prove the third-party widget is healthy. Runtime changes also require a clean Brave reload of a product with representative reviews and a relevant interaction check, such as moving the carousel, opening the write-review modal, changing the All Reviews stream, or changing the floating tab's review stream.
+Compilation checks do not prove the third-party widget is healthy. Runtime changes also require a clean Brave reload of a product with representative reviews and a relevant interaction check, such as moving the carousel, opening the write-review modal, changing the All Reviews stream, changing the floating tab's review stream, or opening a Reviews Grid lightbox.
 
 This app started from Shopify's Hydrogen Skeleton template. Refer to the [Hydrogen documentation](https://shopify.dev/docs/storefronts/headless/hydrogen) for storefront and Customer Account API setup.

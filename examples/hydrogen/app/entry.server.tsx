@@ -27,13 +27,23 @@ export default async function handleRequest(
       'https://shopify.com',
     ],
     workerSrc: ["'self'", 'blob:'],
-    styleSrc: ['https://cdnwidget.judge.me', 'https://cdn2.judge.me'],
+    styleSrc: [
+      'https://cdnwidget.judge.me',
+      'https://cdn2.judge.me',
+      'https://cdn.shopify.com',
+    ],
     connectSrc: [
       'https://judge.me',
       'https://*.judge.me',
       'https://judgeme-public-images.imgix.net',
+      'https://cdn.shopify.com',
     ],
-    fontSrc: ['data:', 'https://cdnwidget.judge.me', 'https://cdn2.judge.me'],
+    fontSrc: [
+      'data:',
+      'https://cdnwidget.judge.me',
+      'https://cdn2.judge.me',
+      'https://cdn.shopify.com',
+    ],
     imgSrc: [
       "'self'",
       'data:',

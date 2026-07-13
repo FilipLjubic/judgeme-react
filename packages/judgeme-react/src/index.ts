@@ -15,6 +15,13 @@ export { FloatingReviewsTab } from "./floating-reviews-tab.js";
 export { LegacyReviewWidget } from "./legacy-review-widget.js";
 export { JudgeMeProvider, useJudgeMe } from "./provider.js";
 export { ReviewsCarousel } from "./reviews-carousel.js";
+export { ReviewsGrid } from "./reviews-grid.js";
+export {
+  createReviewsGridData,
+  fetchReviewsGrid,
+  fetchReviewsGridPage,
+  normalizeReviewsGridConfig,
+} from "./reviews-grid-api.js";
 export { AUTO_ENGINE_ORDER, resolveJudgeMeEngine } from "./runtime.js";
 export { getShopifyNumericId } from "./shopify.js";
 export { StarRatingBadge } from "./star-rating-badge.js";
@@ -65,3 +72,18 @@ export type { FloatingReviewsTabProps } from "./floating-reviews-tab.js";
 export type { LegacyReviewWidgetProps } from "./legacy-review-widget.js";
 export type { StarRatingBadgeProps } from "./star-rating-badge.js";
 export type { ReviewsCarouselProps } from "./reviews-carousel.js";
+export type { ReviewsGridProps } from "./reviews-grid.js";
+export type {
+  CreateReviewsGridDataOptions,
+  FetchReviewsGridOptions,
+  FetchReviewsGridPageOptions,
+  ReviewsGridCardGrouping,
+  ReviewsGridCardSpacing,
+  ReviewsGridConfig,
+  ReviewsGridCornerStyle,
+  ReviewsGridData,
+  ReviewsGridDisplayOrder,
+  ReviewsGridPageData,
+  ReviewsGridReview,
+  ReviewsGridSelection,
+} from "./reviews-grid-api.js";

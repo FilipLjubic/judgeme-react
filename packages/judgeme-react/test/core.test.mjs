@@ -9,6 +9,7 @@ import {
   fetchLegacyReviewWidget,
   fetchLegacyStorefrontWidgets,
   fetchReviewsCarousel,
+  fetchReviewsGrid,
   fetchStarRatingBadge,
   getShopifyNumericId,
   resolveJudgeMeEngine,
@@ -22,8 +23,29 @@ test("normalizes the permanent Shopify domain", () => {
     {
       shopDomain: "vanilla-slop.myshopify.com",
       publicToken: undefined,
+      v3AssetBaseUrl: undefined,
       defaultEngine: "auto",
     },
+  );
+});
+
+test("normalizes an official Shopify extension asset base", () => {
+  assert.equal(
+    createJudgeMeConfig({
+      shopDomain: "store.myshopify.com",
+      v3AssetBaseUrl:
+        "https://cdn.shopify.com/extensions/deployment/judgeme-624/assets",
+    }).v3AssetBaseUrl,
+    "https://cdn.shopify.com/extensions/deployment/judgeme-624/assets/",
+  );
+
+  assert.throws(
+    () =>
+      createJudgeMeConfig({
+        shopDomain: "store.myshopify.com",
+        v3AssetBaseUrl: "https://example.com/extensions/a/judgeme/assets/",
+      }),
+    /official cdn\.shopify\.com/,
   );
 });
 
@@ -314,6 +336,88 @@ test("fetches a standalone All Reviews Counter with dashboard text", async () =>
   assert.match(data.html, /4.6 out of 5 stars based on 42 reviews/);
   assert.doesNotMatch(data.html, /javascript:/);
   assert.match(data.styles, /color:teal/);
+});
+
+test("fetches the exact v3 Reviews Grid from Judge.me's public CDN", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+    const endpoint = url.pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+
+    if (endpoint === "reviews_grid_widget_data") {
+      assert.equal(url.hostname, "cdn.judge.me");
+      assert.equal(url.searchParams.has("api_token"), false);
+      assert.equal(url.searchParams.get("platform"), "shopify");
+      assert.equal(url.searchParams.get("review_selection"), "all");
+      assert.equal(url.searchParams.get("display_order"), "media_first");
+      assert.equal(url.searchParams.get("per_page"), "5");
+
+      return Response.json({
+        current_page: 1,
+        per_page: 5,
+        review_selection: "all",
+        reviews: [
+          {
+            uuid: "review-1",
+            rating: 5,
+            title: "A review",
+            body: "Useful feedback",
+          },
+        ],
+        total_count: 42,
+        total_pages: 9,
+      });
+    }
+
+    assert.equal(url.hostname, "judge.me");
+    assert.equal(url.searchParams.get("api_token"), "public-token");
+
+    if (endpoint === "all_reviews_count") {
+      return Response.json({ all_reviews_count: 42 });
+    }
+
+    if (endpoint === "all_reviews_rating") {
+      return Response.json({ all_reviews_rating: "4.64" });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          '<script class="jdgm-settings-script">window.jdgmSettings={"widget_version":"3.0","platform":"shopify"};</script>',
+      });
+    }
+
+    return Response.json({ html_miracle: "" });
+  };
+
+  const data = await fetchReviewsGrid({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    config: {
+      numberOfColumnsDesktop: 5,
+      numberOfRowsDesktop: 1,
+    },
+    fetch: mockFetch,
+  });
+
+  assert.deepEqual(requestedEndpoints.sort(), [
+    "all_reviews_count",
+    "all_reviews_rating",
+    "html_miracle",
+    "reviews_grid_widget_data",
+    "settings",
+  ]);
+  assert.equal(data.aggregate.count, 42);
+  assert.equal(data.aggregate.rating, 4.64);
+  assert.equal(data.config.numberOfColumnsDesktop, 5);
+  assert.equal(data.config.numberOfRowsDesktop, 1);
+  assert.equal(data.page.reviews.length, 1);
+  assert.equal(data.page.totalPages, 9);
+  assert.equal(data.settings.widget_version, "3.0");
+  assert.equal(data.settings.review_widget_revamp_enabled, false);
 });
 
 test("fetches the configured legacy All Reviews Widget", async () => {

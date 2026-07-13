@@ -15,11 +15,14 @@ import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import {
   AllReviewsCounter,
   AllReviewsWidget,
+  createReviewsGridData,
   fetchLegacyStorefrontWidgets,
+  fetchReviewsGridPage,
   FloatingReviewsTab,
   getShopifyNumericId,
   LegacyReviewWidget,
   ReviewsCarousel,
+  ReviewsGrid,
   StarRatingBadge,
 } from '@judgeme-react/core';
 
@@ -41,6 +44,7 @@ export async function loader(args: Route.LoaderArgs) {
     productId: criticalData.product.id,
     publicToken: env.JUDGEME_PUBLIC_TOKEN,
     shopDomain: env.JUDGEME_SHOP_DOMAIN ?? env.PUBLIC_STORE_DOMAIN,
+    v3AssetBaseUrl: env.JUDGEME_V3_ASSET_BASE_URL,
     signal: args.request.signal,
   });
 
@@ -82,22 +86,59 @@ async function loadJudgeMeWidgets({
   productId,
   publicToken,
   shopDomain,
+  v3AssetBaseUrl,
   signal,
 }: {
   productId: string;
   publicToken?: string;
   shopDomain: string;
+  v3AssetBaseUrl?: string;
   signal: AbortSignal;
 }) {
   if (!publicToken) return null;
 
   try {
-    return await fetchLegacyStorefrontWidgets({
-      productId: getShopifyNumericId(productId),
+    const numericProductId = getShopifyNumericId(productId);
+    const reviewsGridConfig = {
+      numberOfColumnsDesktop: 5,
+      numberOfRowsDesktop: 1,
+      numberOfColumnsMobile: 2,
+      numberOfRowsMobile: 2,
+    } as const;
+    const legacyWidgetsPromise = fetchLegacyStorefrontWidgets({
+      productId: numericProductId,
       publicToken,
       shopDomain,
       signal,
     });
+    const [legacyWidgets, reviewsGridPage] = await Promise.all([
+      legacyWidgetsPromise,
+      v3AssetBaseUrl
+        ? fetchReviewsGridPage({
+            shopDomain,
+            productId: numericProductId,
+            config: reviewsGridConfig,
+            signal,
+          })
+        : Promise.resolve(null),
+    ]);
+
+    return {
+      ...legacyWidgets,
+      reviewsGrid: reviewsGridPage
+        ? createReviewsGridData({
+            aggregate: {
+              count: legacyWidgets.allReviewsCounter.count,
+              rating: Number(legacyWidgets.allReviewsCounter.rating),
+            },
+            config: reviewsGridConfig,
+            page: reviewsGridPage,
+            productId: numericProductId,
+            settings: legacyWidgets.resources.settings,
+            shopDomain,
+          })
+        : null,
+    };
   } catch (error) {
     console.error('Unable to load the Judge.me product widgets', error);
     return null;
@@ -195,6 +236,12 @@ export default function Product() {
             ...judgeMeWidgets.resources,
           }}
           includeStyles={false}
+        />
+      ) : null}
+      {judgeMeWidgets?.reviewsGrid ? (
+        <ReviewsGrid
+          className="product-reviews-grid"
+          data={judgeMeWidgets.reviewsGrid}
         />
       ) : null}
       {judgeMeWidgets ? (

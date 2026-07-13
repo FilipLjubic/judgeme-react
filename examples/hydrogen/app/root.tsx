@@ -96,6 +96,7 @@ export async function loader(args: Route.LoaderArgs) {
         ? {
             shopDomain: env.JUDGEME_SHOP_DOMAIN ?? env.PUBLIC_STORE_DOMAIN,
             publicToken: env.JUDGEME_PUBLIC_TOKEN,
+            v3AssetBaseUrl: env.JUDGEME_V3_ASSET_BASE_URL,
             defaultEngine: 'auto' as const,
           }
         : null,

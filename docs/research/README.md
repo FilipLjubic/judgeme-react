@@ -15,6 +15,7 @@
 | `floating-reviews-tab-spike-2026-07-13`          | notes | Official tab contract, Free-plan All Reviews fallback, interactions, and SPA validation                              |
 | `all-reviews-widget-spike-2026-07-13`            | notes | Standalone All Reviews endpoint/runtime contract, paging mismatch, interactions, and SPA validation                  |
 | `all-reviews-counter-spike-2026-07-13`           | notes | Public aggregate endpoints, Liquid/settings contract, seven-request batching, Brave comparison, and verified limit   |
+| `reviews-grid-spike-2026-07-13`                  | notes | Tokenless v3 grid data, extension manifest/module contract, CSP, batching, lightbox, and SPA validation              |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                            |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                        |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                            |
@@ -110,6 +111,16 @@ Query the All Reviews Counter report:
 ctx query \
   "How does the All Reviews Counter use public aggregates and dashboard styling without adding a batched request?" \
   --label all-reviews-counter-spike-2026-07-13 \
+  --kind notes \
+  --cwd /Users/panda/Code/judgeme-react
+```
+
+Query the Reviews Grid report:
+
+```sh
+ctx query \
+  "How does Reviews Grid use tokenless data and the current Shopify extension deployment?" \
+  --label reviews-grid-spike-2026-07-13 \
   --kind notes \
   --cwd /Users/panda/Code/judgeme-react
 ```

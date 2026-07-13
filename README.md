@@ -4,7 +4,9 @@ Research-stage project for exposing Judge.me widgets through React, with Shopify
 
 ## Current status
 
-The first six components are `StarRatingBadge`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, and `FloatingReviewsTab`. They share Judge.me's dashboard CSS/settings and use its browser runtime. The Hydrogen harness has exercised them with real review data, including the configured shop-wide counter, carousel navigation, the write-review modal, the standalone All Reviews product/store streams, and the floating tab.
+The first seven components are `StarRatingBadge`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, `FloatingReviewsTab`, and `ReviewsGrid`. The legacy components share Judge.me's dashboard CSS/settings and browser runtime; Reviews Grid runs Judge.me's current Shopify v3 extension module. The Hydrogen harness has exercised them with real review data, including the configured shop-wide counter, carousel navigation, the write-review modal, standalone All Reviews streams, the floating tab, grid pagination, and the v3 media lightbox.
+
+`ReviewsGrid` uses Judge.me's public tokenless grid-data endpoint and the store's current Shopify extension assets. Because Shopify extension deployment URLs change, the consuming app supplies `v3AssetBaseUrl`; the adapter loads the deployment manifest, CSS, and module while preserving the app-block configuration contract.
 
 `AllReviewsCounter` renders the store's combined product-and-shop rating/count with the dashboard-selected branded or text treatment. Its standalone fetcher uses the public aggregate endpoints; the full storefront batch derives the same values from the existing All Reviews header, so adding the component does not increase the seven-request product loader.
 
@@ -38,6 +40,7 @@ The workspace pins Bun 1.3.14 and uses `bun.lock` as its only dependency lockfil
 - [Working Floating Reviews Tab spike](docs/research/floating-reviews-tab-spike-2026-07-13.md), queryable in ctx as `floating-reviews-tab-spike-2026-07-13`.
 - [Working All Reviews Widget spike](docs/research/all-reviews-widget-spike-2026-07-13.md), queryable in ctx as `all-reviews-widget-spike-2026-07-13`.
 - [Working All Reviews Counter spike](docs/research/all-reviews-counter-spike-2026-07-13.md), queryable in ctx as `all-reviews-counter-spike-2026-07-13`.
+- [Working Reviews Grid spike](docs/research/reviews-grid-spike-2026-07-13.md), queryable in ctx as `reviews-grid-spike-2026-07-13`.
 - [Research workflow and resource index](docs/research/README.md)
 - Project documentation sources are pinned in `.ctx/ctx.json`.
 - `ctx` Codex hooks are installed under `.ctx/hooks` and pass `ctx hook doctor`.

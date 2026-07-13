@@ -575,6 +575,13 @@ button.reset:hover:not(:has(> *)) {
   margin-block: 2rem;
 }
 
+.product-reviews-grid {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin-block: 2rem;
+  width: 100%;
+}
+
 .product-rating {
   min-height: 1.25rem;
   margin-block: 0.5rem 1rem;
