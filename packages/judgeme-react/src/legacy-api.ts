@@ -11,9 +11,7 @@ export type JudgeMeJsonValue =
   | JudgeMeJsonValue[]
   | { [key: string]: JudgeMeJsonValue };
 
-export type JudgeMeRuntimeSettings = Readonly<
-  Record<string, JudgeMeJsonValue>
->;
+export type JudgeMeRuntimeSettings = Readonly<Record<string, JudgeMeJsonValue>>;
 
 export interface LegacyProductWidgetMarkup {
   /** Shopify's numeric product ID, which Judge.me calls the external ID. */
@@ -35,20 +33,26 @@ export interface LegacyWidgetResources {
 }
 
 export interface LegacyReviewWidgetData
-  extends LegacyProductWidgetMarkup,
-    LegacyWidgetResources {}
+  extends LegacyProductWidgetMarkup, LegacyWidgetResources {}
 
 export interface StarRatingBadgeData
-  extends LegacyProductWidgetMarkup,
-    LegacyWidgetResources {}
+  extends LegacyProductWidgetMarkup, LegacyWidgetResources {}
 
 export interface ReviewsCarouselData
-  extends LegacyShopWidgetMarkup,
-    LegacyWidgetResources {}
+  extends LegacyShopWidgetMarkup, LegacyWidgetResources {}
+
+export type AllReviewsWidgetReviewType = "product-reviews" | "shop-reviews";
+
+export interface AllReviewsWidgetMarkup extends LegacyShopWidgetMarkup {
+  /** The review stream rendered into the server response. */
+  initialReviewType: AllReviewsWidgetReviewType;
+}
+
+export interface AllReviewsWidgetData
+  extends AllReviewsWidgetMarkup, LegacyWidgetResources {}
 
 export type FloatingReviewsTabSource =
-  | "reviews-tab"
-  | "all-reviews-page-fallback";
+  "reviews-tab" | "all-reviews-page-fallback";
 
 export interface FloatingReviewsTabMarkup extends LegacyShopWidgetMarkup {
   /** Whether Judge.me supplied the tab or the Free-plan fallback built it. */
@@ -56,8 +60,7 @@ export interface FloatingReviewsTabMarkup extends LegacyShopWidgetMarkup {
 }
 
 export interface FloatingReviewsTabData
-  extends FloatingReviewsTabMarkup,
-    LegacyWidgetResources {}
+  extends FloatingReviewsTabMarkup, LegacyWidgetResources {}
 
 /** A request-efficient payload for rendering both product widgets together. */
 export interface LegacyProductWidgetsData {
@@ -68,6 +71,7 @@ export interface LegacyProductWidgetsData {
 
 /** A request-efficient payload for the implemented product and shop widgets. */
 export interface LegacyStorefrontWidgetsData extends LegacyProductWidgetsData {
+  allReviewsWidget: AllReviewsWidgetMarkup;
   floatingReviewsTab: FloatingReviewsTabMarkup;
   reviewsCarousel: LegacyShopWidgetMarkup;
 }
@@ -87,7 +91,8 @@ export interface FetchLegacyReviewWidgetOptions {
 
 export type FetchStarRatingBadgeOptions = FetchLegacyReviewWidgetOptions;
 export type FetchLegacyProductWidgetsOptions = FetchLegacyReviewWidgetOptions;
-export type FetchLegacyStorefrontWidgetsOptions = FetchLegacyReviewWidgetOptions;
+export type FetchLegacyStorefrontWidgetsOptions =
+  FetchLegacyReviewWidgetOptions;
 
 export interface FetchReviewsCarouselOptions {
   /** The permanent `*.myshopify.com` domain. */
@@ -98,6 +103,11 @@ export interface FetchReviewsCarouselOptions {
   signal?: AbortSignal;
   /** Injectable for tests and non-standard runtimes. Defaults to global fetch. */
   fetch?: typeof globalThis.fetch;
+}
+
+export interface FetchAllReviewsWidgetOptions extends FetchReviewsCarouselOptions {
+  /** Overrides the dashboard-configured first Product Reviews or Shop Reviews tab. */
+  initialReviewType?: AllReviewsWidgetReviewType;
 }
 
 export type FetchFloatingReviewsTabOptions = FetchReviewsCarouselOptions;
@@ -118,12 +128,18 @@ interface FeaturedCarouselResponse {
 
 interface ReviewsTabResponse {
   page?: number | string;
-  reviews_tab: null | string | {html?: unknown};
+  reviews_tab: null | string | { html?: unknown };
 }
 
 interface AllReviewsPageResponse {
   all_reviews: string;
   all_reviews_header: string;
+}
+
+interface AllReviewsPageMarkup {
+  headerHtml: string;
+  reviewType: AllReviewsWidgetReviewType;
+  reviewsHtml: string;
 }
 
 interface SettingsResponse {
@@ -173,7 +189,7 @@ export async function fetchLegacyReviewWidget({
     fetchLegacyWidgetResources(context),
   ]);
 
-  return {...reviewWidget, ...resources};
+  return { ...reviewWidget, ...resources };
 }
 
 /** Fetches the configured product Star Rating Badge from the public Widget API. */
@@ -197,7 +213,7 @@ export async function fetchStarRatingBadge({
     fetchLegacyWidgetResources(context),
   ]);
 
-  return {...starRatingBadge, ...resources};
+  return { ...starRatingBadge, ...resources };
 }
 
 /** Fetches the configured classic Reviews Carousel from the public Widget API. */
@@ -219,7 +235,35 @@ export async function fetchReviewsCarousel({
     fetchLegacyWidgetResources(context),
   ]);
 
-  return {...reviewsCarousel, ...resources};
+  return { ...reviewsCarousel, ...resources };
+}
+
+/** Fetches the legacy All Reviews Widget, also called Happy Customers. */
+export async function fetchAllReviewsWidget({
+  shopDomain,
+  publicToken,
+  initialReviewType,
+  signal,
+  fetch: fetchImplementation = globalThis.fetch,
+}: FetchAllReviewsWidgetOptions): Promise<AllReviewsWidgetData> {
+  const context = createLegacyShopRequestContext({
+    shopDomain,
+    publicToken,
+    signal,
+    fetchImplementation,
+  });
+  const resourcesPromise = fetchLegacyWidgetResources(context);
+  const pagePromise = initialReviewType
+    ? fetchAllReviewsPageMarkup(context, initialReviewType)
+    : resourcesPromise.then(({ settings }) =>
+        fetchAllReviewsPageMarkup(context, getInitialAllReviewsType(settings)),
+      );
+  const [page, resources] = await Promise.all([pagePromise, resourcesPromise]);
+
+  return {
+    ...createAllReviewsWidgetMarkup(page, resources.settings),
+    ...resources,
+  };
 }
 
 /**
@@ -249,7 +293,7 @@ export async function fetchFloatingReviewsTab({
     resources.settings,
   );
 
-  return {...floatingReviewsTab, ...resources};
+  return { ...floatingReviewsTab, ...resources };
 }
 
 /**
@@ -277,12 +321,12 @@ export async function fetchLegacyProductWidgets({
     fetchLegacyWidgetResources(context),
   ]);
 
-  return {resources, reviewWidget, starRatingBadge};
+  return { resources, reviewWidget, starRatingBadge };
 }
 
 /**
  * Fetches every currently implemented legacy storefront widget with one shared
- * settings/CSS request pair. Prefer this on routes that render all four.
+ * settings/CSS request pair. Prefer this on routes that render all five.
  */
 export async function fetchLegacyStorefrontWidgets({
   shopDomain,
@@ -299,26 +343,37 @@ export async function fetchLegacyStorefrontWidgets({
     fetchImplementation,
   });
 
+  const resourcesPromise = fetchLegacyWidgetResources(context);
+  const allReviewsPagePromise = resourcesPromise.then(({ settings }) =>
+    fetchAllReviewsPageMarkup(context, getInitialAllReviewsType(settings)),
+  );
   const [
     reviewWidget,
     starRatingBadge,
     reviewsCarousel,
     reviewsTab,
     resources,
+    allReviewsPage,
   ] = await Promise.all([
     fetchReviewWidgetMarkup(context),
     fetchStarRatingBadgeMarkup(context),
     fetchReviewsCarouselMarkup(context),
     fetchReviewsTabResponse(context),
-    fetchLegacyWidgetResources(context),
+    resourcesPromise,
+    allReviewsPagePromise,
   ]);
   const floatingReviewsTab = await resolveFloatingReviewsTabMarkup(
     context,
     reviewsTab,
     resources.settings,
+    allReviewsPage,
   );
 
   return {
+    allReviewsWidget: createAllReviewsWidgetMarkup(
+      allReviewsPage,
+      resources.settings,
+    ),
     floatingReviewsTab,
     resources,
     reviewWidget,
@@ -391,7 +446,7 @@ async function fetchReviewWidgetMarkup(
 ): Promise<LegacyProductWidgetMarkup> {
   const response = await fetchWidgetEndpoint<ProductReviewResponse>(
     "product_review",
-    {...context.commonParams, external_id: context.productId},
+    { ...context.commonParams, external_id: context.productId },
     context.fetchImplementation,
     context.signal,
   );
@@ -409,7 +464,7 @@ async function fetchStarRatingBadgeMarkup(
 ): Promise<LegacyProductWidgetMarkup> {
   const response = await fetchWidgetEndpoint<PreviewBadgeResponse>(
     "preview_badge",
-    {...context.commonParams, external_id: context.productId},
+    { ...context.commonParams, external_id: context.productId },
     context.fetchImplementation,
     context.signal,
   );
@@ -438,7 +493,7 @@ async function fetchReviewsCarouselMarkup(
 
   assertSafeWidgetMarkup(response.featured_carousel, "Reviews Carousel");
 
-  return {html: response.featured_carousel};
+  return { html: response.featured_carousel };
 }
 
 async function fetchReviewsTabResponse(
@@ -446,7 +501,7 @@ async function fetchReviewsTabResponse(
 ): Promise<ReviewsTabResponse> {
   return fetchWidgetEndpoint<ReviewsTabResponse>(
     "reviews_tab",
-    {...context.commonParams, page: "1", per_page: "5"},
+    { ...context.commonParams, page: "1", per_page: "5" },
     context.fetchImplementation,
     context.signal,
   );
@@ -456,50 +511,143 @@ async function resolveFloatingReviewsTabMarkup(
   context: LegacyShopRequestContext,
   response: ReviewsTabResponse,
   settings: JudgeMeRuntimeSettings,
+  prefetchedPage?: AllReviewsPageMarkup,
 ): Promise<FloatingReviewsTabMarkup> {
   const exactHtml = getReviewsTabHtml(response.reviews_tab);
 
   if (exactHtml !== null) {
     assertSafeWidgetMarkup(exactHtml, "Floating Reviews Tab");
-    return {html: exactHtml, source: "reviews-tab"};
+    return { html: exactHtml, source: "reviews-tab" };
   }
 
-  const reviewType =
-    settings.widget_first_sub_tab === "shop-reviews"
-      ? "shop-reviews"
-      : "product-reviews";
-  const fallback = await fetchWidgetEndpoint<AllReviewsPageResponse>(
-    "all_reviews_page",
-    {...context.commonParams, page: "1", review_type: reviewType},
-    context.fetchImplementation,
-    context.signal,
-  );
-
-  if (
-    typeof fallback.all_reviews !== "string" ||
-    typeof fallback.all_reviews_header !== "string"
-  ) {
-    throw new Error("Judge.me returned an invalid All Reviews Page fallback.");
-  }
-
-  assertSafeWidgetMarkup(fallback.all_reviews, "All Reviews Page reviews");
-  assertSafeWidgetMarkup(
-    fallback.all_reviews_header,
-    "All Reviews Page header",
-  );
+  const fallback =
+    prefetchedPage ??
+    (await fetchAllReviewsPageMarkup(
+      context,
+      getInitialAllReviewsType(settings),
+    ));
 
   return {
     html: createFloatingReviewsTabFallback({
-      headerHtml: fallback.all_reviews_header,
-      reviewType,
-      reviewsHtml: fallback.all_reviews,
+      headerHtml: fallback.headerHtml,
+      reviewType: fallback.reviewType,
+      reviewsHtml: fallback.reviewsHtml,
       settings,
     }),
     source: "all-reviews-page-fallback",
   };
 }
 
-function getReviewsTabHtml(value: ReviewsTabResponse["reviews_tab"]): string | null {
+async function fetchAllReviewsPageMarkup(
+  context: LegacyShopRequestContext,
+  reviewType: AllReviewsWidgetReviewType,
+): Promise<AllReviewsPageMarkup> {
+  const response = await fetchWidgetEndpoint<AllReviewsPageResponse>(
+    "all_reviews_page",
+    { ...context.commonParams, page: "1", review_type: reviewType },
+    context.fetchImplementation,
+    context.signal,
+  );
+
+  if (
+    typeof response.all_reviews !== "string" ||
+    typeof response.all_reviews_header !== "string"
+  ) {
+    throw new Error("Judge.me returned an invalid All Reviews Page.");
+  }
+
+  assertSafeWidgetMarkup(response.all_reviews, "All Reviews Page reviews");
+  assertSafeWidgetMarkup(
+    response.all_reviews_header,
+    "All Reviews Page header",
+  );
+
+  return {
+    headerHtml: response.all_reviews_header,
+    reviewType,
+    reviewsHtml: response.all_reviews,
+  };
+}
+
+function createAllReviewsWidgetMarkup(
+  page: AllReviewsPageMarkup,
+  settings: JudgeMeRuntimeSettings,
+): AllReviewsWidgetMarkup {
+  const stats = readAllReviewsStats(page.headerHtml);
+  const productLabel = getStringSetting(
+    settings,
+    "widget_product_reviews_subtab_text",
+    "Product Reviews",
+  );
+  const shopLabel = getStringSetting(
+    settings,
+    "widget_shop_reviews_subtab_text",
+    "Shop Reviews",
+  );
+  const loadMoreLabel = getStringSetting(
+    settings,
+    "all_reviews_page_load_more_text",
+    "Load More Reviews",
+  );
+  const subtabs = [
+    createAllReviewsSubtab({
+      active: page.reviewType === "product-reviews",
+      count: stats.productReviews,
+      label: productLabel,
+      reviewType: "product-reviews",
+    }),
+    createAllReviewsSubtab({
+      active: page.reviewType === "shop-reviews",
+      count: stats.shopReviews,
+      label: shopLabel,
+      reviewType: "shop-reviews",
+    }),
+  ];
+  const reviewCount = countReviewMarkup(page.reviewsHtml);
+  const expectedReviewCount = Number(
+    page.reviewType === "shop-reviews"
+      ? stats.shopReviews
+      : stats.productReviews,
+  );
+  const pageSize = reviewCount || Number(stats.perPage);
+  const loadMode =
+    settings.all_reviews_page_load_reviews_on === "scroll"
+      ? "scroll"
+      : "button_click";
+  const allReviewsLoaded =
+    reviewCount === 0 ||
+    (Number.isFinite(expectedReviewCount) &&
+      reviewCount >= expectedReviewCount);
+  const loadMoreClass =
+    loadMode === "scroll" || allReviewsLoaded ? " jdgm-hidden" : "";
+
+  if (page.reviewType === "shop-reviews") subtabs.reverse();
+
+  return {
+    html: [
+      `<section class="jdgm-widget jdgm-all-reviews-widget" data-all-reviews-loaded="${allReviewsLoaded}" data-initial-review-type="${page.reviewType}" data-load-mode="${loadMode}" data-page="1" data-page-size="${pageSize}" data-review-type="${page.reviewType}">`,
+      page.headerHtml,
+      `<div class="jdgm-subtab" data-judgeme-react-subtab="true">${subtabs.join("")}</div>`,
+      `<div class="jdgm-all-reviews__body" data-current-page="1">${page.reviewsHtml}</div>`,
+      '<div class="jdgm-spinner" style="display:none"></div>',
+      `<div class="jdgm-all-reviews__footer"><div class="jdgm-all-reviews-page__load-more-wrapper${loadMoreClass}"><button type="button" class="jdgm-all-reviews-page__load-more jdgm-btn jdgm-btn--solid" data-page="2">${escapeHtml(loadMoreLabel)}</button></div><div data-judgeme-react-load-sentinel="true" aria-hidden="true" style="height:1px"></div></div>`,
+      "</section>",
+    ].join(""),
+    initialReviewType: page.reviewType,
+  };
+}
+
+function getInitialAllReviewsType(
+  settings: JudgeMeRuntimeSettings,
+): AllReviewsWidgetReviewType {
+  return settings.widget_first_sub_tab === "shop-reviews"
+    ? "shop-reviews"
+    : "product-reviews";
+}
+
+function getReviewsTabHtml(
+  value: ReviewsTabResponse["reviews_tab"],
+): string | null {
   if (value === null) return null;
   if (typeof value === "string") return value;
   if (typeof value === "object" && typeof value.html === "string") {
@@ -556,24 +704,26 @@ function createFloatingReviewsTabFallback({
     ? "<style>@media(max-width:768px){.jdgm-revs-tab-btn{display:none!important}}</style>"
     : "";
   const subtabs = [
-    createFloatingTabSubtab({
+    createAllReviewsSubtab({
       active: reviewType === "product-reviews",
       count: stats.productReviews,
       label: productLabel,
       reviewType: "product-reviews",
     }),
-    createFloatingTabSubtab({
+    createAllReviewsSubtab({
       active: reviewType === "shop-reviews",
       count: stats.shopReviews,
       label: shopLabel,
       reviewType: "shop-reviews",
     }),
   ];
+  const reviewCount = countReviewMarkup(reviewsHtml);
+  const pageSize = reviewCount || Number(stats.perPage);
 
   if (reviewType === "shop-reviews") subtabs.reverse();
 
   return [
-    `<section class="jdgm-widget jdgm-revs-tab" data-judgeme-react-source="all-reviews-page-fallback" data-review-type="${reviewType}" data-page="1">`,
+    `<section class="jdgm-widget jdgm-revs-tab" data-judgeme-react-source="all-reviews-page-fallback" data-review-type="${reviewType}" data-page="1" data-page-size="${pageSize}">`,
     mobileStyles,
     `<div class="jdgm-revs-tab-btn btn" data-style="${buttonStyle}" position="bottom" tabindex="0" role="button" aria-label="Open Judge.me reviews">${tabLabel}</div>`,
     `<div class="jdgm-revs-tab__header"><a class="jdgm-close-ico" tabindex="0" role="button" aria-label="Close Judge.me reviews"></a><h3 class="jdgm-revs-tab__title">${escapeHtml(title)}</h3><div class="jdgm-revs-tab__url"><div class="jdgm-all-reviews-rating" data-score="${stats.averageRating}"></div><span class="jdgm-all-reviews-count">${stats.allReviews}</span> reviews</div></div>`,
@@ -581,12 +731,12 @@ function createFloatingReviewsTabFallback({
     '<div class="jdgm-mask"></div><div class="jdgm-revs-tab__main"><div class="jdgm-revs-tab__content">',
     `<div class="jdgm-revs-tab__content-header" data-number-of-product-reviews="${stats.productReviews}" data-number-of-shop-reviews="${stats.shopReviews}">${headerHtml}</div>`,
     `<div class="jdgm-subtab">${subtabs.join("")}</div>`,
-    `<div class="jdgm-revs-tab__content-body"><div class="jdgm-revs-tab__reviews">${reviewsHtml}</div><div class="jdgm-spinner jdgm-revs-tab__spinner" style="display:none"></div><div class="jdgm-paginate" data-per-page="25"><button type="button" class="jdgm-paginate__load-more" data-page="2">${escapeHtml(loadMoreLabel)}</button></div></div>`,
-    '</div></div></section></section>',
+    `<div class="jdgm-revs-tab__content-body"><div class="jdgm-revs-tab__reviews">${reviewsHtml}</div><div class="jdgm-spinner jdgm-revs-tab__spinner" style="display:none"></div><div class="jdgm-paginate" data-per-page="${stats.perPage}"><button type="button" class="jdgm-paginate__load-more" data-page="2">${escapeHtml(loadMoreLabel)}</button></div></div>`,
+    "</div></div></section></section>",
   ].join("");
 }
 
-function createFloatingTabSubtab({
+function createAllReviewsSubtab({
   active,
   count,
   label,
@@ -595,9 +745,9 @@ function createFloatingTabSubtab({
   active: boolean;
   count: string;
   label: string;
-  reviewType: "product-reviews" | "shop-reviews";
+  reviewType: AllReviewsWidgetReviewType;
 }): string {
-  return `<span class="jdgm-subtab__name${active ? " jdgm--active" : ""}" data-tabname="${reviewType}" tabindex="0">${escapeHtml(label)} (<span class="jdgm-subtab__count">${count}</span>)</span>`;
+  return `<span class="jdgm-subtab__name${active ? " jdgm--active" : ""}" data-tabname="${reviewType}" role="button" tabindex="0">${escapeHtml(label)} (<span class="jdgm-subtab__count">${count}</span>)</span>`;
 }
 
 function createFloatingTabRating(averageRating: string): string {
@@ -607,6 +757,7 @@ function createFloatingTabRating(averageRating: string): string {
 function readAllReviewsStats(headerHtml: string): {
   allReviews: string;
   averageRating: string;
+  perPage: string;
   productReviews: string;
   shopReviews: string;
 } {
@@ -621,6 +772,7 @@ function readAllReviewsStats(headerHtml: string): {
       "data-average-rating",
       "0",
     ),
+    perPage: readNumericHtmlAttribute(headerHtml, "data-per-page", "25"),
     productReviews: readNumericHtmlAttribute(
       headerHtml,
       "data-number-of-product-reviews",
@@ -632,6 +784,10 @@ function readAllReviewsStats(headerHtml: string): {
       "0",
     ),
   };
+}
+
+function countReviewMarkup(html: string): number {
+  return (html.match(/class=["'][^"']*\bjdgm-rev\b[^"']*["']/gi) ?? []).length;
 }
 
 function readNumericHtmlAttribute(
@@ -725,7 +881,7 @@ function normalizeProductWidgetMarkup({
 
   assertSafeWidgetMarkup(html, label);
 
-  return {productId: expectedProductId, html};
+  return { productId: expectedProductId, html };
 }
 
 function createLegacyRuntimeSettings(

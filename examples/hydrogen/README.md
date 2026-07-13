@@ -1,6 +1,6 @@
 # Judge.me React Hydrogen harness
 
-This is the real-store integration harness for `@judgeme-react/core`. It mounts the implemented `StarRatingBadge`, `ReviewsCarousel`, `LegacyReviewWidget`, and `FloatingReviewsTab` on product routes. It is not a second publishable package.
+This is the real-store integration harness for `@judgeme-react/core`. It mounts the implemented `StarRatingBadge`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, and `FloatingReviewsTab` on product routes. It is not a second publishable package.
 
 ## Local setup
 
@@ -23,7 +23,7 @@ JUDGEME_PUBLIC_TOKEN=your-public-widget-api-token
 
 `JUDGEME_PRIVATE_TOKEN` is reserved for future server-only adapters. The current product widgets do not use it, and it must never be sent through route data or React context.
 
-Open a published product at `/products/<handle>`. The route fetches the product badge, classic carousel, legacy Review Widget, and Floating Reviews Tab before returning loader data. It server-renders all four with one shared settings/CSS payload, then initializes Judge.me's CDN runtime after hydration. On a Free-plan store, the floating tab automatically uses All Reviews Page data when Judge.me returns no official tab markup.
+Open a published product at `/products/<handle>`. The route fetches the product badge, classic carousel, legacy Review Widget, All Reviews Widget, and Floating Reviews Tab before returning loader data. It server-renders all five with one shared settings/CSS payload, then initializes Judge.me's CDN runtime after hydration. On a Free-plan store, the All Reviews response is reused for the floating tab when Judge.me returns no official tab markup.
 
 ## CSP
 
@@ -42,6 +42,6 @@ bun run typecheck
 bun run build
 ```
 
-Compilation checks do not prove the third-party widget is healthy. Runtime changes also require a clean Brave reload of a product with representative reviews and a relevant interaction check, such as moving the carousel, opening the write-review modal, or changing the floating tab's review stream.
+Compilation checks do not prove the third-party widget is healthy. Runtime changes also require a clean Brave reload of a product with representative reviews and a relevant interaction check, such as moving the carousel, opening the write-review modal, changing the All Reviews stream, or changing the floating tab's review stream.
 
 This app started from Shopify's Hydrogen Skeleton template. Refer to the [Hydrogen documentation](https://shopify.dev/docs/storefronts/headless/hydrogen) for storefront and Customer Account API setup.

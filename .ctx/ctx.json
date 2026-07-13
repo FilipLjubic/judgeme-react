@@ -171,9 +171,9 @@
       "kind": "notes",
       "url": "file:///Users/panda/Code/judgeme-react/docs/research/floating-reviews-tab-spike-2026-07-13.md",
       "reason": null,
-      "current": "20260713T124018Z-7c881b426d24",
+      "current": "20260713T133757Z-00352b8145aa",
       "created_at": "2026-07-13T12:40:18Z",
-      "updated_at": "2026-07-13T12:40:18Z"
+      "updated_at": "2026-07-13T13:37:57Z"
     },
     {
       "id": "817bc68b32db395e",
@@ -184,6 +184,16 @@
       "current": "20260713T124030Z-91aefbae2c69",
       "created_at": "2026-07-13T12:40:25Z",
       "updated_at": "2026-07-13T12:40:25Z"
+    },
+    {
+      "id": "50fb355a909e6be1",
+      "label": "all-reviews-widget-spike-2026-07-13",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/all-reviews-widget-spike-2026-07-13.md",
+      "reason": null,
+      "current": "20260713T134048Z-b5a636289978",
+      "created_at": "2026-07-13T13:37:53Z",
+      "updated_at": "2026-07-13T13:40:48Z"
     }
   ]
 }

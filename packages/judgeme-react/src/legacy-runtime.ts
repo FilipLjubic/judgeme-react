@@ -1,4 +1,5 @@
 import type {
+  AllReviewsWidgetReviewType,
   FloatingReviewsTabSource,
   JudgeMeRuntimeSettings,
 } from "./legacy-api.js";
@@ -13,6 +14,7 @@ const RUNTIME_TIMEOUT_MS = 15_000;
 
 interface JudgeMeRuntime {
   API_HOST?: string;
+  AllReviewsPage?: new (...args: unknown[]) => unknown;
   CDN_HOST?: string;
   PLATFORM?: string;
   PUBLIC_TOKEN?: string;
@@ -49,6 +51,7 @@ interface JudgeMeWindow extends Window {
 let runtimeShopDomain: string | undefined;
 let loaderPromise: Promise<void> | undefined;
 const floatingTabDisposers = new WeakMap<HTMLElement, () => void>();
+const allReviewsWidgetDisposers = new WeakMap<HTMLElement, () => void>();
 
 export interface InitializeLegacyReviewWidgetOptions {
   container: HTMLElement;
@@ -78,6 +81,14 @@ export interface InitializeFloatingReviewsTabOptions {
   settings: JudgeMeRuntimeSettings;
   shopDomain: string;
   source: FloatingReviewsTabSource;
+}
+
+export interface InitializeAllReviewsWidgetOptions {
+  container: HTMLElement;
+  initialReviewType: AllReviewsWidgetReviewType;
+  publicToken: string;
+  settings: JudgeMeRuntimeSettings;
+  shopDomain: string;
 }
 
 /** Loads Judge.me's public runtime once, then initializes one SSR widget root. */
@@ -176,6 +187,60 @@ export function disposeReviewsCarousel(container: HTMLElement): void {
   if (typeof timer === "number") {
     window.clearInterval(timer);
   }
+}
+
+/** Loads Judge.me's review helpers and binds one SPA-safe All Reviews Widget. */
+export async function initializeAllReviewsWidget({
+  container,
+  initialReviewType,
+  publicToken,
+  settings,
+  shopDomain,
+}: InitializeAllReviewsWidgetOptions): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = configureRuntime({
+    publicToken,
+    settings,
+    shopDomain,
+  });
+
+  // The public arp.js bundle otherwise attaches its own cache-server paging
+  // callbacks. Keep its DOM customization, but route paging through the Free-
+  // plan Widget API so SPA and initial-document behavior use one contract.
+  runtimeWindow.jdgmSettings = {
+    ...runtimeWindow.jdgmSettings,
+    all_reviews_page_load_reviews_on: "button_click",
+  };
+
+  await loadRuntimeScript();
+  await waitFor(
+    () =>
+      isReviewStreamRuntimeReady(runtimeWindow.jdgm) &&
+      typeof runtimeWindow.jdgm.AllReviewsPage === "function",
+    "Judge.me's All Reviews Widget initializer did not become ready.",
+  );
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+
+  const root = container.querySelector<HTMLElement>(".jdgm-all-reviews-widget");
+  const runtime = runtimeWindow.jdgm;
+
+  if (!root || !runtime || !isReviewStreamRuntimeReady(runtime)) {
+    throw new Error("Judge.me did not return an All Reviews Widget root.");
+  }
+
+  prepareAllReviewsWidgetMarkup(root, initialReviewType, settings, runtime);
+  bindAllReviewsWidgetLifecycle(root, runtime, {
+    publicToken,
+    shopDomain,
+  });
+  root.dataset.judgemeReactSetup = "true";
+}
+
+/** Removes React-owned All Reviews Widget listeners before unmounting. */
+export function disposeAllReviewsWidget(container: HTMLElement): void {
+  allReviewsWidgetDisposers.get(container)?.();
+  allReviewsWidgetDisposers.delete(container);
 }
 
 /** Loads Judge.me's review helpers and binds one SPA-safe floating tab. */
@@ -344,10 +409,10 @@ function isReviewDependencyLoaderReady(
   JudgeMeRuntime {
   return Boolean(
     runtime &&
-      typeof runtime.$ === "function" &&
-      typeof runtime.initializeWidgets === "function" &&
-      typeof runtime.loadScript === "function" &&
-      typeof runtime.widgetPath === "function",
+    typeof runtime.$ === "function" &&
+    typeof runtime.initializeWidgets === "function" &&
+    typeof runtime.loadScript === "function" &&
+    typeof runtime.widgetPath === "function",
   );
 }
 
@@ -379,15 +444,15 @@ function isReviewRuntimeReady(
   JudgeMeRuntime {
   return Boolean(
     runtime &&
-      typeof runtime.$ === "function" &&
-      typeof runtime._customizeReviewWidget === "function" &&
-      typeof runtime._renderAndSetupReviewForm === "function" &&
-      typeof runtime._setupFormsSubmit === "function" &&
-      typeof runtime._setupLoadReviewsEventsFor === "function" &&
-      typeof runtime._setupQuestionsForm === "function" &&
-      typeof runtime.customizeReviews === "function" &&
-      typeof runtime.initializeWidgets === "function" &&
-      typeof runtime.setupMediaGallery === "function",
+    typeof runtime.$ === "function" &&
+    typeof runtime._customizeReviewWidget === "function" &&
+    typeof runtime._renderAndSetupReviewForm === "function" &&
+    typeof runtime._setupFormsSubmit === "function" &&
+    typeof runtime._setupLoadReviewsEventsFor === "function" &&
+    typeof runtime._setupQuestionsForm === "function" &&
+    typeof runtime.customizeReviews === "function" &&
+    typeof runtime.initializeWidgets === "function" &&
+    typeof runtime.setupMediaGallery === "function",
   );
 }
 
@@ -399,28 +464,377 @@ function isBadgeRuntimeReady(
   JudgeMeRuntime {
   return Boolean(
     runtime &&
-      typeof runtime.$ === "function" &&
-      runtime.caches?.$revWidgets &&
-      typeof runtime.customizeBadges === "function",
+    typeof runtime.$ === "function" &&
+    runtime.caches?.$revWidgets &&
+    typeof runtime.customizeBadges === "function",
   );
 }
 
-function isFloatingTabRuntimeReady(
-  runtime: JudgeMeRuntime | undefined,
-): runtime is Required<
+type ReviewStreamRuntime = Required<
   Pick<
     JudgeMeRuntime,
     "$" | "buildStarsFor" | "customizeReviews" | "setupMediaGallery"
   >
 > &
-  JudgeMeRuntime {
+  JudgeMeRuntime;
+
+function isReviewStreamRuntimeReady(
+  runtime: JudgeMeRuntime | undefined,
+): runtime is ReviewStreamRuntime {
   return Boolean(
     runtime &&
-      typeof runtime.$ === "function" &&
-      typeof runtime.buildStarsFor === "function" &&
-      typeof runtime.customizeReviews === "function" &&
-      typeof runtime.setupMediaGallery === "function",
+    typeof runtime.$ === "function" &&
+    typeof runtime.buildStarsFor === "function" &&
+    typeof runtime.customizeReviews === "function" &&
+    typeof runtime.setupMediaGallery === "function",
   );
+}
+
+function isFloatingTabRuntimeReady(
+  runtime: JudgeMeRuntime | undefined,
+): runtime is ReviewStreamRuntime {
+  return isReviewStreamRuntimeReady(runtime);
+}
+
+function prepareAllReviewsWidgetMarkup(
+  root: HTMLElement,
+  initialReviewType: AllReviewsWidgetReviewType,
+  settings: JudgeMeRuntimeSettings,
+  runtime: ReviewStreamRuntime,
+): void {
+  const productReviews = root.querySelector<HTMLElement>(
+    ".jdgm-all-reviews__body",
+  );
+
+  if (!productReviews) {
+    throw new Error("Judge.me returned incomplete All Reviews Widget markup.");
+  }
+
+  let shopReviews = root.querySelector<HTMLElement>(".jdgm-shop-reviews__body");
+
+  if (!shopReviews) {
+    shopReviews = document.createElement("div");
+    shopReviews.className = "jdgm-shop-reviews__body";
+    productReviews.insertAdjacentElement("afterend", shopReviews);
+  }
+
+  const selectedReviews =
+    initialReviewType === "shop-reviews" ? shopReviews : productReviews;
+  const unselectedReviews =
+    initialReviewType === "shop-reviews" ? productReviews : shopReviews;
+
+  if (!selectedReviews.hasChildNodes() && unselectedReviews.hasChildNodes()) {
+    selectedReviews.append(...Array.from(unselectedReviews.childNodes));
+  }
+
+  root.dataset.page = "1";
+  root.dataset.reviewType = initialReviewType;
+  productReviews.dataset.currentPage = "1";
+  shopReviews.dataset.currentPage = "1";
+  productReviews.style.display =
+    initialReviewType === "product-reviews" ? "" : "none";
+  shopReviews.style.display =
+    initialReviewType === "shop-reviews" ? "" : "none";
+
+  const subtabs = Array.from(
+    root.querySelectorAll<HTMLElement>(".jdgm-subtab"),
+  );
+  subtabs.slice(1).forEach((subtab) => subtab.remove());
+  const loadMoreWrappers = Array.from(
+    root.querySelectorAll<HTMLElement>(
+      ".jdgm-all-reviews-page__load-more-wrapper",
+    ),
+  );
+  loadMoreWrappers.slice(1).forEach((wrapper) => wrapper.remove());
+  const activeFooter = loadMoreWrappers[0]?.closest<HTMLElement>(
+    ".jdgm-all-reviews__footer",
+  );
+  root
+    .querySelectorAll<HTMLElement>(".jdgm-all-reviews__footer")
+    .forEach((footer) => {
+      if (activeFooter && footer !== activeFooter) footer.remove();
+    });
+  if (
+    activeFooter &&
+    !activeFooter.querySelector("[data-judgeme-react-load-sentinel]")
+  ) {
+    const sentinel = document.createElement("div");
+    sentinel.dataset.judgemeReactLoadSentinel = "true";
+    sentinel.setAttribute("aria-hidden", "true");
+    sentinel.style.height = "1px";
+    activeFooter.appendChild(sentinel);
+  }
+  loadMoreWrappers[0]?.classList.toggle(
+    "jdgm-hidden",
+    root.dataset.loadMode === "scroll" ||
+      root.dataset.allReviewsLoaded === "true",
+  );
+  ensureAllReviewsTabSemantics(root);
+  root
+    .querySelectorAll<HTMLElement>(".jdgm-subtab__name")
+    .forEach((tab) =>
+      tab.classList.toggle(
+        "jdgm--active",
+        normalizeReviewType(tab.dataset.tabname) === initialReviewType,
+      ),
+    );
+
+  ensureAllReviewsSort(root, settings);
+  root.style.display = "block";
+  runtime.customizeReviews();
+  runtime.setupMediaGallery(runtime.$(selectedReviews));
+}
+
+function bindAllReviewsWidgetLifecycle(
+  root: HTMLElement,
+  runtime: ReviewStreamRuntime,
+  options: { publicToken: string; shopDomain: string },
+): void {
+  const container = root.closest<HTMLElement>(
+    "[data-judgeme-react-widget='all-reviews-widget']",
+  );
+  const sentinel = root.querySelector<HTMLElement>(
+    "[data-judgeme-react-load-sentinel]",
+  );
+
+  if (!container) {
+    throw new Error("Judge.me returned an unscoped All Reviews Widget.");
+  }
+
+  allReviewsWidgetDisposers.get(container)?.();
+
+  const loadNextPage = () => {
+    if (
+      root.dataset.judgemeReactPageStatus === "loading" ||
+      root.dataset.allReviewsLoaded === "true"
+    ) {
+      return;
+    }
+
+    const page = Number(root.dataset.page ?? "1") + 1;
+    void loadAllReviewsWidgetPage({
+      append: true,
+      page: Number.isFinite(page) && page > 1 ? page : 2,
+      publicToken: options.publicToken,
+      reviewType: normalizeReviewType(root.dataset.reviewType),
+      root,
+      runtime,
+      shopDomain: options.shopDomain,
+    });
+  };
+
+  const handleClick = (event: Event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const subtab = target.closest<HTMLElement>(".jdgm-subtab__name");
+    const loadMore = target.closest<HTMLElement>(
+      ".jdgm-all-reviews-page__load-more",
+    );
+    const histogramRow = target.closest<HTMLElement>(".jdgm-histogram__row");
+    const clearFilter = target.closest<HTMLElement>(
+      ".jdgm-histogram__clear-filter",
+    );
+
+    if (!subtab && !loadMore && !histogramRow && !clearFilter) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    if (subtab) {
+      const reviewType = normalizeReviewType(subtab.dataset.tabname);
+      resetAllReviewsFilters(root);
+      void loadAllReviewsWidgetPage({
+        append: false,
+        page: 1,
+        publicToken: options.publicToken,
+        reviewType,
+        root,
+        runtime,
+        shopDomain: options.shopDomain,
+      });
+      return;
+    }
+
+    if (histogramRow || clearFilter) {
+      const rating = histogramRow?.getAttribute("data-rating");
+      const filterRating = /^[1-5]$/.test(rating ?? "") ? (rating ?? "") : "";
+      root.dataset.filterRating = filterRating;
+      root
+        .querySelectorAll(".jdgm-histogram__row")
+        .forEach((row) =>
+          row.classList.toggle(
+            "jdgm-histogram__row--selected",
+            row === histogramRow && Boolean(filterRating),
+          ),
+        );
+      void loadAllReviewsWidgetPage({
+        append: false,
+        page: 1,
+        publicToken: options.publicToken,
+        reviewType: normalizeReviewType(root.dataset.reviewType),
+        root,
+        runtime,
+        shopDomain: options.shopDomain,
+      });
+      return;
+    }
+
+    loadNextPage();
+  };
+  const handleChange = (event: Event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement)) return;
+    if (!target.matches(".jdgm-sort-dropdown")) return;
+
+    event.stopImmediatePropagation();
+    const sort = getAllReviewsSort(target.value);
+    root.dataset.sortBy = sort.by;
+    root.dataset.sortDir = sort.dir ?? "";
+    void loadAllReviewsWidgetPage({
+      append: false,
+      page: 1,
+      publicToken: options.publicToken,
+      reviewType: normalizeReviewType(root.dataset.reviewType),
+      root,
+      runtime,
+      shopDomain: options.shopDomain,
+    });
+  };
+  const handleKeydown = (event: KeyboardEvent) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.matches(".jdgm-subtab__name")) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+
+    event.preventDefault();
+    target.click();
+  };
+
+  root.addEventListener("click", handleClick, true);
+  root.addEventListener("change", handleChange, true);
+  root.addEventListener("keydown", handleKeydown, true);
+  const paginationObserver =
+    root.dataset.loadMode === "scroll" &&
+    sentinel &&
+    typeof IntersectionObserver !== "undefined"
+      ? new IntersectionObserver((entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) loadNextPage();
+        })
+      : undefined;
+  if (paginationObserver && sentinel) paginationObserver.observe(sentinel);
+  const semanticsObserver = new MutationObserver(() => {
+    ensureAllReviewsTabSemantics(root);
+  });
+  semanticsObserver.observe(root, { childList: true, subtree: true });
+
+  allReviewsWidgetDisposers.set(container, () => {
+    paginationObserver?.disconnect();
+    semanticsObserver.disconnect();
+    root.removeEventListener("click", handleClick, true);
+    root.removeEventListener("change", handleChange, true);
+    root.removeEventListener("keydown", handleKeydown, true);
+  });
+}
+
+async function loadAllReviewsWidgetPage({
+  append,
+  page,
+  publicToken,
+  reviewType,
+  root,
+  runtime,
+  shopDomain,
+}: {
+  append: boolean;
+  page: number;
+  publicToken: string;
+  reviewType: AllReviewsWidgetReviewType;
+  root: HTMLElement;
+  runtime: ReviewStreamRuntime;
+  shopDomain: string;
+}): Promise<void> {
+  const productReviews = root.querySelector<HTMLElement>(
+    ".jdgm-all-reviews__body",
+  );
+  const shopReviews = root.querySelector<HTMLElement>(
+    ".jdgm-shop-reviews__body",
+  );
+  const reviews = reviewType === "shop-reviews" ? shopReviews : productReviews;
+  const spinner = root.querySelector<HTMLElement>(".jdgm-spinner");
+  const loadMore = root.querySelector<HTMLElement>(
+    ".jdgm-all-reviews-page__load-more",
+  );
+  const loadMoreWrapper = root.querySelector<HTMLElement>(
+    ".jdgm-all-reviews-page__load-more-wrapper",
+  );
+
+  if (!reviews || !productReviews || !shopReviews) return;
+
+  root.dataset.judgemeReactPageStatus = "loading";
+  spinner?.style.setProperty("display", "block");
+  if (!append) reviews.style.display = "none";
+
+  try {
+    const html = await requestAllReviewsPage({
+      page,
+      publicToken,
+      reviewType,
+      root,
+      shopDomain,
+    });
+
+    if (append) {
+      reviews.insertAdjacentHTML("beforeend", html);
+    } else {
+      reviews.innerHTML = html;
+    }
+
+    const reviewCount = countReviewMarkup(html);
+    const pageSize = getAllReviewsPageSize(root);
+    const totalLoaded = reviews.querySelectorAll(".jdgm-rev").length;
+    const expectedReviewCount = getExpectedReviewCount(root, reviewType);
+    root.dataset.allReviewsLoaded = String(
+      reviewCount === 0 ||
+        reviewCount < pageSize ||
+        (expectedReviewCount !== undefined &&
+          totalLoaded >= expectedReviewCount),
+    );
+    if (!append && reviewCount > 0) {
+      root.dataset.pageSize = String(Math.max(pageSize, reviewCount));
+    }
+    root.dataset.page = String(page);
+    root.dataset.reviewType = reviewType;
+    reviews.dataset.currentPage = String(page);
+    productReviews.style.display =
+      reviewType === "product-reviews" ? "" : "none";
+    shopReviews.style.display = reviewType === "shop-reviews" ? "" : "none";
+    root
+      .querySelectorAll<HTMLElement>(".jdgm-subtab__name")
+      .forEach((tab) =>
+        tab.classList.toggle(
+          "jdgm--active",
+          normalizeReviewType(tab.dataset.tabname) === reviewType,
+        ),
+      );
+
+    if (loadMore) loadMore.dataset.page = String(page + 1);
+    loadMoreWrapper?.classList.toggle(
+      "jdgm-hidden",
+      root.dataset.loadMode === "scroll" ||
+        root.dataset.allReviewsLoaded === "true",
+    );
+
+    runtime.customizeReviews();
+    runtime.setupMediaGallery(runtime.$(reviews));
+    root.dataset.judgemeReactPageStatus = "ready";
+  } catch (error) {
+    root.dataset.judgemeReactPageStatus = "error";
+    console.error("Judge.me All Reviews Widget request error", error);
+  } finally {
+    spinner?.style.setProperty("display", "none");
+    reviews.style.display = "";
+  }
 }
 
 function prepareFloatingTabMarkup(
@@ -473,7 +887,7 @@ function prepareFloatingTabMarkup(
     root.dataset.judgemeReactSource === "all-reviews-page-fallback" ||
     root.closest("[data-judgeme-react-source='all-reviews-page-fallback']")
   ) {
-    ensureFloatingFallbackSort(root, settings);
+    ensureAllReviewsSort(root, settings);
   }
 
   root.style.display = "block";
@@ -508,7 +922,9 @@ function bindFloatingTabLifecycle(
   const mask = root.querySelector<HTMLElement>(".jdgm-mask");
 
   if (!container || !wrapper || !button) {
-    throw new Error("Judge.me returned incomplete Floating Reviews Tab markup.");
+    throw new Error(
+      "Judge.me returned incomplete Floating Reviews Tab markup.",
+    );
   }
 
   floatingTabDisposers.get(container)?.();
@@ -536,6 +952,18 @@ function bindFloatingTabLifecycle(
     if (event.key === "Escape" && wrapper.classList.contains("jdgm-show")) {
       close();
       button.focus();
+      return;
+    }
+
+    const target = event.target;
+    if (
+      options.source === "all-reviews-page-fallback" &&
+      target instanceof HTMLElement &&
+      target.matches(".jdgm-subtab__name") &&
+      (event.key === "Enter" || event.key === " ")
+    ) {
+      event.preventDefault();
+      target.click();
     }
   };
   const handleFallbackClick = (event: Event) => {
@@ -545,12 +973,8 @@ function bindFloatingTabLifecycle(
     if (!(target instanceof Element)) return;
 
     const subtab = target.closest<HTMLElement>(".jdgm-subtab__name");
-    const loadMore = target.closest<HTMLElement>(
-      ".jdgm-paginate__load-more",
-    );
-    const histogramRow = target.closest<HTMLElement>(
-      ".jdgm-histogram__row",
-    );
+    const loadMore = target.closest<HTMLElement>(".jdgm-paginate__load-more");
+    const histogramRow = target.closest<HTMLElement>(".jdgm-histogram__row");
 
     if (!subtab && !loadMore && !histogramRow) return;
 
@@ -559,7 +983,7 @@ function bindFloatingTabLifecycle(
 
     if (subtab) {
       const reviewType = normalizeReviewType(subtab.dataset.tabname);
-      resetFloatingFallbackFilters(root);
+      resetAllReviewsFilters(root);
       void loadFloatingTabFallbackPage({
         append: false,
         page: 1,
@@ -574,7 +998,7 @@ function bindFloatingTabLifecycle(
 
     if (histogramRow) {
       const rating = histogramRow.getAttribute("data-rating");
-      const filterRating = /^[1-5]$/.test(rating ?? "") ? rating ?? "" : "";
+      const filterRating = /^[1-5]$/.test(rating ?? "") ? (rating ?? "") : "";
       root.dataset.filterRating = filterRating;
       root
         .querySelectorAll(".jdgm-histogram__row")
@@ -615,7 +1039,7 @@ function bindFloatingTabLifecycle(
     if (!target.matches(".jdgm-sort-dropdown")) return;
 
     event.stopImmediatePropagation();
-    const sort = getFloatingFallbackSort(target.value);
+    const sort = getAllReviewsSort(target.value);
     root.dataset.sortBy = sort.by;
     root.dataset.sortDir = sort.dir ?? "";
     void loadFloatingTabFallbackPage({
@@ -659,7 +1083,7 @@ async function loadFloatingTabFallbackPage({
   append: boolean;
   page: number;
   publicToken: string;
-  reviewType: "product-reviews" | "shop-reviews";
+  reviewType: AllReviewsWidgetReviewType;
   root: HTMLElement;
   runtime: Required<
     Pick<JudgeMeRuntime, "$" | "customizeReviews" | "setupMediaGallery">
@@ -669,9 +1093,7 @@ async function loadFloatingTabFallbackPage({
 }): Promise<void> {
   const reviews = root.querySelector<HTMLElement>(".jdgm-revs-tab__reviews");
   const spinner = root.querySelector<HTMLElement>(".jdgm-revs-tab__spinner");
-  const loadMore = root.querySelector<HTMLElement>(
-    ".jdgm-paginate__load-more",
-  );
+  const loadMore = root.querySelector<HTMLElement>(".jdgm-paginate__load-more");
 
   if (!reviews) return;
 
@@ -680,31 +1102,13 @@ async function loadFloatingTabFallbackPage({
   if (!append) reviews.style.display = "none";
 
   try {
-    const url = new URL("https://judge.me/api/v1/widgets/all_reviews_page");
-    url.searchParams.set("api_token", publicToken);
-    url.searchParams.set("page", String(page));
-    url.searchParams.set("review_type", reviewType);
-    url.searchParams.set("shop_domain", shopDomain);
-    if (root.dataset.filterRating) {
-      url.searchParams.set("filter_rating", root.dataset.filterRating);
-    }
-    if (root.dataset.sortBy) {
-      url.searchParams.set("sort_by", root.dataset.sortBy);
-    }
-    if (root.dataset.sortDir) {
-      url.searchParams.set("sort_dir", root.dataset.sortDir);
-    }
-
-    const response = await fetch(url, {headers: {Accept: "application/json"}});
-    if (!response.ok) {
-      throw new Error(
-        `Judge.me all_reviews_page request failed with HTTP ${response.status}.`,
-      );
-    }
-
-    const payload: unknown = await response.json();
-    const html = getAllReviewsPageHtml(payload);
-    assertSafeRuntimeMarkup(html);
+    const html = await requestAllReviewsPage({
+      page,
+      publicToken,
+      reviewType,
+      root,
+      shopDomain,
+    });
 
     if (append) {
       reviews.insertAdjacentHTML("beforeend", html);
@@ -713,6 +1117,16 @@ async function loadFloatingTabFallbackPage({
     }
 
     const reviewCount = countReviewMarkup(html);
+    const pageSize = getAllReviewsPageSize(root);
+    const totalLoaded = reviews.querySelectorAll(".jdgm-rev").length;
+    const expectedReviewCount = getExpectedReviewCount(root, reviewType);
+    const allReviewsLoaded =
+      reviewCount === 0 ||
+      reviewCount < pageSize ||
+      (expectedReviewCount !== undefined && totalLoaded >= expectedReviewCount);
+    if (!append && reviewCount > 0) {
+      root.dataset.pageSize = String(Math.max(pageSize, reviewCount));
+    }
     root.dataset.page = String(page);
     root.dataset.reviewType = reviewType;
     root
@@ -726,7 +1140,7 @@ async function loadFloatingTabFallbackPage({
 
     if (loadMore) {
       loadMore.dataset.page = String(page + 1);
-      loadMore.style.display = reviewCount < 25 ? "none" : "";
+      loadMore.style.display = allReviewsLoaded ? "none" : "";
     }
 
     runtime.customizeReviews();
@@ -734,11 +1148,57 @@ async function loadFloatingTabFallbackPage({
     root.dataset.judgemeReactFallbackStatus = "ready";
   } catch (error) {
     root.dataset.judgemeReactFallbackStatus = "error";
-    console.error("Judge.me Floating Reviews Tab fallback request error", error);
+    console.error(
+      "Judge.me Floating Reviews Tab fallback request error",
+      error,
+    );
   } finally {
     spinner?.style.setProperty("display", "none");
     reviews.style.display = "";
   }
+}
+
+async function requestAllReviewsPage({
+  page,
+  publicToken,
+  reviewType,
+  root,
+  shopDomain,
+}: {
+  page: number;
+  publicToken: string;
+  reviewType: AllReviewsWidgetReviewType;
+  root: HTMLElement;
+  shopDomain: string;
+}): Promise<string> {
+  const url = new URL("https://judge.me/api/v1/widgets/all_reviews_page");
+  url.searchParams.set("api_token", publicToken);
+  url.searchParams.set("page", String(page));
+  url.searchParams.set("review_type", reviewType);
+  url.searchParams.set("shop_domain", shopDomain);
+  if (root.dataset.filterRating) {
+    url.searchParams.set("filter_rating", root.dataset.filterRating);
+  }
+  if (root.dataset.sortBy) {
+    url.searchParams.set("sort_by", root.dataset.sortBy);
+  }
+  if (root.dataset.sortDir) {
+    url.searchParams.set("sort_dir", root.dataset.sortDir);
+  }
+
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Judge.me all_reviews_page request failed with HTTP ${response.status}.`,
+    );
+  }
+
+  const payload: unknown = await response.json();
+  const html = getAllReviewsPageHtml(payload);
+  assertSafeRuntimeMarkup(html);
+  return html;
 }
 
 function getAllReviewsPageHtml(payload: unknown): string {
@@ -765,17 +1225,48 @@ function assertSafeRuntimeMarkup(html: string): void {
 }
 
 function countReviewMarkup(html: string): number {
-  return (html.match(/class=["'][^"']*\bjdgm-rev\b[^"']*["']/gi) ?? [])
-    .length;
+  return (html.match(/class=["'][^"']*\bjdgm-rev\b[^"']*["']/gi) ?? []).length;
 }
 
 function normalizeReviewType(
   value: string | undefined,
-): "product-reviews" | "shop-reviews" {
+): AllReviewsWidgetReviewType {
   return value === "shop-reviews" ? "shop-reviews" : "product-reviews";
 }
 
-function ensureFloatingFallbackSort(
+function getAllReviewsPageSize(root: HTMLElement): number {
+  const value =
+    root.dataset.pageSize ??
+    root.querySelector<HTMLElement>(".jdgm-all-reviews__header")?.dataset
+      .perPage ??
+    root.querySelector<HTMLElement>(".jdgm-paginate")?.dataset.perPage;
+  const perPage = Number(value ?? "25");
+  return Number.isFinite(perPage) && perPage > 0 ? perPage : 25;
+}
+
+function getExpectedReviewCount(
+  root: HTMLElement,
+  reviewType: AllReviewsWidgetReviewType,
+): number | undefined {
+  const header = root.querySelector<HTMLElement>(
+    ".jdgm-all-reviews__header, .jdgm-revs-tab__content-header",
+  );
+  const value =
+    reviewType === "shop-reviews"
+      ? header?.dataset.numberOfShopReviews
+      : header?.dataset.numberOfProductReviews;
+  const count = Number(value);
+  return Number.isFinite(count) && count >= 0 ? count : undefined;
+}
+
+function ensureAllReviewsTabSemantics(root: HTMLElement): void {
+  root.querySelectorAll<HTMLElement>(".jdgm-subtab__name").forEach((tab) => {
+    tab.setAttribute("role", "button");
+    tab.tabIndex = 0;
+  });
+}
+
+function ensureAllReviewsSort(
   root: HTMLElement,
   settings: JudgeMeRuntimeSettings,
 ): void {
@@ -812,7 +1303,7 @@ function ensureFloatingFallbackSort(
   wrapper.appendChild(select);
 }
 
-function resetFloatingFallbackFilters(root: HTMLElement): void {
+function resetAllReviewsFilters(root: HTMLElement): void {
   root.dataset.filterRating = "";
   root.dataset.sortBy = "created_at";
   root.dataset.sortDir = "desc";
@@ -824,20 +1315,20 @@ function resetFloatingFallbackFilters(root: HTMLElement): void {
   if (sort) sort.value = "most-recent";
 }
 
-function getFloatingFallbackSort(value: string): {
+function getAllReviewsSort(value: string): {
   by: string;
   dir?: string;
 } {
   return (
     {
-      "highest-rating": {by: "rating", dir: "desc"},
-      "lowest-rating": {by: "rating", dir: "asc"},
-      "most-helpful": {by: "most_helpful"},
-      "most-recent": {by: "created_at", dir: "desc"},
-      "pictures-first": {by: "pictures_first"},
-      "videos-first": {by: "videos_first"},
-      "with-pictures": {by: "with_pictures"},
-    }[value] ?? {by: "created_at", dir: "desc"}
+      "highest-rating": { by: "rating", dir: "desc" },
+      "lowest-rating": { by: "rating", dir: "asc" },
+      "most-helpful": { by: "most_helpful" },
+      "most-recent": { by: "created_at", dir: "desc" },
+      "pictures-first": { by: "pictures_first" },
+      "videos-first": { by: "videos_first" },
+      "with-pictures": { by: "with_pictures" },
+    }[value] ?? { by: "created_at", dir: "desc" }
   );
 }
 
@@ -897,7 +1388,10 @@ function isCarouselSetup(container: HTMLElement): boolean {
   );
 }
 
-function waitFor(predicate: () => boolean, errorMessage: string): Promise<void> {
+function waitFor(
+  predicate: () => boolean,
+  errorMessage: string,
+): Promise<void> {
   if (predicate()) return Promise.resolve();
 
   return new Promise((resolve, reject) => {

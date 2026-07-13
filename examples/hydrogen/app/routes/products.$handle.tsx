@@ -13,6 +13,7 @@ import {ProductImage} from '~/components/ProductImage';
 import {ProductForm} from '~/components/ProductForm';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import {
+  AllReviewsWidget,
   fetchLegacyStorefrontWidgets,
   FloatingReviewsTab,
   getShopifyNumericId,
@@ -173,6 +174,16 @@ export default function Product() {
             ...judgeMeWidgets.reviewWidget,
             ...judgeMeWidgets.resources,
           }}
+        />
+      ) : null}
+      {judgeMeWidgets ? (
+        <AllReviewsWidget
+          className="product-all-reviews"
+          data={{
+            ...judgeMeWidgets.allReviewsWidget,
+            ...judgeMeWidgets.resources,
+          }}
+          includeStyles={false}
         />
       ) : null}
       {judgeMeWidgets ? (

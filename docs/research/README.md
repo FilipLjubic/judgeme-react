@@ -11,8 +11,9 @@
 | `hydrogen-harness-2026-07-13`                    | notes | Headless channel credential contract, monorepo/package boundary, and verified Hydrogen harness                       |
 | `review-widget-spike-2026-07-13`                 | notes | Working free-plan Review Widget bootstrap, SSR/runtime contract, browser validation, and remaining limitations       |
 | `star-rating-badge-spike-2026-07-13`             | notes | Working product badge endpoint, shared-resource batching, runtime contract, and Brave validation                     |
-| `reviews-carousel-spike-2026-07-13`              | notes | Working classic carousel endpoint, secondary runtime, shared batching, navigation, and Brave validation             |
-| `floating-reviews-tab-spike-2026-07-13`          | notes | Official tab contract, Free-plan All Reviews fallback, interactions, and SPA validation                             |
+| `reviews-carousel-spike-2026-07-13`              | notes | Working classic carousel endpoint, secondary runtime, shared batching, navigation, and Brave validation              |
+| `floating-reviews-tab-spike-2026-07-13`          | notes | Official tab contract, Free-plan All Reviews fallback, interactions, and SPA validation                              |
+| `all-reviews-widget-spike-2026-07-13`            | notes | Standalone All Reviews endpoint/runtime contract, paging mismatch, interactions, and SPA validation                  |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                            |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                        |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                            |
@@ -23,7 +24,7 @@
 | `shopify-theme-app-extensions`                   | docs  | Official Shopify app-block, app-embed, Liquid-scope, and CDN model                                                   |
 | `shopify-hydrogen-getting-started`               | docs  | Current Shopify Hydrogen scaffold, link, and environment workflow                                                    |
 | `shopify-hydrogen-environments`                  | docs  | Official Hydrogen environment variable and token handling contract                                                   |
-| `shopify-hydrogen-cli`                           | docs  | Current Shopify CLI commands, flags, and lockfile checks                                                              |
+| `shopify-hydrogen-cli`                           | docs  | Current Shopify CLI commands, flags, and lockfile checks                                                             |
 
 Inspect the current project research set:
 
@@ -88,6 +89,16 @@ Query the Floating Reviews Tab report:
 ctx query \
   "How does the Floating Reviews Tab use the exact endpoint and Free-plan fallback?" \
   --label floating-reviews-tab-spike-2026-07-13 \
+  --kind notes \
+  --cwd /Users/panda/Code/judgeme-react
+```
+
+Query the All Reviews Widget report:
+
+```sh
+ctx query \
+  "How does the standalone All Reviews Widget use Judge.me's public endpoint and CDN runtime?" \
+  --label all-reviews-widget-spike-2026-07-13 \
   --kind notes \
   --cwd /Users/panda/Code/judgeme-react
 ```

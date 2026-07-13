@@ -10,7 +10,7 @@
 
 The current test store is on the Free plan. Its public and private tokens both received HTTP 200 with `reviews_tab: null`. The public `all_reviews_page` endpoint still returned the configured header and review HTML: 867 total reviews, split into 837 product reviews and 30 shop reviews. The adapter uses that payload to build the floating shell without copying reviews into library code or using the private token.
 
-A clean Brave run verified:
+A clean Brave run verified the four adapters mounted at the time of this spike. The later five-adapter clean run is recorded in `all-reviews-widget-spike-2026-07-13.md`.
 
 - all four React adapters reached `ready`;
 - the right-side button used the dashboard label `★ Reviews`;
@@ -39,7 +39,7 @@ The OpenAPI document lists optional `page`, `per_page`, and `review_type` parame
 ```ts
 interface ReviewsTabResponse {
   page: number | string;
-  reviews_tab: null | string | {html?: string};
+  reviews_tab: null | string | { html?: string };
 }
 ```
 
@@ -98,18 +98,19 @@ The `position` prop is intentional. Position is a Shopify theme app-embed settin
 
 The standalone exact call requests `reviews_tab`, `settings`, and `html_miracle`. The Free-plan path adds a follow-up `all_reviews_page` request after `reviews_tab` returns `null`.
 
-`fetchLegacyStorefrontWidgets` now starts these six requests together:
+`fetchLegacyStorefrontWidgets` now starts these seven requests together:
 
 ```text
 product_review
 preview_badge
 featured_carousel
 reviews_tab
+all_reviews_page
 settings
 html_miracle
 ```
 
-The Free-plan path then makes the seventh `all_reviews_page` request. All four components receive compact markup records plus one shared dashboard resources object.
+`all_reviews_page` supplies the standalone `AllReviewsWidget` and is reused by the Free-plan Floating Tab fallback, so that path does not make a duplicate request. All five components receive compact markup records plus one shared dashboard resources object.
 
 ## Current limits
 

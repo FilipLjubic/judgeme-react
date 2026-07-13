@@ -4,7 +4,9 @@ Research-stage project for exposing Judge.me widgets through React, with Shopify
 
 ## Current status
 
-The first four components are `StarRatingBadge`, `ReviewsCarousel`, `LegacyReviewWidget`, and `FloatingReviewsTab`. They share Judge.me's dashboard CSS/settings and use its browser runtime. The Hydrogen harness has exercised them with real review data, including carousel navigation, the write-review modal, and the floating tab's product/store review streams.
+The first five components are `StarRatingBadge`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, and `FloatingReviewsTab`. They share Judge.me's dashboard CSS/settings and use its browser runtime. The Hydrogen harness has exercised them with real review data, including carousel navigation, the write-review modal, the standalone All Reviews product/store streams, and the floating tab.
+
+`AllReviewsWidget` is the headless version of Judge.me's platform-independent All Reviews Widget. It server-renders the public `all_reviews_page` response and supports the configured initial tab, product/shop switching, rating filters, sorting, button or scroll pagination, keyboard controls, and client-side navigation. Its browser reads use the public token; the private token is not required.
 
 `FloatingReviewsTab` has two modes. Stores with the official tab enabled receive Judge.me's `reviews_tab` markup unchanged. On the current Free-plan test store that endpoint returns `null`, so the component builds the same floating shell around the public `all_reviews_page` payload. The fallback supports open/close, product and shop subtabs, load-more pagination, rating filters, sorting, and client-side navigation.
 
@@ -32,6 +34,7 @@ The workspace pins Bun 1.3.14 and uses `bun.lock` as its only dependency lockfil
 - [Working Star Rating Badge spike](docs/research/star-rating-badge-spike-2026-07-13.md), queryable in ctx as `star-rating-badge-spike-2026-07-13`.
 - [Working Reviews Carousel spike](docs/research/reviews-carousel-spike-2026-07-13.md), queryable in ctx as `reviews-carousel-spike-2026-07-13`.
 - [Working Floating Reviews Tab spike](docs/research/floating-reviews-tab-spike-2026-07-13.md), queryable in ctx as `floating-reviews-tab-spike-2026-07-13`.
+- [Working All Reviews Widget spike](docs/research/all-reviews-widget-spike-2026-07-13.md), queryable in ctx as `all-reviews-widget-spike-2026-07-13`.
 - [Research workflow and resource index](docs/research/README.md)
 - Project documentation sources are pinned in `.ctx/ctx.json`.
 - `ctx` Codex hooks are installed under `.ctx/hooks` and pass `ctx hook doctor`.

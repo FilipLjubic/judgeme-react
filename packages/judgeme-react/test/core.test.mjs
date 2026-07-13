@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createJudgeMeConfig,
+  fetchAllReviewsWidget,
   fetchFloatingReviewsTab,
   fetchLegacyProductWidgets,
   fetchLegacyReviewWidget,
@@ -85,7 +86,7 @@ test("fetches and normalizes a complete legacy Review Widget payload", async () 
     if (endpoint === "settings") {
       return Response.json({
         settings:
-          "<script class='jdgm-settings-script'>window.jdgmSettings={\"widget_version\":\"3.0\",\"review_widget_revamp_enabled\":true};</script><style>.jdgm-star{color:gold}</style>",
+          '<script class=\'jdgm-settings-script\'>window.jdgmSettings={"widget_version":"3.0","review_widget_revamp_enabled":true};</script><style>.jdgm-star{color:gold}</style>',
       });
     }
 
@@ -148,7 +149,7 @@ test("fetches both product widgets with one shared resource request pair", async
     if (endpoint === "settings") {
       return Response.json({
         settings:
-          "<script class='jdgm-settings-script'>window.jdgmSettings={\"widget_version\":\"3.0\",\"review_widget_revamp_enabled\":true};</script><style>.jdgm-star{color:teal}</style>",
+          '<script class=\'jdgm-settings-script\'>window.jdgmSettings={"widget_version":"3.0","review_widget_revamp_enabled":true};</script><style>.jdgm-star{color:teal}</style>',
       });
     }
 
@@ -200,7 +201,7 @@ test("fetches a standalone Star Rating Badge payload", async () => {
       });
     }
 
-    return Response.json({html_miracle: ""});
+    return Response.json({ html_miracle: "" });
   };
 
   const data = await fetchStarRatingBadge({
@@ -240,11 +241,11 @@ test("fetches a standalone classic Reviews Carousel payload", async () => {
     if (endpoint === "settings") {
       return Response.json({
         settings:
-          "<script class='jdgm-settings-script'>window.jdgmSettings={\"featured_carousel_theme\":\"default\"};</script><style>.jdgm-carousel{color:teal}</style>",
+          '<script class=\'jdgm-settings-script\'>window.jdgmSettings={"featured_carousel_theme":"default"};</script><style>.jdgm-carousel{color:teal}</style>',
       });
     }
 
-    return Response.json({html_miracle: ""});
+    return Response.json({ html_miracle: "" });
   };
 
   const data = await fetchReviewsCarousel({
@@ -261,6 +262,57 @@ test("fetches a standalone classic Reviews Carousel payload", async () => {
   assert.match(data.html, /jdgm-carousel-item/);
   assert.match(data.styles, /color:teal/);
   assert.equal(data.settings.featured_carousel_theme, "default");
+});
+
+test("fetches the configured legacy All Reviews Widget", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+    const endpoint = url.pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    if (endpoint === "all_reviews_page") {
+      assert.equal(url.searchParams.get("review_type"), "shop-reviews");
+      assert.equal(url.searchParams.get("page"), "1");
+      return Response.json({
+        all_reviews:
+          "<article class='jdgm-rev' data-review-id='store-review'>A store review</article>",
+        all_reviews_header:
+          "<div class='jdgm-all-reviews__header' data-number-of-reviews='12' data-average-rating='4.75' data-number-of-product-reviews='9' data-number-of-shop-reviews='3' data-per-page='10'><div class='jdgm-rev-widg__sort-wrapper'></div></div>",
+      });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          '<script class=\'jdgm-settings-script\'>window.jdgmSettings={"widget_first_sub_tab":"shop-reviews","widget_product_reviews_subtab_text":"Product feedback","widget_shop_reviews_subtab_text":"Store feedback","all_reviews_page_load_reviews_on":"scroll"};</script><style>.jdgm-all-reviews-widget{color:teal}</style>',
+      });
+    }
+
+    return Response.json({ html_miracle: "" });
+  };
+
+  const data = await fetchAllReviewsWidget({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    fetch: mockFetch,
+  });
+
+  assert.deepEqual(requestedEndpoints.sort(), [
+    "all_reviews_page",
+    "html_miracle",
+    "settings",
+  ]);
+  assert.equal(data.initialReviewType, "shop-reviews");
+  assert.match(data.html, /jdgm-all-reviews-widget/);
+  assert.match(data.html, /data-load-mode="scroll"/);
+  assert.match(data.html, /data-all-reviews-loaded="false"/);
+  assert.match(data.html, /data-page-size="1"/);
+  assert.match(data.html, /role="button" tabindex="0"/);
+  assert.match(data.html, /Product feedback/);
+  assert.match(data.html, /Store feedback/);
+  assert.match(data.html, /A store review/);
+  assert.match(data.styles, /color:teal/);
 });
 
 test("fetches an exact Floating Reviews Tab when Judge.me provides one", async () => {
@@ -284,11 +336,11 @@ test("fetches an exact Floating Reviews Tab when Judge.me provides one", async (
     if (endpoint === "settings") {
       return Response.json({
         settings:
-          "<script class='jdgm-settings-script'>window.jdgmSettings={\"floating_tab_button_name\":\"Reviews\"};</script>",
+          '<script class=\'jdgm-settings-script\'>window.jdgmSettings={"floating_tab_button_name":"Reviews"};</script>',
       });
     }
 
-    return Response.json({html_miracle: ""});
+    return Response.json({ html_miracle: "" });
   };
 
   const data = await fetchFloatingReviewsTab({
@@ -314,7 +366,7 @@ test("builds a Free-plan Floating Reviews Tab from All Reviews data", async () =
     requestedEndpoints.push(endpoint);
 
     if (endpoint === "reviews_tab") {
-      return Response.json({page: 1, reviews_tab: null});
+      return Response.json({ page: 1, reviews_tab: null });
     }
 
     if (endpoint === "all_reviews_page") {
@@ -330,11 +382,11 @@ test("builds a Free-plan Floating Reviews Tab from All Reviews data", async () =
     if (endpoint === "settings") {
       return Response.json({
         settings:
-          "<script class='jdgm-settings-script'>window.jdgmSettings={\"widget_first_sub_tab\":\"shop-reviews\",\"floating_tab_button_name\":\"Our feedback\",\"floating_tab_title\":\"What customers say\",\"all_reviews_page_load_more_text\":\"More feedback\"};</script><style>.jdgm-revs-tab{color:teal}</style>",
+          '<script class=\'jdgm-settings-script\'>window.jdgmSettings={"widget_first_sub_tab":"shop-reviews","floating_tab_button_name":"Our feedback","floating_tab_title":"What customers say","all_reviews_page_load_more_text":"More feedback"};</script><style>.jdgm-revs-tab{color:teal}</style>',
       });
     }
 
-    return Response.json({html_miracle: ""});
+    return Response.json({ html_miracle: "" });
   };
 
   const data = await fetchFloatingReviewsTab({
@@ -390,11 +442,16 @@ test("fetches all implemented storefront widgets with shared resources", async (
 
     if (endpoint === "reviews_tab") {
       assert.equal(url.searchParams.has("external_id"), false);
+      return Response.json({ page: 1, reviews_tab: null });
+    }
+
+    if (endpoint === "all_reviews_page") {
+      assert.equal(url.searchParams.has("external_id"), false);
       return Response.json({
-        page: 1,
-        reviews_tab: {
-          html: "<section class='jdgm-widget jdgm-revs-tab'><div class='jdgm-revs-tab-btn'>Reviews</div><section class='jdgm-revs-tab__wrapper'></section></section>",
-        },
+        all_reviews:
+          "<article class='jdgm-rev' data-review-id='shared'>Shared review</article>",
+        all_reviews_header:
+          "<div class='jdgm-all-reviews__header' data-number-of-reviews='12' data-average-rating='4.75' data-number-of-product-reviews='9' data-number-of-shop-reviews='3' data-per-page='10'></div>",
       });
     }
 
@@ -405,7 +462,7 @@ test("fetches all implemented storefront widgets with shared resources", async (
       });
     }
 
-    return Response.json({html_miracle: ""});
+    return Response.json({ html_miracle: "" });
   };
 
   const data = await fetchLegacyStorefrontWidgets({
@@ -416,6 +473,7 @@ test("fetches all implemented storefront widgets with shared resources", async (
   });
 
   assert.deepEqual(requestedEndpoints.sort(), [
+    "all_reviews_page",
     "featured_carousel",
     "html_miracle",
     "preview_badge",
@@ -426,8 +484,15 @@ test("fetches all implemented storefront widgets with shared resources", async (
   assert.equal(data.reviewWidget.productId, "12345");
   assert.equal(data.starRatingBadge.productId, "12345");
   assert.match(data.reviewsCarousel.html, /Featured reviews/);
-  assert.equal(data.floatingReviewsTab.source, "reviews-tab");
-  assert.match(data.floatingReviewsTab.html, /jdgm-revs-tab-btn/);
+  assert.equal(data.allReviewsWidget.initialReviewType, "product-reviews");
+  assert.match(data.allReviewsWidget.html, /jdgm-all-reviews-widget/);
+  assert.equal(data.floatingReviewsTab.source, "all-reviews-page-fallback");
+  assert.match(data.floatingReviewsTab.html, /Shared review/);
+  assert.equal(
+    requestedEndpoints.filter((endpoint) => endpoint === "all_reviews_page")
+      .length,
+    1,
+  );
   assert.match(data.resources.styles, /color:teal/);
 });
 
