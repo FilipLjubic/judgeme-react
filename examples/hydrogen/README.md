@@ -1,6 +1,6 @@
 # Judge.me React Hydrogen harness
 
-This is the real-store integration harness for `@judgeme-react/core`. It mounts the implemented `StarRatingBadge`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, `FloatingReviewsTab`, `ReviewsGrid`, `CardsCarousel`, `TestimonialsCarousel`, `VideosCarousel`, and `PopupReviews` on product routes. It is not a second publishable package.
+This is the real-store integration harness for `@judgeme-react/core`. It mounts the implemented `StarRatingBadge`, `AllReviewsCounter`, `AiReviewsSummary`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, `FloatingReviewsTab`, `ReviewsGrid`, `CardsCarousel`, `TestimonialsCarousel`, `VideosCarousel`, and `PopupReviews` on product routes. It is not a second publishable package.
 
 ## Local setup
 
@@ -24,7 +24,9 @@ JUDGEME_V3_ASSET_BASE_URL=https://cdn.shopify.com/extensions/current-deployment/
 
 `JUDGEME_PRIVATE_TOKEN` is reserved for future server-only adapters. The current product widgets do not use it, and it must never be sent through route data or React context.
 
-Open a published product at `/products/<handle>`. The route fetches the product badge, shop-wide counter, classic carousel, legacy Review Widget, All Reviews Widget, Floating Reviews Tab, v3 Reviews Grid, Cards Carousel, Testimonials Carousel, Videos Carousel, and Pop-up Reviews before returning loader data. The six legacy components share one settings/CSS payload; the four exact widgets and the native popup reuse those resources while each adds one tokenless CDN request. The All Reviews response supplies the counter aggregates and is also reused for the floating tab when Judge.me returns no official tab markup on a Free-plan store.
+Open a published product at `/products/<handle>`. The route fetches the product badge, shop-wide counter, classic carousel, legacy Review Widget, All Reviews Widget, Floating Reviews Tab, v3 Reviews Grid, Cards Carousel, Testimonials Carousel, Videos Carousel, and Pop-up Reviews before returning loader data. It also requests `shop.metafields.judgeme.store_summary_widget_data` in the existing Shopify product query for AI Reviews Summary. The six legacy components share one settings/CSS payload; the grid, three carousels, and native popup reuse those resources while each adds one tokenless CDN request. AI Reviews Summary adds no Judge.me data request. The All Reviews response supplies the counter aggregates and is also reused for the floating tab when Judge.me returns no official tab markup on a Free-plan store.
+
+Judge.me only creates the store-summary metafield for an enabled AI Reviews Summary. The current Free-plan test store returns `null`, so this harness substitutes a conspicuously labeled local fixture for lifecycle testing; production library consumers receive `null` when no real metafield is present and should omit the component.
 
 `JUDGEME_V3_ASSET_BASE_URL` is the current Judge.me Shopify extension `assets/` directory visible in the theme's app-embed loader. It is deployment-specific and should be refreshed when Judge.me publishes a new extension build.
 
@@ -47,6 +49,6 @@ bun run typecheck
 bun run build
 ```
 
-Compilation checks do not prove the third-party widget is healthy. Runtime changes also require a clean Brave reload of a product with representative reviews and a relevant interaction check, such as moving either carousel, opening the write-review modal, changing the All Reviews stream, changing the floating tab's review stream, or opening an exact-widget lightbox.
+Compilation checks do not prove the third-party widget is healthy. Runtime changes also require a clean Brave reload of a product with representative reviews and a relevant interaction check, such as moving either carousel, opening the AI summary accordion, opening the write-review modal, changing the All Reviews stream, changing the floating tab's review stream, or opening an exact-widget lightbox.
 
 This app started from Shopify's Hydrogen Skeleton template. Refer to the [Hydrogen documentation](https://shopify.dev/docs/storefronts/headless/hydrogen) for storefront and Customer Account API setup.

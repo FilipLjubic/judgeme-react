@@ -20,6 +20,7 @@
 | `testimonials-carousel-spike-2026-07-13`         | notes | Tokenless quote-carousel data, full block configuration, autoplay, lightbox, and SPA lifecycle                       |
 | `videos-carousel-spike-2026-07-13`               | notes | Required media filter, tokenless video/photo cards, extension runtime, navigation, lightbox, and fixture limits      |
 | `popup-reviews-spike-2026-07-13`                 | notes | Dashboard settings, tokenless selection feed, product-image boundary, timing, page targeting, and native lifecycle   |
+| `ai-reviews-summary-spike-2026-07-13`            | notes | Shopify metafield payload, public status route, app-block configuration, exact module, and Brave lifecycle           |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                            |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                        |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                            |
@@ -29,6 +30,7 @@
 | `judge-me-testimonials-carousel`                 | docs  | Official Testimonials Carousel plan, settings, limitations, and app-embed contract                                   |
 | `judge-me-videos-carousel`                       | docs  | Official Videos Carousel plan, review/media selection, layout, behavior, and app-embed contract                      |
 | `judge-me-popup-reviews`                         | docs  | Official Pop-up Reviews plan, selection, content, image, page, position, timing, and app-embed contract              |
+| `judge-me-ai-reviews-summary`                    | docs  | Official AI Reviews Summary plan, content, eligibility, configuration, and Shopify app-block contract                |
 | `judge-me-hydrogen-npm-metadata`                 | docs  | Registry metadata for Judge.me's official Hydrogen package                                                           |
 | `judge-me-liquid-widgets`                        | docs  | Official Liquid markup and Judge.me metafield dependencies                                                           |
 | `shopify-theme-app-extensions`                   | docs  | Official Shopify app-block, app-embed, Liquid-scope, and CDN model                                                   |
@@ -159,6 +161,26 @@ Query the Videos Carousel report:
 ctx query \
   "How does Videos Carousel fetch media cards and initialize in Hydrogen?" \
   --label videos-carousel-spike-2026-07-13 \
+  --kind notes \
+  --cwd /Users/panda/Code/judgeme-react
+```
+
+Query the Pop-up Reviews report:
+
+```sh
+ctx query \
+  "How does Pop-up Reviews select content and own its Hydrogen lifecycle?" \
+  --label popup-reviews-spike-2026-07-13 \
+  --kind notes \
+  --cwd /Users/panda/Code/judgeme-react
+```
+
+Query the AI Reviews Summary report:
+
+```sh
+ctx query \
+  "How does AI Reviews Summary obtain its generated content and mount in Hydrogen?" \
+  --label ai-reviews-summary-spike-2026-07-13 \
   --kind notes \
   --cwd /Users/panda/Code/judgeme-react
 ```

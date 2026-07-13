@@ -1,4 +1,5 @@
 import type { JudgeMeRuntimeSettings } from "./legacy-api.js";
+import type { AiReviewsSummaryData } from "./ai-reviews-summary-api.js";
 import type {
   CardsCarouselConfig,
   CardsCarouselData,
@@ -15,6 +16,7 @@ import type {
 
 const JUDGE_ME_API_HOST = "https://api.judge.me";
 const JUDGE_ME_CDN_API_HOST = "https://cdn.judge.me/";
+const AI_REVIEWS_SUMMARY_ENTRY_KEY = "store-summary-widget/main.js";
 const REVIEWS_GRID_ENTRY_KEY = "reviews-grid-widget/main.js";
 const REVIEWS_GRID_ENTRY_FILE = "reviews_grid.js";
 const CAROUSEL_LIGHTBOX_ENTRY_KEY = "carousel-lightbox/main.js";
@@ -142,10 +144,7 @@ interface CarouselUtils {
   setStartIndex: (root: HTMLElement, mode: CarouselMode) => void;
   setVerified: (root: HTMLElement) => void;
   showCard: (root: HTMLElement, mode: CarouselMode) => void;
-  updateHeaderText: (
-    root: HTMLElement,
-    config: CarouselRuntimeConfig,
-  ) => void;
+  updateHeaderText: (root: HTMLElement, config: CarouselRuntimeConfig) => void;
 }
 
 type CarouselBuilder = (
@@ -190,6 +189,13 @@ export interface InitializeReviewsGridOptions {
   publicToken?: string;
 }
 
+export interface InitializeAiReviewsSummaryOptions {
+  assetBaseUrl: string;
+  container: HTMLElement;
+  data: AiReviewsSummaryData;
+  publicToken?: string;
+}
+
 export interface InitializeCardsCarouselOptions {
   assetBaseUrl: string;
   blockId: string;
@@ -221,6 +227,8 @@ const manifestPromises = new Map<string, Promise<ViteManifest>>();
 const stylesheetPromises = new Map<string, Promise<void>>();
 const scriptPromises = new Map<string, Promise<void>>();
 const modulePromises = new Map<string, Promise<void>>();
+const aiReviewsSummaryInitializers = new WeakMap<HTMLElement, Promise<void>>();
+let aiReviewsSummaryScanQueue = Promise.resolve();
 const reviewsGridInitializers = new WeakMap<HTMLElement, Promise<void>>();
 const cardsCarouselInitializers = new WeakMap<HTMLElement, Promise<void>>();
 const cardsCarouselDisposals = new WeakMap<HTMLElement, number>();
@@ -231,6 +239,25 @@ const testimonialsCarouselInitializers = new WeakMap<
 const testimonialsCarouselDisposals = new WeakMap<HTMLElement, number>();
 const videosCarouselInitializers = new WeakMap<HTMLElement, Promise<void>>();
 const videosCarouselDisposals = new WeakMap<HTMLElement, number>();
+
+/** Loads Judge.me's deployment-specific AI Reviews Summary module. */
+export function initializeAiReviewsSummary(
+  options: InitializeAiReviewsSummaryOptions,
+): Promise<void> {
+  const existing = aiReviewsSummaryInitializers.get(options.container);
+  if (existing) return existing;
+
+  const initializer = aiReviewsSummaryScanQueue.then(() =>
+    initializeAiReviewsSummaryRoot(options),
+  );
+  aiReviewsSummaryScanQueue = initializer.catch(() => undefined);
+  const guardedInitializer = initializer.catch((error) => {
+    aiReviewsSummaryInitializers.delete(options.container);
+    throw error;
+  });
+  aiReviewsSummaryInitializers.set(options.container, guardedInitializer);
+  return guardedInitializer;
+}
 
 /** Loads Judge.me's deployment-specific v3 Reviews Grid module for one root. */
 export function initializeReviewsGrid(
@@ -451,6 +478,45 @@ export function moveVideosCarousel(
   moveCardsCarousel(blockId, direction);
 }
 
+async function initializeAiReviewsSummaryRoot({
+  assetBaseUrl,
+  container,
+  data,
+  publicToken,
+}: InitializeAiReviewsSummaryOptions): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = configureExactRuntime({
+    assetBaseUrl,
+    settings: data.settings,
+    shopDomain: data.shopDomain,
+    publicToken,
+    runtimeData: {
+      storeSummaryWidget: createAiReviewsSummaryBootstrap(data),
+    },
+  });
+
+  await loadManifestStyles(assetBaseUrl, AI_REVIEWS_SUMMARY_ENTRY_KEY);
+
+  if (!isAiReviewsSummaryReady(container)) {
+    const manifest = await getManifest(assetBaseUrl);
+    const entryFile = getManifestFile(manifest, AI_REVIEWS_SUMMARY_ENTRY_KEY);
+    await loadModule(
+      new URL(
+        `${entryFile}?judgeme_react_instance=${++moduleInstance}`,
+        assetBaseUrl,
+      ).toString(),
+      "AI Reviews Summary",
+    );
+    await waitForAiReviewsSummary(container);
+  }
+
+  container.removeAttribute("data-entry-point");
+  runtimeWindow.jdgm?.debugLog?.(
+    "[judgeme-react] AI Reviews Summary exact adapter ready",
+  );
+}
+
 async function initializeReviewsGridRoot({
   assetBaseUrl,
   container,
@@ -479,6 +545,7 @@ async function initializeReviewsGridRoot({
       `${REVIEWS_GRID_ENTRY_FILE}?judgeme_react_instance=${++moduleInstance}`,
       assetBaseUrl,
     ).toString(),
+    "Reviews Grid",
   );
   await waitForReviewsGrid(container);
 
@@ -858,8 +925,7 @@ function createTestimonialsCarouselRuntimeConfig(
     stars_size: config.starsSize,
     transition_speed: config.transitionSpeed,
     url: `https://${data.shopDomain}`,
-    verified_badge_style:
-      config.verifiedReviewer === "badge" ? "icon" : "text",
+    verified_badge_style: config.verifiedReviewer === "badge" ? "icon" : "text",
   };
 }
 
@@ -983,6 +1049,18 @@ function createReviewsGridBootstrap(
     average_rating: data.aggregate.rating,
     metafield_updated_at: null,
     number_of_reviews: data.aggregate.count,
+  };
+}
+
+function createAiReviewsSummaryBootstrap(
+  data: AiReviewsSummaryData,
+): Record<string, unknown> {
+  return {
+    average_rating: data.payload.averageRating,
+    number_of_reviews: data.payload.reviewCount,
+    ai_summary_text: data.payload.summaryText,
+    ai_summary_translations: data.payload.summaryTranslations,
+    keywords: data.payload.keywords.map((keyword) => ({ ...keyword })),
   };
 }
 
@@ -1164,11 +1242,11 @@ function loadModuleOnce(url: string, label: string): Promise<void> {
   return promise;
 }
 
-function loadModule(url: string): Promise<void> {
+function loadModule(url: string, label: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.async = true;
-    script.dataset.judgemeReactExactModule = "reviews-grid";
+    script.dataset.judgemeReactExactModule = label;
     script.type = "module";
     script.src = url;
     script.addEventListener("load", () => resolve(), { once: true });
@@ -1176,11 +1254,47 @@ function loadModule(url: string): Promise<void> {
       "error",
       () => {
         script.remove();
-        reject(new Error("Judge.me's v3 Reviews Grid module failed to load."));
+        reject(new Error(`Judge.me's ${label} module failed to load.`));
       },
       { once: true },
     );
     document.head.appendChild(script);
+  });
+}
+
+function waitForAiReviewsSummary(container: HTMLElement): Promise<void> {
+  if (isAiReviewsSummaryReady(container)) return Promise.resolve();
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (error?: Error) => {
+      if (settled) return;
+
+      settled = true;
+      observer.disconnect();
+      window.clearTimeout(timeoutId);
+
+      if (error) reject(error);
+      else resolve();
+    };
+    const observer = new MutationObserver(() => {
+      if (isAiReviewsSummaryReady(container)) settle();
+    });
+    observer.observe(container, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+
+    const timeoutId = window.setTimeout(() => {
+      if (isAiReviewsSummaryReady(container)) {
+        settle();
+      } else {
+        settle(
+          new Error("Judge.me did not finish initializing AI Reviews Summary."),
+        );
+      }
+    }, EXACT_RUNTIME_TIMEOUT_MS);
   });
 }
 
@@ -1343,6 +1457,13 @@ function waitForTestimonialsCarousel(
       }
     }, EXACT_RUNTIME_TIMEOUT_MS);
   });
+}
+
+function isAiReviewsSummaryReady(container: HTMLElement): boolean {
+  return (
+    container.classList.contains("jdgm-widget-revamp") &&
+    container.querySelector(".jm-store-summary") !== null
+  );
 }
 
 function isReviewsGridReady(container: HTMLElement): boolean {

@@ -304,6 +304,26 @@
       "current": "20260713T195825Z-d535bc31543d",
       "created_at": "2026-07-13T19:45:20Z",
       "updated_at": "2026-07-13T19:58:25Z"
+    },
+    {
+      "id": "b491a20446aa3a39",
+      "label": "judge-me-ai-reviews-summary",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/13672572-ai-reviews-summary-widget",
+      "reason": null,
+      "current": "20260713T201030Z-1d948cb15761",
+      "created_at": "2026-07-13T20:10:27Z",
+      "updated_at": "2026-07-13T20:10:27Z"
+    },
+    {
+      "id": "91a5c1d6e3e98ced",
+      "label": "ai-reviews-summary-spike-2026-07-13",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/ai-reviews-summary-spike-2026-07-13.md",
+      "reason": null,
+      "current": "20260713T202630Z-e8ef7191d4e8",
+      "created_at": "2026-07-13T20:26:30Z",
+      "updated_at": "2026-07-13T20:26:30Z"
     }
   ]
 }

@@ -1,4 +1,11 @@
 export { createJudgeMeConfig, normalizeShopDomain } from "./config.js";
+export { AiReviewsSummary } from "./ai-reviews-summary.js";
+export {
+  createAiReviewsSummaryData,
+  fetchAiReviewsSummaryStatus,
+  normalizeAiReviewsSummaryConfig,
+  parseAiReviewsSummaryMetafield,
+} from "./ai-reviews-summary-api.js";
 export { AllReviewsCounter } from "./all-reviews-counter.js";
 export { AllReviewsWidget } from "./all-reviews-widget.js";
 export { CardsCarousel } from "./cards-carousel.js";
@@ -95,6 +102,23 @@ export type {
   StarRatingBadgeData,
 } from "./legacy-api.js";
 export type { AllReviewsCounterProps } from "./all-reviews-counter.js";
+export type { AiReviewsSummaryProps } from "./ai-reviews-summary.js";
+export type {
+  AiReviewsSummaryAlignment,
+  AiReviewsSummaryConfig,
+  AiReviewsSummaryCornerStyle,
+  AiReviewsSummaryData,
+  AiReviewsSummaryKeyword,
+  AiReviewsSummaryPayload,
+  AiReviewsSummarySentiment,
+  AiReviewsSummarySource,
+  AiReviewsSummaryStatus,
+  AiReviewsSummaryTextSize,
+  AiReviewsSummaryTheme,
+  AiReviewsSummaryVisibility,
+  CreateAiReviewsSummaryDataOptions,
+  FetchAiReviewsSummaryStatusOptions,
+} from "./ai-reviews-summary-api.js";
 export type { AllReviewsWidgetProps } from "./all-reviews-widget.js";
 export type { CardsCarouselProps } from "./cards-carousel.js";
 export type {

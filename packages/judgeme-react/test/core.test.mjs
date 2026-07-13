@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createAiReviewsSummaryData,
   createPopupReviewsData,
   createJudgeMeConfig,
   fetchCardsCarousel,
@@ -11,6 +12,7 @@ import {
   fetchLegacyProductWidgets,
   fetchLegacyReviewWidget,
   fetchLegacyStorefrontWidgets,
+  fetchAiReviewsSummaryStatus,
   fetchPopupReviewsPage,
   fetchReviewsCarousel,
   fetchReviewsGrid,
@@ -21,8 +23,10 @@ import {
   fetchVideosCarouselPage,
   getShopifyNumericId,
   normalizeTestimonialsCarouselConfig,
+  normalizeAiReviewsSummaryConfig,
   normalizePopupReviewsConfig,
   normalizeVideosCarouselConfig,
+  parseAiReviewsSummaryMetafield,
   resolveJudgeMeEngine,
 } from "../dist/index.js";
 
@@ -1164,6 +1168,97 @@ test("maps manual popup selection and clamps dashboard timing values", () => {
   assert.equal(config.durationSeconds, 1);
   assert.equal(config.intervalSeconds, 300);
   assert.equal(config.reviewCount, 15);
+});
+
+test("normalizes the AI Reviews Summary metafield and all block settings", () => {
+  const metafieldValue = JSON.stringify({
+    average_rating: "4.8",
+    number_of_reviews: 867,
+    ai_summary_text: "Customers consistently praise the quality and delivery.",
+    ai_summary_translations: {
+      de: "Kundinnen und Kunden loben die Qualität und Lieferung.",
+      empty: "",
+    },
+    keywords: [
+      { keyword: "Quality", sentiment: "positive" },
+      { keyword: "Delivery", sentiment: "neutral" },
+    ],
+  });
+  const data = createAiReviewsSummaryData({
+    config: {
+      theme: "button",
+      alignment: "center",
+      cornerStyle: "extra_round",
+      maxWidth: 900,
+      headingText: "  Customers rate us  ",
+      buttonText: "  Read the summary  ",
+      showSentimentColors: true,
+    },
+    metafieldValue,
+    settings: { locale: "en", shop_locale: "en" },
+    shopDomain: "https://STORE.myshopify.com/products/example",
+  });
+
+  assert.ok(data);
+  assert.equal(data.shopDomain, "store.myshopify.com");
+  assert.equal(data.source, "metafield");
+  assert.equal(data.config.theme, "button");
+  assert.equal(data.config.alignment, "center");
+  assert.equal(data.config.cornerStyle, "extra_round");
+  assert.equal(data.config.maxWidth, 900);
+  assert.equal(data.config.headingText, "Customers rate us");
+  assert.equal(data.config.buttonText, "Read the summary");
+  assert.equal(data.config.showSentimentColors, true);
+  assert.equal(data.payload.averageRating, 4.8);
+  assert.equal(data.payload.reviewCount, 867);
+  assert.deepEqual(data.payload.keywords, [
+    { keyword: "Quality", sentiment: "positive" },
+    { keyword: "Delivery", sentiment: "neutral" },
+  ]);
+  assert.deepEqual(data.payload.summaryTranslations, {
+    de: "Kundinnen und Kunden loben die Qualität und Lieferung.",
+  });
+
+  assert.equal(parseAiReviewsSummaryMetafield(null), null);
+  assert.throws(
+    () =>
+      parseAiReviewsSummaryMetafield({
+        average_rating: 6,
+        number_of_reviews: 1,
+        ai_summary_text: "Invalid rating",
+      }),
+    /invalid AI Reviews Summary data/,
+  );
+  assert.throws(
+    () => normalizeAiReviewsSummaryConfig({ maxWidth: 200 }),
+    /between 320 and 2000/,
+  );
+});
+
+test("reads public AI Reviews Summary generation status without a token", async () => {
+  const status = await fetchAiReviewsSummaryStatus({
+    shopDomain: "store.myshopify.com",
+    fetch: async (input, init) => {
+      const url = new URL(input);
+      assert.equal(url.origin, "https://api.judge.me");
+      assert.equal(url.pathname, "/store_summary/status");
+      assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+      assert.equal(url.searchParams.get("platform"), "shopify");
+      assert.equal(url.searchParams.has("api_token"), false);
+      assert.equal(init?.headers.Accept, "application/json");
+
+      return Response.json({
+        generating: false,
+        has_sufficient_reviews: true,
+        generate_summary_url: "https://admin.shopify.com/example",
+      });
+    },
+  });
+
+  assert.deepEqual(status, {
+    generating: false,
+    hasSufficientReviews: true,
+  });
 });
 
 test("rejects executable markup returned by the Widget API", async () => {

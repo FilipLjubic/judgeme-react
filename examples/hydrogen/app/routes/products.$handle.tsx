@@ -13,9 +13,11 @@ import {ProductImage} from '~/components/ProductImage';
 import {ProductForm} from '~/components/ProductForm';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import {
+  AiReviewsSummary,
   AllReviewsCounter,
   AllReviewsWidget,
   CardsCarousel,
+  createAiReviewsSummaryData,
   createCardsCarouselData,
   createPopupReviewsData,
   createReviewsGridData,
@@ -53,6 +55,7 @@ export async function loader(args: Route.LoaderArgs) {
   const criticalData = await loadCriticalData(args);
   const {env} = args.context;
   const judgeMeWidgets = await loadJudgeMeWidgets({
+    aiReviewsSummaryMetafieldValue: criticalData.aiReviewsSummaryMetafieldValue,
     productId: criticalData.product.id,
     publicToken: env.JUDGEME_PUBLIC_TOKEN,
     shopDomain: env.JUDGEME_SHOP_DOMAIN ?? env.PUBLIC_STORE_DOMAIN,
@@ -75,7 +78,7 @@ async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
     throw new Error('Expected product handle to be defined');
   }
 
-  const [{product}] = await Promise.all([
+  const [{product, shop}] = await Promise.all([
     storefront.query(PRODUCT_QUERY, {
       variables: {handle, selectedOptions: getSelectedProductOptions(request)},
     }),
@@ -90,17 +93,21 @@ async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
   redirectIfHandleIsLocalized(request, {handle, data: product});
 
   return {
+    aiReviewsSummaryMetafieldValue:
+      shop?.judgeMeStoreSummaryWidgetData?.value ?? null,
     product,
   };
 }
 
 async function loadJudgeMeWidgets({
+  aiReviewsSummaryMetafieldValue,
   productId,
   publicToken,
   shopDomain,
   v3AssetBaseUrl,
   signal,
 }: {
+  aiReviewsSummaryMetafieldValue: string | null;
   productId: string;
   publicToken?: string;
   shopDomain: string;
@@ -172,9 +179,26 @@ async function loadJudgeMeWidgets({
       settings: legacyWidgets.resources.settings,
       signal,
     });
+    const aiReviewsSummary = createAiReviewsSummaryData({
+      config: {
+        theme: 'accordion',
+        keywordsVisibility: 'when_click',
+        showButton: false,
+      },
+      metafieldValue:
+        aiReviewsSummaryMetafieldValue ??
+        createAiReviewsSummaryHarnessFixture({
+          count: legacyWidgets.allReviewsCounter.count,
+          rating: Number(legacyWidgets.allReviewsCounter.rating),
+        }),
+      settings: legacyWidgets.resources.settings,
+      shopDomain,
+      source: aiReviewsSummaryMetafieldValue ? 'metafield' : 'fixture',
+    });
 
     return {
       ...legacyWidgets,
+      aiReviewsSummary,
       popupReviews: createPopupReviewsData({
         page: popupReviewsPage,
         settings: legacyWidgets.resources.settings,
@@ -306,6 +330,12 @@ export default function Product() {
             }}
             includeStyles={false}
           />
+          {judgeMeWidgets.aiReviewsSummary ? (
+            <AiReviewsSummary
+              className="product-ai-reviews-summary"
+              data={judgeMeWidgets.aiReviewsSummary}
+            />
+          ) : null}
           {judgeMeWidgets.cardsCarousel ? (
             <CardsCarousel
               className="product-cards-carousel"
@@ -478,6 +508,35 @@ const PRODUCT_QUERY = `#graphql
     product(handle: $handle) {
       ...Product
     }
+    shop {
+      judgeMeStoreSummaryWidgetData: metafield(
+        namespace: "judgeme"
+        key: "store_summary_widget_data"
+      ) {
+        value
+      }
+    }
   }
   ${PRODUCT_FRAGMENT}
 ` as const;
+
+function createAiReviewsSummaryHarnessFixture({
+  count,
+  rating,
+}: {
+  count: number;
+  rating: number;
+}) {
+  return {
+    average_rating: rating,
+    number_of_reviews: count,
+    ai_summary_text:
+      '(Local harness fixture — no paid Judge.me summary is enabled.) Shoppers frequently praise the print quality, thoughtful gift experience, quick delivery, and responsive support.',
+    keywords: [
+      {keyword: 'Print quality', sentiment: 'positive'},
+      {keyword: 'Gifts', sentiment: 'positive'},
+      {keyword: 'Delivery', sentiment: 'positive'},
+      {keyword: 'Support', sentiment: 'positive'},
+    ],
+  };
+}

@@ -4,7 +4,7 @@ Research-stage project for exposing Judge.me widgets through React, with Shopify
 
 ## Current status
 
-The first eleven components are `StarRatingBadge`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, `FloatingReviewsTab`, `ReviewsGrid`, `CardsCarousel`, `TestimonialsCarousel`, `VideosCarousel`, and `PopupReviews`. The legacy components share Judge.me's dashboard CSS/settings and browser runtime; the exact extension adapters combine current tokenless data endpoints with the store's deployment scripts and v3 lightbox. The Hydrogen harness exercises them with real review data, including all four carousel implementations, the write-review modal, standalone All Reviews streams, the floating tab, grid pagination, the timed popup, and the v3 media lightboxes.
+The first twelve components are `StarRatingBadge`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, `FloatingReviewsTab`, `ReviewsGrid`, `CardsCarousel`, `TestimonialsCarousel`, `VideosCarousel`, `PopupReviews`, and `AiReviewsSummary`. The legacy components share Judge.me's dashboard CSS/settings and browser runtime; the exact extension adapters combine current public data or Shopify metafields with the store's deployment scripts. The Hydrogen harness exercises them with real review data plus a clearly labeled AI-summary fixture, including all four carousel implementations, the write-review modal, standalone All Reviews streams, the floating tab, grid pagination, the timed popup, the AI summary accordion, and the v3 media lightboxes.
 
 `ReviewsGrid` uses Judge.me's public tokenless grid-data endpoint and the store's current Shopify extension assets. Because Shopify extension deployment URLs change, the consuming app supplies `v3AssetBaseUrl`; the adapter loads the deployment manifest, CSS, and module while preserving the app-block configuration contract.
 
@@ -15,6 +15,8 @@ The first eleven components are `StarRatingBadge`, `AllReviewsCounter`, `Reviews
 `VideosCarousel` uses `carousel_type=videos` plus the required `review_type` filter. It supports videos-only, photo/video, and any-review modes along with the current selection, layout, styling, autoplay, navigation, and header settings. Judge.me's media builder and lightbox remain responsible for review media; the current test store verifies its photo-card mode, while iframe playback awaits a seeded video review.
 
 `PopupReviews` is a native app-embed-style implementation. It reads all current popup choices from the shared dashboard settings and uses one tokenless `reviews_for_carousel` request for recent, picture-first, or manually featured reviews. The component owns page targeting, timing, position, mobile visibility, animation, and cleanup. Review pictures work directly; product-picture mode accepts Storefront API image URLs keyed by product handle.
+
+`AiReviewsSummary` mounts Judge.me's exact current store-summary extension entry. Production text comes from `shop.metafields.judgeme.store_summary_widget_data`; the adapter validates that payload and never fabricates a missing summary. Its typed config covers the current expanded, accordion, and button themes plus all block layout and color attributes. The current Free-plan harness has no generated metafield, so its test content is explicitly labeled as a local fixture.
 
 `AllReviewsCounter` renders the store's combined product-and-shop rating/count with the dashboard-selected branded or text treatment. Its standalone fetcher uses the public aggregate endpoints; the full storefront batch derives the same values from the existing All Reviews header, so adding the component does not increase the seven-request product loader.
 
@@ -53,6 +55,7 @@ The workspace pins Bun 1.3.14 and uses `bun.lock` as its only dependency lockfil
 - [Working Testimonials Carousel spike](docs/research/testimonials-carousel-spike-2026-07-13.md), queryable in ctx as `testimonials-carousel-spike-2026-07-13`.
 - [Working Videos Carousel spike](docs/research/videos-carousel-spike-2026-07-13.md), queryable in ctx as `videos-carousel-spike-2026-07-13`.
 - [Working Pop-up Reviews spike](docs/research/popup-reviews-spike-2026-07-13.md), queryable in ctx as `popup-reviews-spike-2026-07-13`.
+- [Working AI Reviews Summary spike](docs/research/ai-reviews-summary-spike-2026-07-13.md), queryable in ctx as `ai-reviews-summary-spike-2026-07-13`.
 - [Research workflow and resource index](docs/research/README.md)
 - Project documentation sources are pinned in `.ctx/ctx.json`.
 - `ctx` Codex hooks are installed under `.ctx/hooks` and pass `ctx hook doctor`.
