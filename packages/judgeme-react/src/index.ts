@@ -43,6 +43,13 @@ export {
   fetchReviewsGridPage,
   normalizeReviewsGridConfig,
 } from "./reviews-grid-api.js";
+export { ReviewSnippets } from "./review-snippets.js";
+export {
+  createReviewSnippetsData,
+  fetchReviewSnippets,
+  fetchReviewSnippetsPage,
+  normalizeReviewSnippetsConfig,
+} from "./review-snippets-api.js";
 export { AUTO_ENGINE_ORDER, resolveJudgeMeEngine } from "./runtime.js";
 export { getShopifyNumericId } from "./shopify.js";
 export { StarRatingBadge } from "./star-rating-badge.js";
@@ -211,3 +218,18 @@ export type {
   ReviewsGridReview,
   ReviewsGridSelection,
 } from "./reviews-grid-api.js";
+export type { ReviewSnippetsProps } from "./review-snippets.js";
+export type {
+  CreateReviewSnippetsDataOptions,
+  FetchReviewSnippetsOptions,
+  FetchReviewSnippetsPageOptions,
+  ReviewSnippetsArrowsVisibility,
+  ReviewSnippetsConfig,
+  ReviewSnippetsCornerStyle,
+  ReviewSnippetsData,
+  ReviewSnippetsPageData,
+  ReviewSnippetsReview,
+  ReviewSnippetsSelection,
+  ReviewSnippetsSize,
+  ReviewSnippetsStarRating,
+} from "./review-snippets-api.js";

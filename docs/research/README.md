@@ -21,6 +21,7 @@
 | `videos-carousel-spike-2026-07-13`               | notes | Required media filter, tokenless video/photo cards, extension runtime, navigation, lightbox, and fixture limits      |
 | `popup-reviews-spike-2026-07-13`                 | notes | Dashboard settings, tokenless selection feed, product-image boundary, timing, page targeting, and native lifecycle   |
 | `ai-reviews-summary-spike-2026-07-13`            | notes | Shopify metafield payload, public status route, app-block configuration, exact module, and Brave lifecycle           |
+| `review-snippets-spike-2026-07-13`               | notes | Tokenless snippet endpoint, exact extension module, preload bridge, block configuration, and Brave lightbox          |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                            |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                        |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                            |
@@ -31,6 +32,8 @@
 | `judge-me-videos-carousel`                       | docs  | Official Videos Carousel plan, review/media selection, layout, behavior, and app-embed contract                      |
 | `judge-me-popup-reviews`                         | docs  | Official Pop-up Reviews plan, selection, content, image, page, position, timing, and app-embed contract              |
 | `judge-me-ai-reviews-summary`                    | docs  | Official AI Reviews Summary plan, content, eligibility, configuration, and Shopify app-block contract                |
+| `judge-me-review-snippets`                       | docs  | Official Review Snippets plan, product behavior, content, configuration, and empty-state contract                    |
+| `judge-me-cart-widgets`                          | docs  | Official cart-widget Review Snippets selection and ten-review behavior                                               |
 | `judge-me-hydrogen-npm-metadata`                 | docs  | Registry metadata for Judge.me's official Hydrogen package                                                           |
 | `judge-me-liquid-widgets`                        | docs  | Official Liquid markup and Judge.me metafield dependencies                                                           |
 | `shopify-theme-app-extensions`                   | docs  | Official Shopify app-block, app-embed, Liquid-scope, and CDN model                                                   |
@@ -181,6 +184,16 @@ Query the AI Reviews Summary report:
 ctx query \
   "How does AI Reviews Summary obtain its generated content and mount in Hydrogen?" \
   --label ai-reviews-summary-spike-2026-07-13 \
+  --kind notes \
+  --cwd /Users/panda/Code/judgeme-react
+```
+
+Query the Review Snippets report:
+
+```sh
+ctx query \
+  "How does Review Snippets fetch once and mount Judge.me's exact current module in Hydrogen?" \
+  --label review-snippets-spike-2026-07-13 \
   --kind notes \
   --cwd /Users/panda/Code/judgeme-react
 ```

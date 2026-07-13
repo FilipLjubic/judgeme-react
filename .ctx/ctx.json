@@ -324,6 +324,36 @@
       "current": "20260713T202630Z-e8ef7191d4e8",
       "created_at": "2026-07-13T20:26:30Z",
       "updated_at": "2026-07-13T20:26:30Z"
+    },
+    {
+      "id": "701a969f8052eb55",
+      "label": "judge-me-review-snippets",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/9823370-review-snippets-widget",
+      "reason": null,
+      "current": "20260713T204407Z-c85ff29eacb4",
+      "created_at": "2026-07-13T20:44:05Z",
+      "updated_at": "2026-07-13T20:44:05Z"
+    },
+    {
+      "id": "7dbf5af05ae7cd6e",
+      "label": "judge-me-cart-widgets",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/15359911-adding-judge-me-widgets-on-your-cart-page",
+      "reason": null,
+      "current": "20260713T204414Z-9d323a9c5d35",
+      "created_at": "2026-07-13T20:44:11Z",
+      "updated_at": "2026-07-13T20:44:11Z"
+    },
+    {
+      "id": "bbc2ebc6a48347b1",
+      "label": "review-snippets-spike-2026-07-13",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/review-snippets-spike-2026-07-13.md",
+      "reason": null,
+      "current": "20260713T204418Z-f3bce4c86f91",
+      "created_at": "2026-07-13T20:44:18Z",
+      "updated_at": "2026-07-13T20:44:18Z"
     }
   ]
 }

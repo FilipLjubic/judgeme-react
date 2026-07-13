@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createAiReviewsSummaryData,
   createPopupReviewsData,
+  createReviewSnippetsData,
   createJudgeMeConfig,
   fetchCardsCarousel,
   fetchCardsCarouselPage,
@@ -14,6 +15,7 @@ import {
   fetchLegacyStorefrontWidgets,
   fetchAiReviewsSummaryStatus,
   fetchPopupReviewsPage,
+  fetchReviewSnippetsPage,
   fetchReviewsCarousel,
   fetchReviewsGrid,
   fetchStarRatingBadge,
@@ -25,6 +27,7 @@ import {
   normalizeTestimonialsCarouselConfig,
   normalizeAiReviewsSummaryConfig,
   normalizePopupReviewsConfig,
+  normalizeReviewSnippetsConfig,
   normalizeVideosCarouselConfig,
   parseAiReviewsSummaryMetafield,
   resolveJudgeMeEngine,
@@ -1259,6 +1262,121 @@ test("reads public AI Reviews Summary generation status without a token", async 
     generating: false,
     hasSufficientReviews: true,
   });
+});
+
+test("fetches the exact Review Snippets feed without a token", async () => {
+  const page = await fetchReviewSnippetsPage({
+    shopDomain: "https://STORE.myshopify.com/products/example",
+    productId: "gid://shopify/Product/12345",
+    config: {
+      reviewSelection: "current_product",
+      maxReviews: 5,
+      minStarRating: "5",
+      filterPinned: true,
+      customTags: ["gift"],
+    },
+    fetch: async (input, init) => {
+      const url = new URL(input);
+      assert.equal(url.origin, "https://api.judge.me");
+      assert.equal(url.pathname, "/reviews/reviews_for_review_snippet_widget");
+      assert.equal(url.searchParams.get("v"), "2");
+      assert.equal(url.searchParams.get("product_id"), "12345");
+      assert.equal(url.searchParams.get("selection_source"), "current_product");
+      assert.equal(url.searchParams.get("count"), "5");
+      assert.equal(url.searchParams.get("min_star_rating"), "5");
+      assert.deepEqual(url.searchParams.getAll("tag_filter[]"), ["pinned"]);
+      assert.deepEqual(url.searchParams.getAll("custom_tags[]"), ["gift"]);
+      assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+      assert.equal(url.searchParams.get("platform"), "shopify");
+      assert.equal(url.searchParams.has("api_token"), false);
+      assert.equal(init?.headers.Accept, "application/json");
+
+      return Response.json({
+        reviews: [
+          {
+            uuid: "snippet-review-1",
+            rating: 5,
+            public_reviewer_name: "Customer",
+            body_html: "<p>Excellent print.</p>",
+            review_image_url: null,
+          },
+        ],
+        settings: {
+          legacy_snippets_shop: true,
+          star_color: "#108474",
+          card_color: "#ffffff",
+        },
+      });
+    },
+  });
+  const data = createReviewSnippetsData({
+    config: {
+      reviewSelection: "current_product",
+      maxReviews: 5,
+      minStarRating: "5",
+      filterPinned: true,
+      customTags: ["gift"],
+    },
+    page,
+    productId: "gid://shopify/Product/12345",
+    settings: { locale: "en" },
+    shopDomain: "store.myshopify.com",
+  });
+
+  assert.equal(data.productId, "12345");
+  assert.equal(data.page.reviews.length, 1);
+  assert.equal(data.page.reviews[0].uuid, "snippet-review-1");
+  assert.equal(data.page.settings.star_color, "#108474");
+});
+
+test("normalizes Review Snippets block settings and validates public HTML", async () => {
+  const config = normalizeReviewSnippetsConfig({
+    reviewSelection: "custom",
+    selectedProductIds: [
+      "gid://shopify/Product/12345",
+      "gid://shopify/Product/12345",
+      "67890",
+    ],
+    customTags: [" gift ", "gift", "photo"],
+    maxReviews: 10,
+    transitionSpeed: 0,
+    arrowsVisibility: "hidden_on_mobile",
+    cornerStyle: "extra_round",
+    starsColor: "  #123456  ",
+  });
+
+  assert.deepEqual(config.selectedProductIds, [
+    "gid://shopify/Product/12345",
+    "67890",
+  ]);
+  assert.deepEqual(config.customTags, ["gift", "photo"]);
+  assert.equal(config.transitionSpeed, 0);
+  assert.equal(config.starsColor, "#123456");
+
+  await assert.rejects(
+    fetchReviewSnippetsPage({
+      shopDomain: "store.myshopify.com",
+      productId: "12345",
+      config: { reviewSelection: "current_product" },
+      fetch: async () =>
+        Response.json({
+          reviews: [
+            {
+              uuid: "unsafe-review",
+              rating: 5,
+              public_reviewer_name: "Customer",
+              body_html: '<img src="x" onerror="alert(1)">',
+            },
+          ],
+          settings: {},
+        }),
+    }),
+    /executable Review Snippets markup/,
+  );
+  assert.throws(
+    () => normalizeReviewSnippetsConfig({ maxReviews: 11 }),
+    /review count must be between 1 and 10/,
+  );
 });
 
 test("rejects executable markup returned by the Widget API", async () => {

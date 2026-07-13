@@ -5,6 +5,7 @@ import type {
   CardsCarouselData,
 } from "./cards-carousel-api.js";
 import type { ReviewsGridData } from "./reviews-grid-api.js";
+import type { ReviewSnippetsData } from "./review-snippets-api.js";
 import type {
   TestimonialsCarouselConfig,
   TestimonialsCarouselData,
@@ -17,6 +18,7 @@ import type {
 const JUDGE_ME_API_HOST = "https://api.judge.me";
 const JUDGE_ME_CDN_API_HOST = "https://cdn.judge.me/";
 const AI_REVIEWS_SUMMARY_ENTRY_KEY = "store-summary-widget/main.js";
+const REVIEW_SNIPPETS_ENTRY_KEY = "review-snippet-widget/main.js";
 const REVIEWS_GRID_ENTRY_KEY = "reviews-grid-widget/main.js";
 const REVIEWS_GRID_ENTRY_FILE = "reviews_grid.js";
 const CAROUSEL_LIGHTBOX_ENTRY_KEY = "carousel-lightbox/main.js";
@@ -196,6 +198,13 @@ export interface InitializeAiReviewsSummaryOptions {
   publicToken?: string;
 }
 
+export interface InitializeReviewSnippetsOptions {
+  assetBaseUrl: string;
+  container: HTMLElement;
+  data: ReviewSnippetsData;
+  publicToken?: string;
+}
+
 export interface InitializeCardsCarouselOptions {
   assetBaseUrl: string;
   blockId: string;
@@ -229,6 +238,13 @@ const scriptPromises = new Map<string, Promise<void>>();
 const modulePromises = new Map<string, Promise<void>>();
 const aiReviewsSummaryInitializers = new WeakMap<HTMLElement, Promise<void>>();
 let aiReviewsSummaryScanQueue = Promise.resolve();
+const reviewSnippetsInitializers = new WeakMap<HTMLElement, Promise<void>>();
+const reviewSnippetsResponses = new Map<
+  string,
+  { payload: string; references: number }
+>();
+let reviewSnippetsFetchBridgeInstalled = false;
+let reviewSnippetsScanQueue = Promise.resolve();
 const reviewsGridInitializers = new WeakMap<HTMLElement, Promise<void>>();
 const cardsCarouselInitializers = new WeakMap<HTMLElement, Promise<void>>();
 const cardsCarouselDisposals = new WeakMap<HTMLElement, number>();
@@ -257,6 +273,41 @@ export function initializeAiReviewsSummary(
   });
   aiReviewsSummaryInitializers.set(options.container, guardedInitializer);
   return guardedInitializer;
+}
+
+/** Loads Judge.me's deployment-specific Review Snippets module. */
+export function initializeReviewSnippets(
+  options: InitializeReviewSnippetsOptions,
+): Promise<void> {
+  if (typeof window !== "undefined") {
+    registerReviewSnippetsResponse(options.data);
+  }
+
+  const existing = reviewSnippetsInitializers.get(options.container);
+  if (existing) return existing;
+
+  const initializer = reviewSnippetsScanQueue.then(() =>
+    initializeReviewSnippetsRoot(options),
+  );
+  reviewSnippetsScanQueue = initializer.catch(() => undefined);
+  const guardedInitializer = initializer.catch((error) => {
+    reviewSnippetsInitializers.delete(options.container);
+    throw error;
+  });
+  reviewSnippetsInitializers.set(options.container, guardedInitializer);
+  return guardedInitializer;
+}
+
+/** Releases the preloaded response retained for one mounted snippets root. */
+export function releaseReviewSnippetsResponse(data: ReviewSnippetsData): void {
+  if (typeof window === "undefined") return;
+
+  const requestKey = canonicalizeReviewSnippetsRequest(data.page.requestUrl);
+  const response = reviewSnippetsResponses.get(requestKey);
+  if (!response) return;
+
+  if (response.references <= 1) reviewSnippetsResponses.delete(requestKey);
+  else response.references -= 1;
 }
 
 /** Loads Judge.me's deployment-specific v3 Reviews Grid module for one root. */
@@ -514,6 +565,44 @@ async function initializeAiReviewsSummaryRoot({
   container.removeAttribute("data-entry-point");
   runtimeWindow.jdgm?.debugLog?.(
     "[judgeme-react] AI Reviews Summary exact adapter ready",
+  );
+}
+
+async function initializeReviewSnippetsRoot({
+  assetBaseUrl,
+  container,
+  data,
+  publicToken,
+}: InitializeReviewSnippetsOptions): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = configureExactRuntime({
+    assetBaseUrl,
+    settings: data.settings,
+    shopDomain: data.shopDomain,
+    publicToken,
+  });
+  await loadManifestStyles(assetBaseUrl, REVIEW_SNIPPETS_ENTRY_KEY);
+
+  if (!isReviewSnippetsReady(container)) {
+    const manifest = await getManifest(assetBaseUrl);
+    const entryFile = getManifestFile(manifest, REVIEW_SNIPPETS_ENTRY_KEY);
+    await loadModule(
+      new URL(
+        `${entryFile}?judgeme_react_instance=${++moduleInstance}`,
+        assetBaseUrl,
+      ).toString(),
+      "Review Snippets",
+    );
+
+    if (data.page.reviews.length > 0) {
+      await waitForReviewSnippets(container);
+    }
+  }
+
+  container.removeAttribute("data-entry-point");
+  runtimeWindow.jdgm?.debugLog?.(
+    "[judgeme-react] Review Snippets exact adapter ready",
   );
 }
 
@@ -1064,6 +1153,74 @@ function createAiReviewsSummaryBootstrap(
   };
 }
 
+function registerReviewSnippetsResponse(data: ReviewSnippetsData): void {
+  const requestKey = canonicalizeReviewSnippetsRequest(data.page.requestUrl);
+  const existing = reviewSnippetsResponses.get(requestKey);
+  const payload = JSON.stringify({
+    reviews: data.page.reviews,
+    settings: data.page.settings,
+  });
+  reviewSnippetsResponses.set(requestKey, {
+    payload,
+    references: (existing?.references ?? 0) + 1,
+  });
+
+  if (reviewSnippetsFetchBridgeInstalled) return;
+
+  const originalFetch = window.fetch.bind(window);
+  const bridgedFetch: typeof window.fetch = async (input, init) => {
+    const method =
+      init?.method ?? (input instanceof Request ? input.method : "GET");
+
+    if (method.toUpperCase() === "GET") {
+      const requestUrl =
+        input instanceof Request
+          ? input.url
+          : input instanceof URL
+            ? input.href
+            : String(input);
+
+      try {
+        const response = reviewSnippetsResponses.get(
+          canonicalizeReviewSnippetsRequest(requestUrl),
+        );
+        if (response) {
+          return new Response(response.payload, {
+            status: 200,
+            headers: {
+              "Cache-Control": "max-age=1200, public",
+              "Content-Type": "application/json; charset=utf-8",
+              "X-JudgeMe-React-Preloaded": "true",
+            },
+          });
+        }
+      } catch {
+        // Non-URL inputs are delegated to the browser's original fetch.
+      }
+    }
+
+    return originalFetch(input, init);
+  };
+
+  window.fetch = bridgedFetch;
+  reviewSnippetsFetchBridgeInstalled = true;
+}
+
+function canonicalizeReviewSnippetsRequest(value: string): string {
+  const url = new URL(value, window.location.href);
+  const params: Array<[string, string]> = [];
+  url.searchParams.forEach((paramValue, paramKey) => {
+    params.push([paramKey, paramValue]);
+  });
+  params.sort(([leftKey, leftValue], [rightKey, rightValue]) =>
+    leftKey === rightKey
+      ? leftValue.localeCompare(rightValue)
+      : leftKey.localeCompare(rightKey),
+  );
+  const search = new URLSearchParams(params);
+  return `${url.origin}${url.pathname}?${search.toString()}`;
+}
+
 async function loadManifestStyles(
   assetBaseUrl: string,
   entryKey: string,
@@ -1259,6 +1416,42 @@ function loadModule(url: string, label: string): Promise<void> {
       { once: true },
     );
     document.head.appendChild(script);
+  });
+}
+
+function waitForReviewSnippets(container: HTMLElement): Promise<void> {
+  if (isReviewSnippetsReady(container)) return Promise.resolve();
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (error?: Error) => {
+      if (settled) return;
+
+      settled = true;
+      observer.disconnect();
+      window.clearTimeout(timeoutId);
+
+      if (error) reject(error);
+      else resolve();
+    };
+    const observer = new MutationObserver(() => {
+      if (isReviewSnippetsReady(container)) settle();
+    });
+    observer.observe(container, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+
+    const timeoutId = window.setTimeout(() => {
+      if (isReviewSnippetsReady(container)) {
+        settle();
+      } else {
+        settle(
+          new Error("Judge.me did not finish initializing Review Snippets."),
+        );
+      }
+    }, EXACT_RUNTIME_TIMEOUT_MS);
   });
 }
 
@@ -1463,6 +1656,13 @@ function isAiReviewsSummaryReady(container: HTMLElement): boolean {
   return (
     container.classList.contains("jdgm-widget-revamp") &&
     container.querySelector(".jm-store-summary") !== null
+  );
+}
+
+function isReviewSnippetsReady(container: HTMLElement): boolean {
+  return (
+    container.querySelector(".jdgm-rev-snippet-widget-v2__inner") !== null &&
+    container.querySelector(".jdgm-rev-snippet-card") !== null
   );
 }
 

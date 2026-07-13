@@ -19,6 +19,7 @@ The package is intentionally framework-neutral. Hydrogen is a consumer under `ex
 | Videos Carousel                         | Implemented with tokenless video/photo cards, current media/player scripts, navigation, and the v3 review lightbox            |
 | Pop-up Reviews Widget                   | Implemented with dashboard settings, a tokenless public review feed, and React-owned app-embed timing and placement           |
 | AI Reviews Summary                      | Implemented with Judge.me's Shopify metafield, current extension module, and complete app-block configuration                 |
+| Review Snippets                         | Implemented with the tokenless v2 feed, exact current extension module, arrows/autoplay, and v3 review lightbox               |
 | Legacy Review Widget                    | Implemented and tested in the Hydrogen harness                                                                                |
 | New Shopify v3 Review Widget            | Not implemented; shared dashboard settings are reused by the legacy adapter, but this is not exact v3 rendering               |
 | Every other entry in `JUDGE_ME_WIDGETS` | Planned/researched only; there is no public React component yet                                                               |
@@ -49,6 +50,8 @@ The package is intentionally framework-neutral. Hydrogen is a consumer under `ex
 - `parseAiReviewsSummaryMetafield` validates and normalizes Judge.me's generated `shop.metafields.judgeme.store_summary_widget_data` value.
 - `createAiReviewsSummaryData` combines that Storefront metafield with the app block's layout settings and shared public settings.
 - `fetchAiReviewsSummaryStatus` reads Judge.me's tokenless generation state for diagnostics; it does not return summary content.
+- `fetchReviewSnippetsPage` fetches one tokenless public snippets page; `fetchReviewSnippets` adds shared public settings for standalone use.
+- `createReviewSnippetsData` combines snippets with settings already returned by a storefront batch.
 - `StarRatingBadge` server-renders the product rating and enables its scroll-to-reviews behavior.
 - `ReviewsCarousel` server-renders the configured classic carousel and enables its navigation, auto-slide, and gallery behavior.
 - `AllReviewsCounter` server-renders the configured combined store rating/count and enables its branded/text star treatment.
@@ -61,6 +64,7 @@ The package is intentionally framework-neutral. Hydrogen is a consumer under `ex
 - `VideosCarousel` mounts the current Highlight/Perspective media carousel, player/navigation behavior, and review lightbox.
 - `PopupReviews` renders the global timed popup and owns page targeting, position, mobile visibility, dismissal, and SPA timer cleanup.
 - `AiReviewsSummary` mounts Judge.me's current expanded, accordion, or button-theme store summary.
+- `ReviewSnippets` mounts Judge.me's current rotating snippet card, arrows, autoplay, and review lightbox.
 - `resolveJudgeMeEngine` implements the explicit `exact`, `legacy`, and `native` runtime policy.
 - `JUDGE_ME_WIDGETS` names the storefront widget surface we intend to support.
 - `getShopifyNumericId` converts Storefront API GraphQL IDs for Judge.me calls.
@@ -69,7 +73,7 @@ Private Judge.me credentials do not belong in this React package. Server integra
 
 ## Implemented widgets
 
-Fetch the six legacy widgets plus the v3 grid, Cards, Testimonials, Videos, and Popup pages in a server loader. The legacy batch makes seven requests: `product_review`, `preview_badge`, `featured_carousel`, `reviews_tab`, `all_reviews_page`, `settings`, and `html_miracle`. The same All Reviews response supplies `AllReviewsWidget`, the aggregate values for `AllReviewsCounter`, and the Floating Tab fallback when `reviews_tab` is `null`. Reviews Grid, Cards Carousel, Testimonials Carousel, Videos Carousel, and Pop-up Reviews each add one tokenless CDN request and reuse the batch's settings, for twelve Judge.me requests total. AI Reviews Summary adds no Judge.me data request: its content comes from a Shopify Storefront API metafield fetched with the product query. The large settings/CSS payload remains shared. Awaiting the data keeps Judge.me-owned DOM outside a streamed Suspense boundary, which prevents its runtime from racing hydration.
+Fetch the six legacy widgets plus the v3 grid, Cards, Testimonials, Videos, Popup, and Review Snippets pages in a server loader. The legacy batch makes seven requests: `product_review`, `preview_badge`, `featured_carousel`, `reviews_tab`, `all_reviews_page`, `settings`, and `html_miracle`. The same All Reviews response supplies `AllReviewsWidget`, the aggregate values for `AllReviewsCounter`, and the Floating Tab fallback when `reviews_tab` is `null`. Reviews Grid, Cards Carousel, Testimonials Carousel, Videos Carousel, Pop-up Reviews, and Review Snippets each add one tokenless public request and reuse the batch's settings, for thirteen Judge.me requests total. AI Reviews Summary adds no Judge.me data request: its content comes from a Shopify Storefront API metafield fetched with the product query. The large settings/CSS payload remains shared. Awaiting the data keeps Judge.me-owned DOM outside a streamed Suspense boundary, which prevents its runtime from racing hydration.
 
 ```ts
 import {
@@ -77,15 +81,17 @@ import {
   AllReviewsCounter,
   AllReviewsWidget,
   CardsCarousel,
-  createCardsCarouselData,
   createAiReviewsSummaryData,
+  createCardsCarouselData,
   createPopupReviewsData,
+  createReviewSnippetsData,
   createReviewsGridData,
   createTestimonialsCarouselData,
   createVideosCarouselData,
   fetchCardsCarouselPage,
   fetchLegacyStorefrontWidgets,
   fetchPopupReviewsPage,
+  fetchReviewSnippetsPage,
   fetchReviewsGridPage,
   fetchTestimonialsCarouselPage,
   fetchVideosCarouselPage,
@@ -96,6 +102,7 @@ import {
   PopupReviews,
   ReviewsCarousel,
   ReviewsGrid,
+  ReviewSnippets,
   StarRatingBadge,
   TestimonialsCarousel,
   VideosCarousel,
@@ -132,6 +139,18 @@ const videosCarouselPage = await fetchVideosCarouselPage({
 const popupReviewsPage = await fetchPopupReviewsPage({
   shopDomain: env.JUDGEME_SHOP_DOMAIN,
   settings: widgets.resources.settings,
+  signal: request.signal,
+});
+
+const reviewSnippetsConfig = {
+  reviewSelection: "current_product",
+  showReviewMedia: true,
+} as const;
+
+const reviewSnippetsPage = await fetchReviewSnippetsPage({
+  shopDomain: env.JUDGEME_SHOP_DOMAIN,
+  productId: getShopifyNumericId(product.id),
+  config: reviewSnippetsConfig,
   signal: request.signal,
 });
 
@@ -194,6 +213,14 @@ const aiReviewsSummary = createAiReviewsSummaryData({
     keywordsVisibility: "when_click",
   },
 });
+
+const reviewSnippets = createReviewSnippetsData({
+  config: reviewSnippetsConfig,
+  page: reviewSnippetsPage,
+  productId: getShopifyNumericId(product.id),
+  settings: widgets.resources.settings,
+  shopDomain: env.JUDGEME_SHOP_DOMAIN,
+});
 ```
 
 Render it inside the store-level provider:
@@ -215,6 +242,7 @@ Render it inside the store-level provider:
     includeStyles={false}
   />
   {aiReviewsSummary ? <AiReviewsSummary data={aiReviewsSummary} /> : null}
+  <ReviewSnippets data={reviewSnippets} />
   <CardsCarousel data={cardsCarousel} includeStyles={false} />
   <TestimonialsCarousel data={testimonialsCarousel} includeStyles={false} />
   <VideosCarousel data={videosCarousel} includeStyles={false} />
@@ -264,5 +292,7 @@ The host application must allow Judge.me's script, style, API, media, and image 
 `PopupReviews` is a native global embed. Its tokenless request maps the dashboard's recent, picture-first, or featured selection to the existing public carousel feed, while `PopupReviewsConfig` comes from the shared Judge.me settings response. Mount it once near the application root in a complete storefront; pass an explicit `pageType` when route metadata is available. Product-picture mode needs `productImageUrlsByHandle` from the host's Storefront API because the public review feed does not consistently include base product images. The adapter never needs the private Judge.me token and never serializes reviewer contact or IP fields.
 
 `AiReviewsSummary` is a store-level exact mount. Query `shop.metafield(namespace: "judgeme", key: "store_summary_widget_data") { value }` with Shopify's Storefront API and pass that value to `createAiReviewsSummaryData`; missing data returns `null`. The public status route is useful for generation diagnostics but does not contain the summary. Layout, visibility, sizing, corner, and color values belong to the Shopify app block, so the headless host must supply them through `AiReviewsSummaryConfig`. Judge.me's current module renders the generated summary, translations, keywords, aggregate, disclaimer, and verified branding; it does not currently consume a separately verified review-highlights field. No private Judge.me token is required.
+
+`ReviewSnippets` is an exact current extension mount backed by `api.judge.me/reviews/reviews_for_review_snippet_widget`. Use `fetchReviewSnippetsPage` beside the shared storefront batch, then pass its result and shared settings to `createReviewSnippetsData`. The React marker carries the current product/cart selection, filters, sizing, arrows, autoplay, media, corner, and color settings. Judge.me's module insists on fetching its own URL, so the adapter gives it the already validated loader response through an exact-URL, GET-only preload bridge and releases that response on unmount. No private token is required. Judge.me officially gates theme installation to Awesome; the current Free-plan public response is a compatibility workaround, not an entitlement guarantee.
 
 The Widget API response is treated as trusted third-party HTML. The helper rejects script tags, inline event handlers, and `javascript:` URLs before the payload reaches server rendering. Judge.me's runtime is loaded from its CDN after React hydration and is never copied into this package.

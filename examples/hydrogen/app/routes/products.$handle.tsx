@@ -20,12 +20,14 @@ import {
   createAiReviewsSummaryData,
   createCardsCarouselData,
   createPopupReviewsData,
+  createReviewSnippetsData,
   createReviewsGridData,
   createTestimonialsCarouselData,
   createVideosCarouselData,
   fetchCardsCarouselPage,
   fetchLegacyStorefrontWidgets,
   fetchPopupReviewsPage,
+  fetchReviewSnippetsPage,
   fetchReviewsGridPage,
   fetchTestimonialsCarouselPage,
   fetchVideosCarouselPage,
@@ -35,6 +37,7 @@ import {
   PopupReviews,
   ReviewsCarousel,
   ReviewsGrid,
+  ReviewSnippets,
   StarRatingBadge,
   TestimonialsCarousel,
   VideosCarousel,
@@ -127,6 +130,10 @@ async function loadJudgeMeWidgets({
     const cardsCarouselConfig = {} as const;
     const testimonialsCarouselConfig = {} as const;
     const videosCarouselConfig = {reviewType: 'photos-and-videos'} as const;
+    const reviewSnippetsConfig = {
+      reviewSelection: 'current_product',
+      showReviewMedia: true,
+    } as const;
     const legacyWidgetsPromise = fetchLegacyStorefrontWidgets({
       productId: numericProductId,
       publicToken,
@@ -139,6 +146,7 @@ async function loadJudgeMeWidgets({
       cardsCarouselPage,
       testimonialsCarouselPage,
       videosCarouselPage,
+      reviewSnippetsPage,
     ] = await Promise.all([
       legacyWidgetsPromise,
       v3AssetBaseUrl
@@ -173,6 +181,14 @@ async function loadJudgeMeWidgets({
             signal,
           })
         : Promise.resolve(null),
+      v3AssetBaseUrl
+        ? fetchReviewSnippetsPage({
+            shopDomain,
+            productId: numericProductId,
+            config: reviewSnippetsConfig,
+            signal,
+          })
+        : Promise.resolve(null),
     ]);
     const popupReviewsPage = await fetchPopupReviewsPage({
       shopDomain,
@@ -204,6 +220,15 @@ async function loadJudgeMeWidgets({
         settings: legacyWidgets.resources.settings,
         shopDomain,
       }),
+      reviewSnippets: reviewSnippetsPage
+        ? createReviewSnippetsData({
+            config: reviewSnippetsConfig,
+            page: reviewSnippetsPage,
+            productId: numericProductId,
+            settings: legacyWidgets.resources.settings,
+            shopDomain,
+          })
+        : null,
       reviewsGrid: reviewsGridPage
         ? createReviewsGridData({
             aggregate: {
@@ -334,6 +359,12 @@ export default function Product() {
             <AiReviewsSummary
               className="product-ai-reviews-summary"
               data={judgeMeWidgets.aiReviewsSummary}
+            />
+          ) : null}
+          {judgeMeWidgets.reviewSnippets ? (
+            <ReviewSnippets
+              className="product-review-snippets"
+              data={judgeMeWidgets.reviewSnippets}
             />
           ) : null}
           {judgeMeWidgets.cardsCarousel ? (
