@@ -264,6 +264,46 @@
       "current": "20260713T190142Z-76e3683d0e91",
       "created_at": "2026-07-13T19:00:50Z",
       "updated_at": "2026-07-13T19:01:42Z"
+    },
+    {
+      "id": "5d638d0702d7e276",
+      "label": "judge-me-videos-carousel",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/11883318-videos-carousel",
+      "reason": null,
+      "current": "20260713T191541Z-acded13180a5",
+      "created_at": "2026-07-13T19:15:35Z",
+      "updated_at": "2026-07-13T19:15:35Z"
+    },
+    {
+      "id": "aa90329c427e031d",
+      "label": "videos-carousel-spike-2026-07-13",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/videos-carousel-spike-2026-07-13.md",
+      "reason": null,
+      "current": "20260713T192713Z-a0263f537542",
+      "created_at": "2026-07-13T19:27:13Z",
+      "updated_at": "2026-07-13T19:27:13Z"
+    },
+    {
+      "id": "c86be4a459ee107e",
+      "label": "judge-me-popup-reviews",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/9428427-pop-up-reviews-widget",
+      "reason": null,
+      "current": "20260713T192924Z-c217ce08882c",
+      "created_at": "2026-07-13T19:29:19Z",
+      "updated_at": "2026-07-13T19:29:19Z"
+    },
+    {
+      "id": "92670370f3bc8474",
+      "label": "popup-reviews-spike-2026-07-13",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/popup-reviews-spike-2026-07-13.md",
+      "reason": null,
+      "current": "20260713T195825Z-d535bc31543d",
+      "created_at": "2026-07-13T19:45:20Z",
+      "updated_at": "2026-07-13T19:58:25Z"
     }
   ]
 }

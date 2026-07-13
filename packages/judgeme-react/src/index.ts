@@ -21,6 +21,13 @@ export {
 export { FloatingReviewsTab } from "./floating-reviews-tab.js";
 export { LegacyReviewWidget } from "./legacy-review-widget.js";
 export { JudgeMeProvider, useJudgeMe } from "./provider.js";
+export { PopupReviews } from "./popup-reviews.js";
+export {
+  createPopupReviewsData,
+  fetchPopupReviews,
+  fetchPopupReviewsPage,
+  normalizePopupReviewsConfig,
+} from "./popup-reviews-api.js";
 export { ReviewsCarousel } from "./reviews-carousel.js";
 export { ReviewsGrid } from "./reviews-grid.js";
 export {
@@ -39,6 +46,13 @@ export {
   fetchTestimonialsCarouselPage,
   normalizeTestimonialsCarouselConfig,
 } from "./testimonials-carousel-api.js";
+export { VideosCarousel } from "./videos-carousel.js";
+export {
+  createVideosCarouselData,
+  fetchVideosCarousel,
+  fetchVideosCarouselPage,
+  normalizeVideosCarouselConfig,
+} from "./videos-carousel-api.js";
 export { JUDGE_ME_WIDGETS } from "./types.js";
 export type {
   JudgeMeContextActions,
@@ -103,6 +117,20 @@ export type {
 } from "./cards-carousel-api.js";
 export type { FloatingReviewsTabProps } from "./floating-reviews-tab.js";
 export type { LegacyReviewWidgetProps } from "./legacy-review-widget.js";
+export type { PopupReviewsProps } from "./popup-reviews.js";
+export type {
+  CreatePopupReviewsDataOptions,
+  FetchPopupReviewsOptions,
+  FetchPopupReviewsPageOptions,
+  PopupReview,
+  PopupReviewsConfig,
+  PopupReviewsData,
+  PopupReviewsImageMode,
+  PopupReviewsPageData,
+  PopupReviewsPageType,
+  PopupReviewsPosition,
+  PopupReviewsSelection,
+} from "./popup-reviews-api.js";
 export type { StarRatingBadgeProps } from "./star-rating-badge.js";
 export type { TestimonialsCarouselProps } from "./testimonials-carousel.js";
 export type {
@@ -125,6 +153,24 @@ export type {
   TestimonialsCarouselTextSize,
   TestimonialsCarouselVerifiedReviewer,
 } from "./testimonials-carousel-api.js";
+export type { VideosCarouselProps } from "./videos-carousel.js";
+export type {
+  CreateVideosCarouselDataOptions,
+  FetchVideosCarouselOptions,
+  FetchVideosCarouselPageOptions,
+  VideosCarouselArrowsPosition,
+  VideosCarouselConfig,
+  VideosCarouselCornerStyle,
+  VideosCarouselData,
+  VideosCarouselPageData,
+  VideosCarouselReview,
+  VideosCarouselReviewType,
+  VideosCarouselSelection,
+  VideosCarouselStarRating,
+  VideosCarouselStarsSize,
+  VideosCarouselStyle,
+  VideosCarouselTextSize,
+} from "./videos-carousel-api.js";
 export type { ReviewsCarouselProps } from "./reviews-carousel.js";
 export type { ReviewsGridProps } from "./reviews-grid.js";
 export type {

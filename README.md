@@ -4,7 +4,7 @@ Research-stage project for exposing Judge.me widgets through React, with Shopify
 
 ## Current status
 
-The first nine components are `StarRatingBadge`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, `FloatingReviewsTab`, `ReviewsGrid`, `CardsCarousel`, and `TestimonialsCarousel`. The legacy components share Judge.me's dashboard CSS/settings and browser runtime; the exact extension adapters combine current tokenless data endpoints with the store's deployment scripts and v3 lightbox. The Hydrogen harness exercises them with real review data, including all three carousel implementations, the write-review modal, standalone All Reviews streams, the floating tab, grid pagination, and the v3 media lightboxes.
+The first eleven components are `StarRatingBadge`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, `FloatingReviewsTab`, `ReviewsGrid`, `CardsCarousel`, `TestimonialsCarousel`, `VideosCarousel`, and `PopupReviews`. The legacy components share Judge.me's dashboard CSS/settings and browser runtime; the exact extension adapters combine current tokenless data endpoints with the store's deployment scripts and v3 lightbox. The Hydrogen harness exercises them with real review data, including all four carousel implementations, the write-review modal, standalone All Reviews streams, the floating tab, grid pagination, the timed popup, and the v3 media lightboxes.
 
 `ReviewsGrid` uses Judge.me's public tokenless grid-data endpoint and the store's current Shopify extension assets. Because Shopify extension deployment URLs change, the consuming app supplies `v3AssetBaseUrl`; the adapter loads the deployment manifest, CSS, and module while preserving the app-block configuration contract.
 
@@ -12,13 +12,17 @@ The first nine components are `StarRatingBadge`, `AllReviewsCounter`, `ReviewsCa
 
 `TestimonialsCarousel` uses the same tokenless carousel endpoint with `carousel_type=testimonials`. Its typed configuration covers the current theme-editor review selection, filters, quote/product/reviewer/card sizing, arrows, colors, borders, shadows, transition, and header controls. React owns the CSP-safe arrow and SPA lifecycle while Judge.me's current builder creates the review cards and lightbox behavior.
 
+`VideosCarousel` uses `carousel_type=videos` plus the required `review_type` filter. It supports videos-only, photo/video, and any-review modes along with the current selection, layout, styling, autoplay, navigation, and header settings. Judge.me's media builder and lightbox remain responsible for review media; the current test store verifies its photo-card mode, while iframe playback awaits a seeded video review.
+
+`PopupReviews` is a native app-embed-style implementation. It reads all current popup choices from the shared dashboard settings and uses one tokenless `reviews_for_carousel` request for recent, picture-first, or manually featured reviews. The component owns page targeting, timing, position, mobile visibility, animation, and cleanup. Review pictures work directly; product-picture mode accepts Storefront API image URLs keyed by product handle.
+
 `AllReviewsCounter` renders the store's combined product-and-shop rating/count with the dashboard-selected branded or text treatment. Its standalone fetcher uses the public aggregate endpoints; the full storefront batch derives the same values from the existing All Reviews header, so adding the component does not increase the seven-request product loader.
 
 `AllReviewsWidget` is the headless version of Judge.me's platform-independent All Reviews Widget. It server-renders the public `all_reviews_page` response and supports the configured initial tab, product/shop switching, rating filters, sorting, button or scroll pagination, keyboard controls, and client-side navigation. Its browser reads use the public token; the private token is not required.
 
 `FloatingReviewsTab` has two modes. Stores with the official tab enabled receive Judge.me's `reviews_tab` markup unchanged. On the current Free-plan test store that endpoint returns `null`, so the component builds the same floating shell around the public `all_reviews_page` payload. The fallback supports open/close, product and shop subtabs, load-more pagination, rating filters, sorting, and client-side navigation.
 
-The other widget names in `JUDGE_ME_WIDGETS` describe the intended coverage target, not current support. Exact Shopify v3 Review Widget parity and Videos Carousel remain future work.
+The other widget names in `JUDGE_ME_WIDGETS` describe the intended coverage target, not current support. Exact Shopify v3 Review Widget parity and the remaining widgets remain future work.
 
 The repository is a Bun workspace:
 
@@ -47,6 +51,8 @@ The workspace pins Bun 1.3.14 and uses `bun.lock` as its only dependency lockfil
 - [Working Reviews Grid spike](docs/research/reviews-grid-spike-2026-07-13.md), queryable in ctx as `reviews-grid-spike-2026-07-13`.
 - [Working Cards Carousel spike](docs/research/cards-carousel-spike-2026-07-13.md), queryable in ctx as `cards-carousel-spike-2026-07-13`.
 - [Working Testimonials Carousel spike](docs/research/testimonials-carousel-spike-2026-07-13.md), queryable in ctx as `testimonials-carousel-spike-2026-07-13`.
+- [Working Videos Carousel spike](docs/research/videos-carousel-spike-2026-07-13.md), queryable in ctx as `videos-carousel-spike-2026-07-13`.
+- [Working Pop-up Reviews spike](docs/research/popup-reviews-spike-2026-07-13.md), queryable in ctx as `popup-reviews-spike-2026-07-13`.
 - [Research workflow and resource index](docs/research/README.md)
 - Project documentation sources are pinned in `.ctx/ctx.json`.
 - `ctx` Codex hooks are installed under `.ctx/hooks` and pass `ctx hook doctor`.

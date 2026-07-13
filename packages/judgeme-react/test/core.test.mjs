@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createPopupReviewsData,
   createJudgeMeConfig,
   fetchCardsCarousel,
   fetchCardsCarouselPage,
@@ -10,13 +11,18 @@ import {
   fetchLegacyProductWidgets,
   fetchLegacyReviewWidget,
   fetchLegacyStorefrontWidgets,
+  fetchPopupReviewsPage,
   fetchReviewsCarousel,
   fetchReviewsGrid,
   fetchStarRatingBadge,
   fetchTestimonialsCarousel,
   fetchTestimonialsCarouselPage,
+  fetchVideosCarousel,
+  fetchVideosCarouselPage,
   getShopifyNumericId,
   normalizeTestimonialsCarouselConfig,
+  normalizePopupReviewsConfig,
+  normalizeVideosCarouselConfig,
   resolveJudgeMeEngine,
 } from "../dist/index.js";
 
@@ -669,6 +675,140 @@ test("normalizes Testimonials Carousel settings and cart product IDs", async () 
   assert.deepEqual(page.reviews, []);
 });
 
+test("fetches the exact Videos Carousel from Judge.me's tokenless CDN", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+    const endpoint = url.pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+
+    if (endpoint === "reviews_for_carousel") {
+      assert.equal(url.hostname, "cdn.judge.me");
+      assert.equal(url.searchParams.has("api_token"), false);
+      assert.equal(url.searchParams.get("carousel_type"), "videos");
+      assert.equal(url.searchParams.get("review_type"), "photo_and_video");
+      assert.equal(
+        url.searchParams.get("reviews_selection"),
+        "current_product",
+      );
+      assert.equal(url.searchParams.get("product_ids"), "12345");
+      assert.equal(url.searchParams.get("star_rating"), "3_to_5_star");
+      assert.equal(url.searchParams.get("max_reviews"), "18");
+      assert.equal(url.searchParams.has("display_order"), false);
+
+      return Response.json({
+        reviews: [
+          {
+            uuid: "video-carousel-card-1",
+            rating: 5,
+            card_type: "photo",
+            reviewer_name: "Katherine",
+            picture: {
+              urls: { huge: "https://review-images.judge.me/example.jpg" },
+            },
+          },
+        ],
+      });
+    }
+
+    assert.equal(url.hostname, "judge.me");
+    assert.equal(url.searchParams.get("api_token"), "public-token");
+
+    if (endpoint === "all_reviews_count") {
+      return Response.json({ all_reviews_count: 42 });
+    }
+
+    if (endpoint === "all_reviews_rating") {
+      return Response.json({ all_reviews_rating: "4.64" });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          '<script class="jdgm-settings-script">window.jdgmSettings={"widget_show_verified_branding":true};</script><style>.jdgm-star{color:teal}</style>',
+      });
+    }
+
+    return Response.json({
+      html_miracle: "<style>.jdgm-videos-carousel{display:block}</style>",
+    });
+  };
+
+  const data = await fetchVideosCarousel({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    productId: "gid://shopify/Product/12345",
+    config: {
+      reviewSelection: "current_product",
+      reviewType: "photos-and-videos",
+      starRating: "3-5",
+      maxReviews: 18,
+      carouselStyle: "perspective",
+    },
+    fetch: mockFetch,
+  });
+
+  assert.deepEqual(requestedEndpoints.sort(), [
+    "all_reviews_count",
+    "all_reviews_rating",
+    "html_miracle",
+    "reviews_for_carousel",
+    "settings",
+  ]);
+  assert.equal(data.aggregate.count, 42);
+  assert.equal(data.aggregate.rating, 4.64);
+  assert.equal(data.page.reviews.length, 1);
+  assert.equal(data.productId, "12345");
+  assert.equal(data.config.carouselStyle, "perspective");
+  assert.match(data.styles, /jdgm-videos-carousel/);
+});
+
+test("normalizes Videos Carousel settings and cart product IDs", async () => {
+  const config = normalizeVideosCarouselConfig({
+    maxReviews: 30,
+    maxWidth: 1600,
+    transitionSpeed: 0,
+    headerText: "  Customer videos  ",
+  });
+  assert.equal(config.maxReviews, 30);
+  assert.equal(config.maxWidth, 1600);
+  assert.equal(config.transitionSpeed, 0);
+  assert.equal(config.headerText, "Customer videos");
+  assert.equal(config.reviewType, "photos-and-videos");
+
+  const page = await fetchVideosCarouselPage({
+    shopDomain: "store.myshopify.com",
+    config: {
+      reviewSelection: "cart",
+      reviewType: "videos-only",
+      selectedProductIds: [
+        "gid://shopify/Product/12345",
+        "gid://shopify/Product/67890",
+        "gid://shopify/Product/67890",
+      ],
+    },
+    fetch: async (input) => {
+      const url = new URL(input);
+      assert.equal(url.searchParams.get("carousel_type"), "videos");
+      assert.equal(url.searchParams.get("review_type"), "video");
+      assert.equal(
+        url.searchParams.get("reviews_selection"),
+        "custom_products",
+      );
+      assert.deepEqual(url.searchParams.getAll("product_ids[]"), [
+        "12345",
+        "67890",
+      ]);
+      return Response.json({ reviews: [] });
+    },
+  });
+
+  assert.equal(page.reviewSelection, "cart");
+  assert.deepEqual(page.reviews, []);
+});
+
 test("fetches the configured legacy All Reviews Widget", async () => {
   const requestedEndpoints = [];
   const mockFetch = async (input) => {
@@ -905,6 +1045,125 @@ test("fetches all implemented storefront widgets with shared resources", async (
     1,
   );
   assert.match(data.resources.styles, /color:teal/);
+});
+
+test("normalizes dashboard popup settings and its public review feed", async () => {
+  const settings = {
+    popup_widget_review_selection: "automatically_with_pictures",
+    popup_widget_round_border_style: false,
+    popup_widget_show_title: true,
+    popup_widget_show_body: true,
+    popup_widget_show_reviewer: true,
+    popup_widget_show_product: false,
+    popup_widget_show_pictures: true,
+    popup_widget_use_review_picture: true,
+    popup_widget_show_on_home_page: false,
+    popup_widget_show_on_product_page: true,
+    popup_widget_show_on_collection_page: false,
+    popup_widget_show_on_cart_page: true,
+    popup_widget_position: "top_right",
+    popup_widget_first_review_delay: 2,
+    popup_widget_duration: 7,
+    popup_widget_interval: 11,
+    popup_widget_review_count: 2,
+    popup_widget_hide_on_mobile: false,
+    widget_star_color: "#123456",
+  };
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+
+    assert.equal(url.origin, "https://cdn.judge.me");
+    assert.equal(url.pathname, "/reviews/reviews_for_carousel");
+    assert.equal(url.searchParams.get("reviews_selection"), "all");
+    assert.equal(url.searchParams.get("carousel_type"), "cards");
+    assert.equal(url.searchParams.get("star_rating"), "5_star");
+    assert.equal(url.searchParams.get("display_order"), "media_first");
+    assert.equal(url.searchParams.get("max_reviews"), "30");
+    assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+
+    return Response.json({
+      reviews: [
+        {
+          uuid: "review-one",
+          title: "Excellent",
+          body: "A public review body",
+          rating: 5,
+          reviewer_name: "A. Customer",
+          product_title: "Example product",
+          product_url:
+            "https://store.myshopify.com/products/example-product?utm_source=judge.me",
+          pictures_urls: [
+            {
+              compact: "https://review-images.judge.me/example/compact.jpg",
+            },
+          ],
+        },
+        {
+          uuid: "review-two",
+          title: "Still great",
+          body: "Another public review body",
+          rating: 5,
+          reviewer_name: "B. Customer",
+          product_title: "Second product",
+          product_url: "https://store.myshopify.com/products/second-product",
+          pictures_urls: [],
+        },
+      ],
+    });
+  };
+
+  const page = await fetchPopupReviewsPage({
+    shopDomain: "store.myshopify.com",
+    settings,
+    productImageUrlsByHandle: {
+      "example-product": "https://cdn.shopify.com/example-product.jpg",
+    },
+    fetch: mockFetch,
+  });
+  const data = createPopupReviewsData({
+    page,
+    settings,
+    shopDomain: "store.myshopify.com",
+  });
+
+  assert.equal(data.config.selection, "recent-five-star-with-pictures");
+  assert.equal(data.config.imageMode, "review");
+  assert.equal(data.config.position, "top_right");
+  assert.equal(data.config.reviewCount, 2);
+  assert.equal(data.config.durationSeconds, 7);
+  assert.equal(data.config.starColor, "#123456");
+  assert.equal(data.page.reviews.length, 2);
+  assert.equal(
+    data.page.reviews[0].productUrl,
+    "/products/example-product?utm_source=judge.me",
+  );
+  assert.equal(
+    data.page.reviews[0].reviewPictureUrl,
+    "https://review-images.judge.me/example/compact.jpg",
+  );
+  assert.equal(
+    data.page.reviews[0].productPictureUrl,
+    "https://cdn.shopify.com/example-product.jpg",
+  );
+});
+
+test("maps manual popup selection and clamps dashboard timing values", () => {
+  const config = normalizePopupReviewsConfig({
+    popup_widget_review_selection: "manually_featured",
+    popup_widget_show_pictures: true,
+    popup_widget_use_review_picture: false,
+    popup_widget_first_review_delay: -10,
+    popup_widget_duration: 0,
+    popup_widget_interval: 999,
+    popup_widget_review_count: 99,
+  });
+
+  assert.equal(config.selection, "featured");
+  assert.equal(config.imageMode, "product");
+  assert.equal(config.firstReviewDelaySeconds, 0);
+  assert.equal(config.durationSeconds, 1);
+  assert.equal(config.intervalSeconds, 300);
+  assert.equal(config.reviewCount, 15);
 });
 
 test("rejects executable markup returned by the Widget API", async () => {

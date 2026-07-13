@@ -18,6 +18,8 @@
 | `reviews-grid-spike-2026-07-13`                  | notes | Tokenless v3 grid data, extension manifest/module contract, CSP, batching, lightbox, and SPA validation              |
 | `cards-carousel-spike-2026-07-13`                | notes | Tokenless Cards data, hybrid extension runtime, filters, cart workaround, lightbox, and SPA validation               |
 | `testimonials-carousel-spike-2026-07-13`         | notes | Tokenless quote-carousel data, full block configuration, autoplay, lightbox, and SPA lifecycle                       |
+| `videos-carousel-spike-2026-07-13`               | notes | Required media filter, tokenless video/photo cards, extension runtime, navigation, lightbox, and fixture limits      |
+| `popup-reviews-spike-2026-07-13`                 | notes | Dashboard settings, tokenless selection feed, product-image boundary, timing, page targeting, and native lifecycle   |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                            |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                        |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                            |
@@ -25,6 +27,8 @@
 | `judge-me-floating-reviews-tab`                  | docs  | Official Floating Reviews Tab plan, behavior, position, settings, and empty-state contract                           |
 | `judge-me-cards-carousel`                        | docs  | Official Cards Carousel plan, settings, selection, layout, and app-embed contract                                    |
 | `judge-me-testimonials-carousel`                 | docs  | Official Testimonials Carousel plan, settings, limitations, and app-embed contract                                   |
+| `judge-me-videos-carousel`                       | docs  | Official Videos Carousel plan, review/media selection, layout, behavior, and app-embed contract                      |
+| `judge-me-popup-reviews`                         | docs  | Official Pop-up Reviews plan, selection, content, image, page, position, timing, and app-embed contract              |
 | `judge-me-hydrogen-npm-metadata`                 | docs  | Registry metadata for Judge.me's official Hydrogen package                                                           |
 | `judge-me-liquid-widgets`                        | docs  | Official Liquid markup and Judge.me metafield dependencies                                                           |
 | `shopify-theme-app-extensions`                   | docs  | Official Shopify app-block, app-embed, Liquid-scope, and CDN model                                                   |
@@ -145,6 +149,16 @@ Query the Testimonials Carousel report:
 ctx query \
   "How does Testimonials Carousel fetch, configure, and initialize in Hydrogen?" \
   --label testimonials-carousel-spike-2026-07-13 \
+  --kind notes \
+  --cwd /Users/panda/Code/judgeme-react
+```
+
+Query the Videos Carousel report:
+
+```sh
+ctx query \
+  "How does Videos Carousel fetch media cards and initialize in Hydrogen?" \
+  --label videos-carousel-spike-2026-07-13 \
   --kind notes \
   --cwd /Users/panda/Code/judgeme-react
 ```

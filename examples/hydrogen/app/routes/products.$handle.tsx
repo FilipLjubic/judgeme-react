@@ -17,19 +17,25 @@ import {
   AllReviewsWidget,
   CardsCarousel,
   createCardsCarouselData,
+  createPopupReviewsData,
   createReviewsGridData,
+  createTestimonialsCarouselData,
+  createVideosCarouselData,
   fetchCardsCarouselPage,
   fetchLegacyStorefrontWidgets,
+  fetchPopupReviewsPage,
   fetchReviewsGridPage,
   fetchTestimonialsCarouselPage,
+  fetchVideosCarouselPage,
   FloatingReviewsTab,
   getShopifyNumericId,
   LegacyReviewWidget,
+  PopupReviews,
   ReviewsCarousel,
   ReviewsGrid,
   StarRatingBadge,
   TestimonialsCarousel,
-  createTestimonialsCarouselData,
+  VideosCarousel,
 } from '@judgeme-react/core';
 
 export const meta: Route.MetaFunction = ({data}) => {
@@ -113,6 +119,7 @@ async function loadJudgeMeWidgets({
     } as const;
     const cardsCarouselConfig = {} as const;
     const testimonialsCarouselConfig = {} as const;
+    const videosCarouselConfig = {reviewType: 'photos-and-videos'} as const;
     const legacyWidgetsPromise = fetchLegacyStorefrontWidgets({
       productId: numericProductId,
       publicToken,
@@ -124,37 +131,55 @@ async function loadJudgeMeWidgets({
       reviewsGridPage,
       cardsCarouselPage,
       testimonialsCarouselPage,
-    ] =
-      await Promise.all([
-        legacyWidgetsPromise,
-        v3AssetBaseUrl
-          ? fetchReviewsGridPage({
-              shopDomain,
-              productId: numericProductId,
-              config: reviewsGridConfig,
-              signal,
-            })
-          : Promise.resolve(null),
-        v3AssetBaseUrl
-          ? fetchCardsCarouselPage({
-              shopDomain,
-              productId: numericProductId,
-              config: cardsCarouselConfig,
-              signal,
-            })
-          : Promise.resolve(null),
-        v3AssetBaseUrl
-          ? fetchTestimonialsCarouselPage({
-              shopDomain,
-              productId: numericProductId,
-              config: testimonialsCarouselConfig,
-              signal,
-            })
-          : Promise.resolve(null),
-      ]);
+      videosCarouselPage,
+    ] = await Promise.all([
+      legacyWidgetsPromise,
+      v3AssetBaseUrl
+        ? fetchReviewsGridPage({
+            shopDomain,
+            productId: numericProductId,
+            config: reviewsGridConfig,
+            signal,
+          })
+        : Promise.resolve(null),
+      v3AssetBaseUrl
+        ? fetchCardsCarouselPage({
+            shopDomain,
+            productId: numericProductId,
+            config: cardsCarouselConfig,
+            signal,
+          })
+        : Promise.resolve(null),
+      v3AssetBaseUrl
+        ? fetchTestimonialsCarouselPage({
+            shopDomain,
+            productId: numericProductId,
+            config: testimonialsCarouselConfig,
+            signal,
+          })
+        : Promise.resolve(null),
+      v3AssetBaseUrl
+        ? fetchVideosCarouselPage({
+            shopDomain,
+            productId: numericProductId,
+            config: videosCarouselConfig,
+            signal,
+          })
+        : Promise.resolve(null),
+    ]);
+    const popupReviewsPage = await fetchPopupReviewsPage({
+      shopDomain,
+      settings: legacyWidgets.resources.settings,
+      signal,
+    });
 
     return {
       ...legacyWidgets,
+      popupReviews: createPopupReviewsData({
+        page: popupReviewsPage,
+        settings: legacyWidgets.resources.settings,
+        shopDomain,
+      }),
       reviewsGrid: reviewsGridPage
         ? createReviewsGridData({
             aggregate: {
@@ -190,6 +215,20 @@ async function loadJudgeMeWidgets({
             },
             config: testimonialsCarouselConfig,
             page: testimonialsCarouselPage,
+            productId: numericProductId,
+            settings: legacyWidgets.resources.settings,
+            shopDomain,
+            styles: legacyWidgets.resources.styles,
+          })
+        : null,
+      videosCarousel: videosCarouselPage
+        ? createVideosCarouselData({
+            aggregate: {
+              count: legacyWidgets.allReviewsCounter.count,
+              rating: Number(legacyWidgets.allReviewsCounter.rating),
+            },
+            config: videosCarouselConfig,
+            page: videosCarouselPage,
             productId: numericProductId,
             settings: legacyWidgets.resources.settings,
             shopDomain,
@@ -281,6 +320,13 @@ export default function Product() {
               includeStyles={false}
             />
           ) : null}
+          {judgeMeWidgets.videosCarousel ? (
+            <VideosCarousel
+              className="product-videos-carousel"
+              data={judgeMeWidgets.videosCarousel}
+              includeStyles={false}
+            />
+          ) : null}
           <ReviewsCarousel
             className="product-reviews-carousel"
             data={{
@@ -321,6 +367,9 @@ export default function Product() {
           includeStyles={false}
           position="right"
         />
+      ) : null}
+      {judgeMeWidgets ? (
+        <PopupReviews data={judgeMeWidgets.popupReviews} pageType="product" />
       ) : null}
       <Analytics.ProductView
         data={{

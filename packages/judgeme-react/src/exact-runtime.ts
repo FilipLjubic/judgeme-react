@@ -8,6 +8,10 @@ import type {
   TestimonialsCarouselConfig,
   TestimonialsCarouselData,
 } from "./testimonials-carousel-api.js";
+import type {
+  VideosCarouselConfig,
+  VideosCarouselData,
+} from "./videos-carousel-api.js";
 
 const JUDGE_ME_API_HOST = "https://api.judge.me";
 const JUDGE_ME_CDN_API_HOST = "https://cdn.judge.me/";
@@ -51,7 +55,8 @@ interface CarouselMode {
   revCount: number;
   reviews:
     | CardsCarouselData["page"]["reviews"]
-    | TestimonialsCarouselData["page"]["reviews"];
+    | TestimonialsCarouselData["page"]["reviews"]
+    | VideosCarouselData["page"]["reviews"];
   root: HTMLElement;
   slideInterval: ReturnType<typeof setInterval> | null;
 }
@@ -95,9 +100,28 @@ interface TestimonialsCarouselRuntimeConfig extends Record<string, unknown> {
   verified_badge_style: "icon" | "text";
 }
 
+interface VideosCarouselRuntimeConfig extends Record<string, unknown> {
+  autoplay_media: string;
+  carousel_style: VideosCarouselConfig["carouselStyle"];
+  carousel_type: "videos";
+  design_mode: boolean;
+  max_reviews: number;
+  min_reviews: number;
+  primary_lang: string;
+  review_type: "all" | "photo_and_video" | "video";
+  reviews_selection: VideosCarouselConfig["reviewSelection"];
+  show_reviewer_name: string;
+  show_sample_reviews: boolean;
+  star_rating: VideosCarouselConfig["starRating"];
+  stars_color: string;
+  stars_size: VideosCarouselConfig["starsSize"];
+  transition_speed: number;
+}
+
 type CarouselRuntimeConfig =
   | CardsCarouselRuntimeConfig
-  | TestimonialsCarouselRuntimeConfig;
+  | TestimonialsCarouselRuntimeConfig
+  | VideosCarouselRuntimeConfig;
 
 interface CarouselUtils {
   attachCarouselLightbox: (
@@ -113,8 +137,9 @@ interface CarouselUtils {
   setAverage: (root: HTMLElement, rating: number) => void;
   setStarsColor: (
     root: HTMLElement,
-    config: CardsCarouselRuntimeConfig,
+    config: CardsCarouselRuntimeConfig | VideosCarouselRuntimeConfig,
   ) => void;
+  setStartIndex: (root: HTMLElement, mode: CarouselMode) => void;
   setVerified: (root: HTMLElement) => void;
   showCard: (root: HTMLElement, mode: CarouselMode) => void;
   updateHeaderText: (
@@ -181,6 +206,14 @@ export interface InitializeTestimonialsCarouselOptions {
   publicToken?: string;
 }
 
+export interface InitializeVideosCarouselOptions {
+  assetBaseUrl: string;
+  blockId: string;
+  container: HTMLElement;
+  data: VideosCarouselData;
+  publicToken?: string;
+}
+
 let exactRuntimeShopDomain: string | undefined;
 let exactRuntimeAssetBaseUrl: string | undefined;
 let moduleInstance = 0;
@@ -196,6 +229,8 @@ const testimonialsCarouselInitializers = new WeakMap<
   Promise<void>
 >();
 const testimonialsCarouselDisposals = new WeakMap<HTMLElement, number>();
+const videosCarouselInitializers = new WeakMap<HTMLElement, Promise<void>>();
+const videosCarouselDisposals = new WeakMap<HTMLElement, number>();
 
 /** Loads Judge.me's deployment-specific v3 Reviews Grid module for one root. */
 export function initializeReviewsGrid(
@@ -259,6 +294,29 @@ export function initializeTestimonialsCarousel(
     },
   );
   testimonialsCarouselInitializers.set(options.container, initializer);
+  return initializer;
+}
+
+/** Loads Judge.me's exact Videos Carousel scripts and v3 lightbox. */
+export function initializeVideosCarousel(
+  options: InitializeVideosCarouselOptions,
+): Promise<void> {
+  if (typeof window !== "undefined") {
+    const pendingDisposal = videosCarouselDisposals.get(options.container);
+    if (pendingDisposal !== undefined) {
+      window.clearTimeout(pendingDisposal);
+      videosCarouselDisposals.delete(options.container);
+    }
+  }
+
+  const existing = videosCarouselInitializers.get(options.container);
+  if (existing) return existing;
+
+  const initializer = initializeVideosCarouselRoot(options).catch((error) => {
+    videosCarouselInitializers.delete(options.container);
+    throw error;
+  });
+  videosCarouselInitializers.set(options.container, initializer);
   return initializer;
 }
 
@@ -330,6 +388,41 @@ export function disposeTestimonialsCarousel(
   testimonialsCarouselDisposals.set(container, timeoutId);
 }
 
+/** Releases Videos Carousel players and listeners after an SPA unmount. */
+export function disposeVideosCarousel(
+  container: HTMLElement,
+  blockId: string,
+): void {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = window as ExactJudgeMeWindow;
+  const carousel = container as CarouselElement;
+  const initializer = videosCarouselInitializers.get(container);
+  const timeoutId = window.setTimeout(() => {
+    videosCarouselDisposals.delete(container);
+    const cleanup = () => {
+      const mode = runtimeWindow.jdgmCarouselMode?.[blockId];
+      if (mode?.root !== container) return;
+
+      mode.resizeObserver?.disconnect();
+      if (mode.slideInterval) window.clearInterval(mode.slideInterval);
+      mode.interactionCleanup?.();
+      carousel._videoCarouselInstance?.destroy?.();
+      if (carousel._clickHandler) {
+        carousel.removeEventListener("click", carousel._clickHandler);
+        delete carousel._clickHandler;
+      }
+      delete runtimeWindow.jdgmCarouselMode?.[blockId];
+      videosCarouselInitializers.delete(container);
+    };
+
+    if (initializer) void initializer.then(cleanup, cleanup);
+    else cleanup();
+  }, 0);
+
+  videosCarouselDisposals.set(container, timeoutId);
+}
+
 /** Moves an initialized Cards Carousel without CSP-unsafe inline handlers. */
 export function moveCardsCarousel(
   blockId: string,
@@ -344,6 +437,14 @@ export function moveCardsCarousel(
 
 /** Moves an initialized Testimonials Carousel. */
 export function moveTestimonialsCarousel(
+  blockId: string,
+  direction: "next" | "previous",
+): void {
+  moveCardsCarousel(blockId, direction);
+}
+
+/** Moves an initialized Videos Carousel. */
+export function moveVideosCarousel(
   blockId: string,
   direction: "next" | "previous",
 ): void {
@@ -563,6 +664,91 @@ async function initializeTestimonialsCarouselRoot({
   );
 }
 
+async function initializeVideosCarouselRoot({
+  assetBaseUrl,
+  blockId,
+  container,
+  data,
+  publicToken,
+}: InitializeVideosCarouselOptions): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = configureExactRuntime({
+    assetBaseUrl,
+    settings: data.settings,
+    shopDomain: data.shopDomain,
+    publicToken,
+  });
+  runtimeWindow.jdgmPlayButtonSVG ??= CAROUSEL_PLAY_BUTTON_SVG;
+
+  await Promise.all([
+    loadStylesheet(new URL(CAROUSEL_STYLES_FILE, assetBaseUrl).toString()),
+    loadManifestStyles(assetBaseUrl, CAROUSEL_LIGHTBOX_ENTRY_KEY),
+  ]);
+  await loadScript(
+    new URL(CAROUSEL_RUNTIME_FILE, assetBaseUrl).toString(),
+    "videos-carousel-runtime",
+  );
+  await loadScript(
+    new URL(CAROUSEL_CARDS_FILE, assetBaseUrl).toString(),
+    "videos-carousel-builder",
+  );
+
+  const manifest = await getManifest(assetBaseUrl);
+  const lightboxFile = getManifestFile(manifest, CAROUSEL_LIGHTBOX_ENTRY_KEY);
+  await loadModuleOnce(
+    new URL(lightboxFile, assetBaseUrl).toString(),
+    "videos-carousel-lightbox",
+  );
+
+  const utils = runtimeWindow.jdgmCarouselUtils;
+  const buildCards = runtimeWindow.jdgmBuildMediaCards;
+  if (!utils || !buildCards) {
+    throw new Error("Judge.me's Videos Carousel runtime did not initialize.");
+  }
+
+  const config = createVideosCarouselRuntimeConfig(data);
+  const mode: CarouselMode = {
+    carousel_style: config.carousel_style,
+    index: 0,
+    revCount: data.page.reviews.length,
+    reviews: data.page.reviews,
+    root: container,
+    slideInterval: null,
+  };
+  runtimeWindow.jdgmCarouselMode ??= {};
+  runtimeWindow.jdgmCarouselMode[blockId] = mode;
+
+  utils.setAverage(container, data.aggregate.rating);
+  utils.setVerified(container);
+  utils.updateHeaderText(container, config);
+  utils.buildCards(container, config, buildCards);
+  utils.attachCarouselLightbox(container, mode, config);
+  container.style.setProperty("--slides-count", String(mode.revCount));
+
+  if (mode.revCount >= config.min_reviews) {
+    container.classList.remove("jdgm-hidden");
+  }
+
+  utils.setStarsColor(container, config);
+  utils.setStartIndex(container, mode);
+  utils.showCard(container, mode);
+
+  await loadUncachedScript(
+    new URL(
+      `${CAROUSEL_NAVIGATION_FILE}?judgeme_react_instance=${++moduleInstance}`,
+      assetBaseUrl,
+    ).toString(),
+    "videos-carousel-navigation",
+  );
+  await waitForVideosCarousel(container as CarouselElement, mode.revCount);
+
+  container.removeAttribute("data-entry-point");
+  runtimeWindow.jdgm?.debugLog?.(
+    "[judgeme-react] Videos Carousel exact adapter ready",
+  );
+}
+
 function configureExactRuntime({
   assetBaseUrl,
   settings,
@@ -674,6 +860,41 @@ function createTestimonialsCarouselRuntimeConfig(
     url: `https://${data.shopDomain}`,
     verified_badge_style:
       config.verifiedReviewer === "badge" ? "icon" : "text",
+  };
+}
+
+function createVideosCarouselRuntimeConfig(
+  data: VideosCarouselData,
+): VideosCarouselRuntimeConfig {
+  const config = data.config;
+  const reviewType = {
+    "videos-only": "video",
+    "photos-and-videos": "photo_and_video",
+    "any-review": "all",
+  } as const;
+
+  return {
+    autoplay_media: String(config.autoplayMedia),
+    carousel_style: config.carouselStyle,
+    carousel_type: "videos",
+    collection_id: config.collectionId,
+    design_mode: false,
+    max_reviews: config.maxReviews,
+    min_reviews: config.reviewType === "videos-only" ? 3 : 1,
+    platform: "shopify",
+    primary_lang: config.primaryLanguage,
+    product_id: data.productId,
+    product_ids: config.selectedProductIds,
+    review_type: reviewType[config.reviewType],
+    reviews_selection: config.reviewSelection,
+    show_reviewer_name: String(config.showReviewerName),
+    show_sample_reviews: false,
+    shop_aggregates: { reviewCount: data.aggregate.count },
+    star_rating: config.starRating,
+    stars_color: config.starsColor,
+    stars_size: config.starsSize,
+    transition_speed: config.transitionSpeed,
+    url: `https://${data.shopDomain}`,
   };
 }
 
@@ -1040,6 +1261,47 @@ function waitForCardsCarousel(
   });
 }
 
+function waitForVideosCarousel(
+  container: CarouselElement,
+  reviewCount: number,
+): Promise<void> {
+  if (isVideosCarouselReady(container, reviewCount)) return Promise.resolve();
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (error?: Error) => {
+      if (settled) return;
+
+      settled = true;
+      observer.disconnect();
+      window.clearInterval(intervalId);
+      window.clearTimeout(timeoutId);
+
+      if (error) reject(error);
+      else resolve();
+    };
+    const check = () => {
+      if (isVideosCarouselReady(container, reviewCount)) settle();
+    };
+    const observer = new MutationObserver(check);
+    observer.observe(container, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+    const intervalId = window.setInterval(check, 50);
+    const timeoutId = window.setTimeout(() => {
+      if (isVideosCarouselReady(container, reviewCount)) {
+        settle();
+      } else {
+        settle(
+          new Error("Judge.me did not finish initializing Videos Carousel."),
+        );
+      }
+    }, EXACT_RUNTIME_TIMEOUT_MS);
+  });
+}
+
 function waitForTestimonialsCarousel(
   container: HTMLElement,
   reviewCount: number,
@@ -1098,6 +1360,18 @@ function isCardsCarouselReady(
     container._videoCarouselInitialized === true &&
     (reviewCount === 0 ||
       (container.querySelector(".jdgm-card") !== null &&
+        container._initialPositioningComplete === true))
+  );
+}
+
+function isVideosCarouselReady(
+  container: CarouselElement,
+  reviewCount: number,
+): boolean {
+  return (
+    container._videoCarouselInitialized === true &&
+    (reviewCount === 0 ||
+      (container.querySelector(".jdgm-media-card") !== null &&
         container._initialPositioningComplete === true))
   );
 }
