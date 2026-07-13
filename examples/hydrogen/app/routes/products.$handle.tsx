@@ -12,6 +12,11 @@ import {ProductPrice} from '~/components/ProductPrice';
 import {ProductImage} from '~/components/ProductImage';
 import {ProductForm} from '~/components/ProductForm';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
+import {
+  fetchLegacyReviewWidget,
+  getShopifyNumericId,
+  LegacyReviewWidget,
+} from '@judgeme-react/core';
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [
@@ -24,13 +29,17 @@ export const meta: Route.MetaFunction = ({data}) => {
 };
 
 export async function loader(args: Route.LoaderArgs) {
-  // Start fetching non-critical data without blocking time to first byte
-  const deferredData = loadDeferredData(args);
-
   // Await the critical data required to render initial state of the page
   const criticalData = await loadCriticalData(args);
+  const {env} = args.context;
+  const reviewWidget = await loadReviewWidget({
+    productId: criticalData.product.id,
+    publicToken: env.JUDGEME_PUBLIC_TOKEN,
+    shopDomain: env.JUDGEME_SHOP_DOMAIN ?? env.PUBLIC_STORE_DOMAIN,
+    signal: args.request.signal,
+  });
 
-  return {...deferredData, ...criticalData};
+  return {...criticalData, reviewWidget};
 }
 
 /**
@@ -64,20 +73,34 @@ async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
   };
 }
 
-/**
- * Load data for rendering content below the fold. This data is deferred and will be
- * fetched after the initial page load. If it's unavailable, the page should still 200.
- * Make sure to not throw any errors here, as it will cause the page to 500.
- */
-function loadDeferredData({context, params}: Route.LoaderArgs) {
-  // Put any API calls that is not critical to be available on first page render
-  // For example: product reviews, product recommendations, social feeds.
+async function loadReviewWidget({
+  productId,
+  publicToken,
+  shopDomain,
+  signal,
+}: {
+  productId: string;
+  publicToken?: string;
+  shopDomain: string;
+  signal: AbortSignal;
+}) {
+  if (!publicToken) return null;
 
-  return {};
+  try {
+    return await fetchLegacyReviewWidget({
+      productId: getShopifyNumericId(productId),
+      publicToken,
+      shopDomain,
+      signal,
+    });
+  } catch (error) {
+    console.error('Unable to load the Judge.me Review Widget', error);
+    return null;
+  }
 }
 
 export default function Product() {
-  const {product} = useLoaderData<typeof loader>();
+  const {product, reviewWidget} = useLoaderData<typeof loader>();
 
   // Optimistically selects a variant with given available variant information
   const selectedVariant = useOptimisticVariant(
@@ -120,6 +143,9 @@ export default function Product() {
         <div dangerouslySetInnerHTML={{__html: descriptionHtml}} />
         <br />
       </div>
+      {reviewWidget ? (
+        <LegacyReviewWidget className="product-reviews" data={reviewWidget} />
+      ) : null}
       <Analytics.ProductView
         data={{
           products: [

@@ -39,3 +39,14 @@ Source repos are explored on disk. Docs, research papers, and notes are returned
 - After editing a linked report, refresh it with `ctx update <label> --force --cwd <repo>` and run `ctx sync --reindex --cwd <repo>`.
 - Verify important reports with a label-scoped `ctx query` before relying on them.
 - Link authoritative external sources as ctx docs resources so first-party conclusions remain traceable to their evidence.
+
+# Judge.me integration invariants
+
+- Treat `JUDGE_ME_WIDGETS` as a coverage roadmap, not an implementation registry. At present only `LegacyReviewWidget` is implemented. Do not describe the catalog as supported until each entry has a data adapter, public component, tests/fixtures, and browser verification.
+- Judge.me's public `product_review` endpoint returns legacy DOM even when dashboard settings say the new Review Widget is enabled. The legacy adapter must set `review_widget_revamp_enabled` to `false`; removing that override makes the current loader skip the returned markup.
+- Judge.me's browser runtime mutates `window.jdgm`, `window.jdgmSettings`, and widget DOM. Load its script once per document, preserve its enriched settings across SPA navigation/HMR, and do not initialize two Shopify stores in one document.
+- Keep Judge.me-owned SSR markup outside streamed `Suspense` until the runtime/hydration race has a tested lifecycle solution. The current Hydrogen route intentionally awaits the widget payload before returning loader data.
+- The consuming app owns CSP. A custom Hydrogen `scriptSrc` must retain `'self'`; local Vite requires `workerSrc: ["'self'", 'blob:']`. Keep `blob:` out of `scriptSrc`, and update the host allowlist when a Judge.me interaction introduces a new CDN/API/media/frame origin.
+- Judge.me may create `javascript:void(0)` links after initialization. Keep the component-scoped mutation sanitizer unless the runtime stops emitting them or the links are replaced with an equivalent CSP-safe event contract.
+- The public Widget API token may be used for public reads. Never serialize the private token through loaders, providers, browser bundles, logs, fixtures, ctx, or committed files.
+- Run `npm test`, `npm run lint`, `npm run typecheck`, and `npm run build` for code changes. For runtime/CSP changes, also do a clean Brave product-page reload and exercise at least one interactive path; static checks cannot validate Judge.me's current third-party deployment.

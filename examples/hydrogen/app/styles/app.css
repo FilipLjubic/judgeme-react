@@ -550,6 +550,12 @@ button.reset:hover:not(:has(> *)) {
   width: 100%;
 }
 
+.product-reviews {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin-block: 2rem;
+}
+
 /*
 * --------------------------------------------------
 * routes/blog._index.tsx

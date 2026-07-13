@@ -9,6 +9,7 @@
 | `judgeme-runtime-research-2026-07-13`            | notes | First-party Brave inspection and Hydrogen feasibility report                                                         |
 | `judgeme-widget-coverage-workarounds-2026-07-13` | notes | Current unsupported-widget matrix, official package autopsy, API/token findings, and all-widget compatibility design |
 | `hydrogen-harness-2026-07-13`                    | notes | Headless channel credential contract, monorepo/package boundary, and verified Hydrogen harness                       |
+| `review-widget-spike-2026-07-13`                 | notes | Working free-plan Review Widget bootstrap, SSR/runtime contract, browser validation, and remaining limitations       |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                            |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                        |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                            |
@@ -43,6 +44,16 @@ Query the coverage and workaround report:
 ctx query \
   "Which current Judge.me widgets are unsupported in Hydrogen and how can each be implemented?" \
   --label judgeme-widget-coverage-workarounds-2026-07-13 \
+  --kind notes \
+  --cwd /Users/panda/Code/judgeme-react
+```
+
+Query the first working component report:
+
+```sh
+ctx query \
+  "How does the free-plan Review Widget component fetch, render, and initialize Judge.me?" \
+  --label review-widget-spike-2026-07-13 \
   --kind notes \
   --cwd /Users/panda/Code/judgeme-react
 ```
