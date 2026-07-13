@@ -15,7 +15,10 @@ import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import {
   AllReviewsCounter,
   AllReviewsWidget,
+  CardsCarousel,
+  createCardsCarouselData,
   createReviewsGridData,
+  fetchCardsCarouselPage,
   fetchLegacyStorefrontWidgets,
   fetchReviewsGridPage,
   FloatingReviewsTab,
@@ -105,23 +108,33 @@ async function loadJudgeMeWidgets({
       numberOfColumnsMobile: 2,
       numberOfRowsMobile: 2,
     } as const;
+    const cardsCarouselConfig = {} as const;
     const legacyWidgetsPromise = fetchLegacyStorefrontWidgets({
       productId: numericProductId,
       publicToken,
       shopDomain,
       signal,
     });
-    const [legacyWidgets, reviewsGridPage] = await Promise.all([
-      legacyWidgetsPromise,
-      v3AssetBaseUrl
-        ? fetchReviewsGridPage({
-            shopDomain,
-            productId: numericProductId,
-            config: reviewsGridConfig,
-            signal,
-          })
-        : Promise.resolve(null),
-    ]);
+    const [legacyWidgets, reviewsGridPage, cardsCarouselPage] =
+      await Promise.all([
+        legacyWidgetsPromise,
+        v3AssetBaseUrl
+          ? fetchReviewsGridPage({
+              shopDomain,
+              productId: numericProductId,
+              config: reviewsGridConfig,
+              signal,
+            })
+          : Promise.resolve(null),
+        v3AssetBaseUrl
+          ? fetchCardsCarouselPage({
+              shopDomain,
+              productId: numericProductId,
+              config: cardsCarouselConfig,
+              signal,
+            })
+          : Promise.resolve(null),
+      ]);
 
     return {
       ...legacyWidgets,
@@ -136,6 +149,20 @@ async function loadJudgeMeWidgets({
             productId: numericProductId,
             settings: legacyWidgets.resources.settings,
             shopDomain,
+          })
+        : null,
+      cardsCarousel: cardsCarouselPage
+        ? createCardsCarouselData({
+            aggregate: {
+              count: legacyWidgets.allReviewsCounter.count,
+              rating: Number(legacyWidgets.allReviewsCounter.rating),
+            },
+            config: cardsCarouselConfig,
+            page: cardsCarouselPage,
+            productId: numericProductId,
+            settings: legacyWidgets.resources.settings,
+            shopDomain,
+            styles: legacyWidgets.resources.styles,
           })
         : null,
     };
@@ -206,6 +233,13 @@ export default function Product() {
             ...judgeMeWidgets.allReviewsCounter,
             ...judgeMeWidgets.resources,
           }}
+          includeStyles={false}
+        />
+      ) : null}
+      {judgeMeWidgets?.cardsCarousel ? (
+        <CardsCarousel
+          className="product-cards-carousel"
+          data={judgeMeWidgets.cardsCarousel}
           includeStyles={false}
         />
       ) : null}

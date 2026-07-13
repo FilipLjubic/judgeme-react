@@ -1,6 +1,13 @@
 export { createJudgeMeConfig, normalizeShopDomain } from "./config.js";
 export { AllReviewsCounter } from "./all-reviews-counter.js";
 export { AllReviewsWidget } from "./all-reviews-widget.js";
+export { CardsCarousel } from "./cards-carousel.js";
+export {
+  createCardsCarouselData,
+  fetchCardsCarousel,
+  fetchCardsCarouselPage,
+  normalizeCardsCarouselConfig,
+} from "./cards-carousel-api.js";
 export {
   fetchAllReviewsCounter,
   fetchAllReviewsWidget,
@@ -68,6 +75,25 @@ export type {
 } from "./legacy-api.js";
 export type { AllReviewsCounterProps } from "./all-reviews-counter.js";
 export type { AllReviewsWidgetProps } from "./all-reviews-widget.js";
+export type { CardsCarouselProps } from "./cards-carousel.js";
+export type {
+  CardsCarouselArrowsPosition,
+  CardsCarouselConfig,
+  CardsCarouselCornerStyle,
+  CardsCarouselData,
+  CardsCarouselDisplayOrder,
+  CardsCarouselImageRatio,
+  CardsCarouselNoImageFallback,
+  CardsCarouselPageData,
+  CardsCarouselReview,
+  CardsCarouselReviewLength,
+  CardsCarouselSelection,
+  CardsCarouselStarRating,
+  CardsCarouselTextSize,
+  CreateCardsCarouselDataOptions,
+  FetchCardsCarouselOptions,
+  FetchCardsCarouselPageOptions,
+} from "./cards-carousel-api.js";
 export type { FloatingReviewsTabProps } from "./floating-reviews-tab.js";
 export type { LegacyReviewWidgetProps } from "./legacy-review-widget.js";
 export type { StarRatingBadgeProps } from "./star-rating-badge.js";

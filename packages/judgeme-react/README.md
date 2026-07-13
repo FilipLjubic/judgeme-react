@@ -14,6 +14,7 @@ The package is intentionally framework-neutral. Hydrogen is a consumer under `ex
 | All Reviews Widget                      | Implemented with the public `all_reviews_page` endpoint, dashboard settings, and React-owned SPA controls                     |
 | Floating Reviews Tab                    | Implemented with the public `reviews_tab` endpoint plus an `all_reviews_page` fallback for stores where the tab is plan-gated |
 | Reviews Grid                            | Implemented with the tokenless v3 CDN endpoint and the store's current Shopify extension module                               |
+| Cards Carousel                          | Implemented with the tokenless carousel endpoint, current deployment scripts, and v3 review lightbox                          |
 | Legacy Review Widget                    | Implemented and tested in the Hydrogen harness                                                                                |
 | New Shopify v3 Review Widget            | Not implemented; shared dashboard settings are reused by the legacy adapter, but this is not exact v3 rendering               |
 | Every other entry in `JUDGE_ME_WIDGETS` | Planned/researched only; there is no public React component yet                                                               |
@@ -33,6 +34,8 @@ The package is intentionally framework-neutral. Hydrogen is a consumer under `ex
 - `fetchLegacyStorefrontWidgets` fetches all six implemented widgets with one shared settings/CSS payload and reuses the All Reviews response for the counter and Free-plan Floating Tab fallback.
 - `fetchReviewsGridPage` fetches one tokenless public v3 grid page; `fetchReviewsGrid` combines it with public settings and aggregate reads for standalone use.
 - `createReviewsGridData` combines a grid page with settings and aggregates already returned by a storefront batch.
+- `fetchCardsCarouselPage` fetches one tokenless public Cards page; `fetchCardsCarousel` adds public settings, aggregates, and core CSS for standalone use.
+- `createCardsCarouselData` combines Cards reviews with settings, CSS, and aggregates already returned by a storefront batch.
 - `StarRatingBadge` server-renders the product rating and enables its scroll-to-reviews behavior.
 - `ReviewsCarousel` server-renders the configured classic carousel and enables its navigation, auto-slide, and gallery behavior.
 - `AllReviewsCounter` server-renders the configured combined store rating/count and enables its branded/text star treatment.
@@ -40,6 +43,7 @@ The package is intentionally framework-neutral. Hydrogen is a consumer under `ex
 - `FloatingReviewsTab` server-renders the tab and enables its modal, review streams, pagination, filters, sorting, and SPA lifecycle.
 - `LegacyReviewWidget` server-renders that payload and progressively enables Judge.me's own review form and browser behavior.
 - `ReviewsGrid` mounts Judge.me's exact current Shopify extension component, including Show more and its media lightbox.
+- `CardsCarousel` mounts Judge.me's current Shopify block, including looped navigation, automatic movement, swipe support, and its review lightbox.
 - `resolveJudgeMeEngine` implements the explicit `exact`, `legacy`, and `native` runtime policy.
 - `JUDGE_ME_WIDGETS` names the storefront widget surface we intend to support.
 - `getShopifyNumericId` converts Storefront API GraphQL IDs for Judge.me calls.
@@ -48,13 +52,16 @@ Private Judge.me credentials do not belong in this React package. Server integra
 
 ## Implemented widgets
 
-Fetch the six legacy widgets and the v3 grid page in a server loader. The legacy batch makes seven requests: `product_review`, `preview_badge`, `featured_carousel`, `reviews_tab`, `all_reviews_page`, `settings`, and `html_miracle`. The same All Reviews response supplies `AllReviewsWidget`, the aggregate values for `AllReviewsCounter`, and the Floating Tab fallback when `reviews_tab` is `null`. Reviews Grid adds one tokenless CDN request and reuses the batch's settings and aggregates, for eight requests total. The large settings/CSS payload appears only once in route data. Awaiting the data keeps Judge.me-owned DOM outside a streamed Suspense boundary, which prevents its runtime from racing hydration.
+Fetch the six legacy widgets plus the v3 grid and Cards pages in a server loader. The legacy batch makes seven requests: `product_review`, `preview_badge`, `featured_carousel`, `reviews_tab`, `all_reviews_page`, `settings`, and `html_miracle`. The same All Reviews response supplies `AllReviewsWidget`, the aggregate values for `AllReviewsCounter`, and the Floating Tab fallback when `reviews_tab` is `null`. Reviews Grid and Cards Carousel each add one tokenless CDN request and reuse the batch's settings and aggregates, for nine requests total. The large settings/CSS payload remains shared. Awaiting the data keeps Judge.me-owned DOM outside a streamed Suspense boundary, which prevents its runtime from racing hydration.
 
 ```ts
 import {
   AllReviewsCounter,
   AllReviewsWidget,
+  CardsCarousel,
+  createCardsCarouselData,
   createReviewsGridData,
+  fetchCardsCarouselPage,
   fetchLegacyStorefrontWidgets,
   fetchReviewsGridPage,
   FloatingReviewsTab,
@@ -78,6 +85,11 @@ const reviewsGridPage = await fetchReviewsGridPage({
   signal: request.signal,
 });
 
+const cardsCarouselPage = await fetchCardsCarouselPage({
+  shopDomain: env.JUDGEME_SHOP_DOMAIN,
+  signal: request.signal,
+});
+
 const reviewsGrid = createReviewsGridData({
   aggregate: {
     count: widgets.allReviewsCounter.count,
@@ -86,6 +98,17 @@ const reviewsGrid = createReviewsGridData({
   page: reviewsGridPage,
   settings: widgets.resources.settings,
   shopDomain: env.JUDGEME_SHOP_DOMAIN,
+});
+
+const cardsCarousel = createCardsCarouselData({
+  aggregate: {
+    count: widgets.allReviewsCounter.count,
+    rating: Number(widgets.allReviewsCounter.rating),
+  },
+  page: cardsCarouselPage,
+  settings: widgets.resources.settings,
+  shopDomain: env.JUDGEME_SHOP_DOMAIN,
+  styles: widgets.resources.styles,
 });
 ```
 
@@ -107,6 +130,7 @@ Render it inside the store-level provider:
     data={{ ...widgets.allReviewsCounter, ...widgets.resources }}
     includeStyles={false}
   />
+  <CardsCarousel data={cardsCarousel} includeStyles={false} />
   <ReviewsCarousel
     data={{ ...widgets.reviewsCarousel, ...widgets.resources }}
     includeStyles={false}
@@ -142,5 +166,7 @@ The host application must allow Judge.me's script, style, API, media, and image 
 `LegacyReviewWidget` intentionally implements Judge.me's public legacy Review Widget contract. When a store has the new Review Widget enabled, the fetch helper preserves its dashboard-generated text, colors, and other shared settings but disables the v3-only `review_widget_revamp_enabled` flag for this legacy runtime. It is not yet the exact Shopify v3 widget.
 
 `ReviewsGrid` is an exact v3 client mount. The host must supply the current `https://cdn.shopify.com/extensions/<deployment>/<handle>/assets/` base because Judge.me can change it between extension deployments. Use `fetchReviewsGridPage` beside `fetchLegacyStorefrontWidgets` to add only one request to the product loader, then pass the shared settings and All Reviews aggregate through `createReviewsGridData`. The grid marker is server-rendered, but the review cards are mounted on the client by Judge.me's module.
+
+`CardsCarousel` is an exact hybrid mount. Its page fetch is tokenless; the block shell is server-rendered; Judge.me's current `carousels.css`, `carousels.js`, `media_carousel.js`, and `video_carousel.js` build and move the cards; and the deployment manifest resolves the v3 review lightbox. The adapter seeds the server-fetched reviews before the SPA-root scanner runs, so hydration does not repeat the CDN data request. For `reviewSelection: "cart"`, pass the current cart's product IDs in `selectedProductIds`; the adapter maps them to the equivalent public custom-product read.
 
 The Widget API response is treated as trusted third-party HTML. The helper rejects script tags, inline event handlers, and `javascript:` URLs before the payload reaches server rendering. Judge.me's runtime is loaded from its CDN after React hydration and is never copied into this package.

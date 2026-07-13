@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createJudgeMeConfig,
+  fetchCardsCarousel,
+  fetchCardsCarouselPage,
   fetchAllReviewsCounter,
   fetchAllReviewsWidget,
   fetchFloatingReviewsTab,
@@ -418,6 +420,119 @@ test("fetches the exact v3 Reviews Grid from Judge.me's public CDN", async () =>
   assert.equal(data.page.totalPages, 9);
   assert.equal(data.settings.widget_version, "3.0");
   assert.equal(data.settings.review_widget_revamp_enabled, false);
+});
+
+test("fetches the exact Cards Carousel from Judge.me's tokenless CDN", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+    const endpoint = url.pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+
+    if (endpoint === "reviews_for_carousel") {
+      assert.equal(url.hostname, "cdn.judge.me");
+      assert.equal(url.searchParams.has("api_token"), false);
+      assert.equal(url.searchParams.get("carousel_type"), "cards");
+      assert.equal(
+        url.searchParams.get("reviews_selection"),
+        "current_product",
+      );
+      assert.equal(url.searchParams.get("product_ids"), "12345");
+      assert.equal(url.searchParams.get("star_rating"), "4_to_5_star");
+      assert.equal(url.searchParams.get("max_reviews"), "12");
+      assert.equal(url.searchParams.get("display_order"), "most_recent");
+
+      return Response.json({
+        reviews: [
+          {
+            uuid: "review-1",
+            rating: 5,
+            body_html: "<p>Excellent</p>",
+            reviewer_name: "Ada",
+            card_type: "text",
+          },
+        ],
+      });
+    }
+
+    assert.equal(url.hostname, "judge.me");
+    assert.equal(url.searchParams.get("api_token"), "public-token");
+
+    if (endpoint === "all_reviews_count") {
+      return Response.json({ all_reviews_count: 42 });
+    }
+
+    if (endpoint === "all_reviews_rating") {
+      return Response.json({ all_reviews_rating: "4.64" });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          '<script class="jdgm-settings-script">window.jdgmSettings={"widget_show_verified_branding":true};</script><style>.jdgm-star{color:teal}</style>',
+      });
+    }
+
+    return Response.json({
+      html_miracle: "<style>.jdgm-card{display:flex}</style>",
+    });
+  };
+
+  const data = await fetchCardsCarousel({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    productId: "gid://shopify/Product/12345",
+    config: {
+      reviewSelection: "current_product",
+      starRating: "4-5",
+      maxReviews: 12,
+      displayOrder: "most_recent",
+    },
+    fetch: mockFetch,
+  });
+
+  assert.deepEqual(requestedEndpoints.sort(), [
+    "all_reviews_count",
+    "all_reviews_rating",
+    "html_miracle",
+    "reviews_for_carousel",
+    "settings",
+  ]);
+  assert.equal(data.aggregate.count, 42);
+  assert.equal(data.aggregate.rating, 4.64);
+  assert.equal(data.page.reviews.length, 1);
+  assert.equal(data.productId, "12345");
+  assert.match(data.styles, /jdgm-card/);
+});
+
+test("maps a headless cart selection to explicit public product reads", async () => {
+  const page = await fetchCardsCarouselPage({
+    shopDomain: "store.myshopify.com",
+    config: {
+      reviewSelection: "cart",
+      selectedProductIds: [
+        "gid://shopify/Product/12345",
+        "gid://shopify/Product/67890",
+      ],
+    },
+    fetch: async (input) => {
+      const url = new URL(input);
+      assert.equal(
+        url.searchParams.get("reviews_selection"),
+        "custom_products",
+      );
+      assert.deepEqual(url.searchParams.getAll("product_ids[]"), [
+        "12345",
+        "67890",
+      ]);
+      return Response.json({ reviews: [] });
+    },
+  });
+
+  assert.equal(page.reviewSelection, "cart");
+  assert.deepEqual(page.reviews, []);
 });
 
 test("fetches the configured legacy All Reviews Widget", async () => {
