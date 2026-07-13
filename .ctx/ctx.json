@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "defaults": {
+    "top_k": 5,
+    "budget_tokens": 20000
+  },
+  "resources": [
+    {
+      "id": "31df2d18f78fd2da",
+      "label": "judge-me-platform-independent",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/8394958-platform-independent-widgets",
+      "reason": "Supported external storefront path",
+      "current": "20260713T095827Z-46dd7ded68d9",
+      "created_at": "2026-07-13T09:58:24Z",
+      "updated_at": "2026-07-13T09:58:24Z"
+    },
+    {
+      "id": "3d49244a7d9f7647",
+      "label": "judge-me-liquid-widgets",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/12058208-liquid-code-for-judge-me-widgets",
+      "reason": "Reference markup and metafield dependencies",
+      "current": "20260713T095834Z-210fefdbd0a8",
+      "created_at": "2026-07-13T09:58:32Z",
+      "updated_at": "2026-07-13T09:58:32Z"
+    },
+    {
+      "id": "5ad598fbde33b944",
+      "label": "shopify-theme-app-extensions",
+      "kind": "docs",
+      "url": "https://shopify.dev/docs/apps/build/online-store/theme-app-extensions/configuration",
+      "reason": "Shopify host/runtime model for app embeds and blocks",
+      "current": "20260713T095839Z-45efb1517f2e",
+      "created_at": "2026-07-13T09:58:37Z",
+      "updated_at": "2026-07-13T09:58:37Z"
+    },
+    {
+      "id": "3ed6998d99e5abee",
+      "label": "judgeme-runtime-research-2026-07-13",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/judgeme-shopify-runtime-2026-07-13.md",
+      "reason": "Project-owned research report and implementation recommendations",
+      "current": "20260713T102109Z-8a3d6af34e5b",
+      "created_at": "2026-07-13T10:03:17Z",
+      "updated_at": "2026-07-13T10:21:09Z"
+    },
+    {
+      "id": "2d46a01728c4e458",
+      "label": "judge-me-widget-catalog",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/8415708-judge-me-widgets",
+      "reason": null,
+      "current": "20260713T101934Z-27fbbfc7125e",
+      "created_at": "2026-07-13T10:19:33Z",
+      "updated_at": "2026-07-13T10:19:33Z"
+    },
+    {
+      "id": "84b3c1f1c99905c6",
+      "label": "judge-me-api",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/8409180-using-judge-me-api",
+      "reason": null,
+      "current": "20260713T101949Z-3472823c4451",
+      "created_at": "2026-07-13T10:19:47Z",
+      "updated_at": "2026-07-13T10:19:47Z"
+    },
+    {
+      "id": "59b2c51d518e10ac",
+      "label": "judge-me-hydrogen-npm-metadata",
+      "kind": "docs",
+      "url": "https://registry.npmjs.org/@judgeme%2fshopify-hydrogen/2.0.0",
+      "reason": null,
+      "current": "20260713T102042Z-2bfcf6675964",
+      "created_at": "2026-07-13T10:20:40Z",
+      "updated_at": "2026-07-13T10:20:40Z"
+    },
+    {
+      "id": "dcca3e2fd182dd2f",
+      "label": "judgeme-widget-coverage-workarounds-2026-07-13",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/judgeme-widget-coverage-and-workarounds-2026-07-13.md",
+      "reason": null,
+      "current": "20260713T102731Z-900d1a57ce14",
+      "created_at": "2026-07-13T10:20:47Z",
+      "updated_at": "2026-07-13T10:27:31Z"
+    },
+    {
+      "id": "5b78d041f6b94209",
+      "label": "judge-me-integration-guide",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/8278390-build-integrations-with-judge-me",
+      "reason": null,
+      "current": "20260713T102725Z-1741a858ed25",
+      "created_at": "2026-07-13T10:27:22Z",
+      "updated_at": "2026-07-13T10:27:22Z"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "ctx-memory",
+  "version": "0.2.3",
+  "description": "Local layered memory capture and grounding guidance for Codex.",
+  "author": {
+    "name": "ctx"
+  },
+  "skills": "./skills/",
+  "hooks": "./.codex-plugin/hooks.json",
+  "interface": {
+    "displayName": "ctx Memory",
+    "shortDescription": "Local ctx memory capture and prompt grounding.",
+    "longDescription": "Ground Codex in local ctx project resources and capture hook evidence for explicit memory review.",
+    "developerName": "ctx",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Hooks",
+      "Memory",
+      "Local"
+    ],
+    "defaultPrompt": [
+      "Ground this repo with ctx before answering.",
+      "Review local ctx memory for this project."
+    ]
+  }
+}
