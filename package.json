@@ -1,0 +1,22 @@
+{
+  "name": "judgeme-react-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": "^22 || ^24"
+  },
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "npm run build:library && npx shopify hydrogen build --codegen --path examples/hydrogen",
+    "build:library": "npm run build --workspace @judgeme-react/core",
+    "dev": "npm run build:library && npx shopify hydrogen dev --codegen --path examples/hydrogen",
+    "lint": "npm run lint --workspace @judgeme-react/core && npm run lint --workspace @judgeme-react/hydrogen-example",
+    "test": "npm run test --workspace @judgeme-react/core",
+    "typecheck": "npm run typecheck --workspace @judgeme-react/core && npm run typecheck --workspace @judgeme-react/hydrogen-example"
+  }
+}

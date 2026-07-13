@@ -4,6 +4,8 @@ dist/
 build/
 .cache/
 .vite/
+.react-router/
+*.tsbuildinfo
 
 # Hydrogen and Shopify local state
 .shopify/

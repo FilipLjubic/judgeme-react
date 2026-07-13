@@ -1,0 +1,32 @@
+{
+  "name": "@judgeme-react/core",
+  "private": true,
+  "version": "0.0.0",
+  "description": "React adapters for Judge.me widgets across Shopify headless storefronts.",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "lint": "tsc --project tsconfig.build.json --noEmit",
+    "test": "npm run build && node --test",
+    "typecheck": "tsc --project tsconfig.build.json --noEmit"
+  },
+  "peerDependencies": {
+    "react": ">=18.3 <20"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.28",
+    "react": "^18.3.1",
+    "typescript": "^5.9.2"
+  }
+}

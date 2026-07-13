@@ -4,17 +4,21 @@
 
 ## Current resources
 
-| Label | Kind | Purpose |
-| --- | --- | --- |
-| `judgeme-runtime-research-2026-07-13` | notes | First-party Brave inspection and Hydrogen feasibility report |
+| Label                                            | Kind  | Purpose                                                                                                              |
+| ------------------------------------------------ | ----- | -------------------------------------------------------------------------------------------------------------------- |
+| `judgeme-runtime-research-2026-07-13`            | notes | First-party Brave inspection and Hydrogen feasibility report                                                         |
 | `judgeme-widget-coverage-workarounds-2026-07-13` | notes | Current unsupported-widget matrix, official package autopsy, API/token findings, and all-widget compatibility design |
-| `judge-me-platform-independent` | docs | Official external-storefront installation path and limits |
-| `judge-me-widget-catalog` | docs | Current official widget inventory and Shopify surface support |
-| `judge-me-api` | docs | Current public/private token guidance and API limitations |
-| `judge-me-integration-guide` | docs | Official distinction between the Free-plan Widget API and Awesome-only cache server |
-| `judge-me-hydrogen-npm-metadata` | docs | Registry metadata for Judge.me's official Hydrogen package |
-| `judge-me-liquid-widgets` | docs | Official Liquid markup and Judge.me metafield dependencies |
-| `shopify-theme-app-extensions` | docs | Official Shopify app-block, app-embed, Liquid-scope, and CDN model |
+| `hydrogen-harness-2026-07-13`                    | notes | Headless channel credential contract, monorepo/package boundary, and verified Hydrogen harness                       |
+| `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                            |
+| `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                        |
+| `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                            |
+| `judge-me-integration-guide`                     | docs  | Official distinction between the Free-plan Widget API and Awesome-only cache server                                  |
+| `judge-me-hydrogen-npm-metadata`                 | docs  | Registry metadata for Judge.me's official Hydrogen package                                                           |
+| `judge-me-liquid-widgets`                        | docs  | Official Liquid markup and Judge.me metafield dependencies                                                           |
+| `shopify-theme-app-extensions`                   | docs  | Official Shopify app-block, app-embed, Liquid-scope, and CDN model                                                   |
+| `shopify-hydrogen-getting-started`               | docs  | Current Shopify Hydrogen scaffold, link, and environment workflow                                                    |
+| `shopify-hydrogen-environments`                  | docs  | Official Hydrogen environment variable and token handling contract                                                   |
+| `shopify-hydrogen-cli`                           | docs  | Current Shopify CLI commands, flags, and lockfile checks                                                              |
 
 Inspect the current project research set:
 
