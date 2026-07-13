@@ -24,6 +24,7 @@ export {
   fetchLegacyStorefrontWidgets,
   fetchReviewsCarousel,
   fetchStarRatingBadge,
+  fetchVerifiedReviewsCounter,
 } from "./legacy-api.js";
 export { FloatingReviewsTab } from "./floating-reviews-tab.js";
 export { LegacyReviewWidget } from "./legacy-review-widget.js";
@@ -69,6 +70,7 @@ export {
   normalizeTestimonialsCarouselConfig,
 } from "./testimonials-carousel-api.js";
 export { VideosCarousel } from "./videos-carousel.js";
+export { VerifiedReviewsCounter } from "./verified-reviews-counter.js";
 export {
   createVideosCarouselData,
   fetchVideosCarousel,
@@ -102,6 +104,7 @@ export type {
   FetchLegacyStorefrontWidgetsOptions,
   FetchReviewsCarouselOptions,
   FetchStarRatingBadgeOptions,
+  FetchVerifiedReviewsCounterOptions,
   FloatingReviewsTabData,
   FloatingReviewsTabMarkup,
   FloatingReviewsTabSource,
@@ -115,6 +118,8 @@ export type {
   LegacyWidgetResources,
   ReviewsCarouselData,
   StarRatingBadgeData,
+  VerifiedReviewsCounterData,
+  VerifiedReviewsCounterMarkup,
 } from "./legacy-api.js";
 export type { AllReviewsCounterProps } from "./all-reviews-counter.js";
 export type { AiReviewsSummaryProps } from "./ai-reviews-summary.js";
@@ -186,6 +191,7 @@ export type {
   SubmitQuestionInput,
 } from "./questions-and-answers-api.js";
 export type { StarRatingBadgeProps } from "./star-rating-badge.js";
+export type { VerifiedReviewsCounterProps } from "./verified-reviews-counter.js";
 export type { TestimonialsCarouselProps } from "./testimonials-carousel.js";
 export type {
   CreateTestimonialsCarouselDataOptions,

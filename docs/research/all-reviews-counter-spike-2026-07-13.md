@@ -91,6 +91,8 @@ That one `all_reviews_page` response now supplies the All Reviews Widget, the Fr
 
 ## Verified Reviews Counter limitation
 
+> Superseded for implementation status by `verified-reviews-counter-spike-2026-07-13.md`. The observations below remain the dated result for the original zero-verified-review fixture.
+
 The similarly named Verified Reviews Counter is a separate widget and has not been faked.
 
 On 2026-07-13, `GET /api/v1/widgets/verified_badge` returned HTTP 200 with `{"verified_badge":null}` using both public and private tokens. A private server-only aggregate check found 867 published reviews and zero verified published reviews; all current review records reported `verified_status="not-yet"`. No review content or private token was stored.

@@ -4,7 +4,7 @@ Research-stage project for exposing Judge.me widgets through React, with Shopify
 
 ## Current status
 
-The first fourteen components are `StarRatingBadge`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, `FloatingReviewsTab`, `ReviewsGrid`, `CardsCarousel`, `TestimonialsCarousel`, `VideosCarousel`, `PopupReviews`, `AiReviewsSummary`, `ReviewSnippets`, and `QuestionsAndAnswers`. The legacy components share Judge.me's dashboard CSS/settings and browser runtime; exact extension adapters combine current public data or Shopify metafields with the store's deployment scripts; native adapters preserve current data/settings behavior where Judge.me has no standalone entry. The Hydrogen harness exercises them with real review data plus clearly labeled AI-summary and Q&A preview fixtures, including carousel/snippet implementations, review/question forms, standalone All Reviews streams, the floating tab, grid pagination, timed popup, AI summary accordion, and v3 media lightboxes.
+The first fifteen components are `StarRatingBadge`, `VerifiedReviewsCounter`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, `FloatingReviewsTab`, `ReviewsGrid`, `CardsCarousel`, `TestimonialsCarousel`, `VideosCarousel`, `PopupReviews`, `AiReviewsSummary`, `ReviewSnippets`, and `QuestionsAndAnswers`. The legacy components share Judge.me's dashboard CSS/settings and browser runtime; exact extension adapters combine current public data or Shopify metafields with the store's deployment scripts; native adapters preserve current data/settings behavior where Judge.me has no standalone entry. The Hydrogen harness exercises them with real review data plus clearly labeled AI-summary and Q&A preview fixtures, including carousel/snippet implementations, review/question forms, standalone All Reviews streams, the floating tab, grid pagination, timed popup, AI summary accordion, and v3 media lightboxes.
 
 `ReviewsGrid` uses Judge.me's public tokenless grid-data endpoint and the store's current Shopify extension assets. Because Shopify extension deployment URLs change, the consuming app supplies `v3AssetBaseUrl`; the adapter loads the deployment manifest, CSS, and module while preserving the app-block configuration contract.
 
@@ -22,7 +22,9 @@ The first fourteen components are `StarRatingBadge`, `AllReviewsCounter`, `Revie
 
 `QuestionsAndAnswers` makes Judge.me's current Review Widget Q&A tab independently placeable in React. It reads the tokenless question feed, reuses dashboard labels/colors/layout settings, paginates live questions, and posts the real multipart Ask a question form without a token. Judge.me officially gates the Shopify UI to Awesome and the current Free-plan fixture has no published questions, so the harness uses Judge.me's own clearly labeled, read-only sample feed.
 
-`AllReviewsCounter` renders the store's combined product-and-shop rating/count with the dashboard-selected branded or text treatment. Its standalone fetcher uses the public aggregate endpoints; the full storefront batch derives the same values from the existing All Reviews header, so adding the component does not increase the seven-request product loader.
+`VerifiedReviewsCounter` renders Judge.me's exact verified-review badge for eligible stores. Its public fetcher returns `null` below Judge.me's 20-verified-review threshold and otherwise preserves the dashboard's branded/classic style, orientation, color, branding, and link. The shared storefront batch adds one `verified_badge` read.
+
+`AllReviewsCounter` renders the store's combined product-and-shop rating/count with the dashboard-selected branded or text treatment. Its standalone fetcher uses the public aggregate endpoints; the full storefront batch derives the same values from the existing All Reviews header, so this component does not add another request to the eight-request legacy batch.
 
 `AllReviewsWidget` is the headless version of Judge.me's platform-independent All Reviews Widget. It server-renders the public `all_reviews_page` response and supports the configured initial tab, product/shop switching, rating filters, sorting, button or scroll pagination, keyboard controls, and client-side navigation. Its browser reads use the public token; the private token is not required.
 
@@ -62,6 +64,7 @@ The workspace pins Bun 1.3.14 and uses `bun.lock` as its only dependency lockfil
 - [Working AI Reviews Summary spike](docs/research/ai-reviews-summary-spike-2026-07-13.md), queryable in ctx as `ai-reviews-summary-spike-2026-07-13`.
 - [Working Review Snippets spike](docs/research/review-snippets-spike-2026-07-13.md), queryable in ctx as `review-snippets-spike-2026-07-13`.
 - [Working Questions & Answers spike](docs/research/questions-and-answers-spike-2026-07-13.md), queryable in ctx as `questions-and-answers-spike-2026-07-13`.
+- [Working Verified Reviews Counter spike](docs/research/verified-reviews-counter-spike-2026-07-13.md), queryable in ctx as `verified-reviews-counter-spike-2026-07-13`.
 - [Research workflow and resource index](docs/research/README.md)
 - Project documentation sources are pinned in `.ctx/ctx.json`.
 - `ctx` Codex hooks are installed under `.ctx/hooks` and pass `ctx hook doctor`.

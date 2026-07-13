@@ -566,6 +566,18 @@ button.reset:hover:not(:has(> *)) {
   text-align: center;
 }
 
+.home-verified-reviews-counter,
+.product-verified-reviews-counter {
+  display: flex;
+  justify-content: center;
+  margin-block: clamp(2rem, 4vw, 4rem);
+}
+
+.product-verified-reviews-counter {
+  margin-block: 0;
+  text-align: center;
+}
+
 .product-rating {
   min-height: 1.25rem;
   margin-block: 0.5rem 1rem;

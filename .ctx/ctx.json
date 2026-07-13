@@ -201,9 +201,9 @@
       "kind": "notes",
       "url": "file:///Users/panda/Code/judgeme-react/docs/research/all-reviews-counter-spike-2026-07-13.md",
       "reason": null,
-      "current": "20260713T163428Z-1c80ec9bb0ad",
-      "created_at": "2026-07-13T16:22:54Z",
-      "updated_at": "2026-07-13T16:34:28Z"
+      "current": "20260713T213019Z-f7285cc5bb75",
+      "created_at": "2026-07-13T16:34:28Z",
+      "updated_at": "2026-07-13T21:30:19Z"
     },
     {
       "id": "b787bd21d39b6fbc",
@@ -374,6 +374,26 @@
       "current": "20260713T210937Z-dc6387fc61fb",
       "created_at": "2026-07-13T21:09:37Z",
       "updated_at": "2026-07-13T21:09:37Z"
+    },
+    {
+      "id": "180b40f60c1d5a8a",
+      "label": "verified-reviews-counter-spike-2026-07-13",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/verified-reviews-counter-spike-2026-07-13.md",
+      "reason": null,
+      "current": "20260713T213730Z-0b1fb82027d5",
+      "created_at": "2026-07-13T21:31:43Z",
+      "updated_at": "2026-07-13T21:37:30Z"
+    },
+    {
+      "id": "87d854ad902474cc",
+      "label": "judge-me-verified-reviews-counter",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/8420851-verified-reviews-counter",
+      "reason": null,
+      "current": "20260713T213007Z-2ac552901e85",
+      "created_at": "2026-07-13T21:30:02Z",
+      "updated_at": "2026-07-13T21:30:02Z"
     }
   ]
 }

@@ -44,6 +44,7 @@ import {
   StarRatingBadge,
   TestimonialsCarousel,
   VideosCarousel,
+  VerifiedReviewsCounter,
 } from '@judgeme-react/core';
 
 export const meta: Route.MetaFunction = ({data}) => {
@@ -375,6 +376,16 @@ export default function Product() {
       </div>
       {judgeMeWidgets ? (
         <div className="product-widgets">
+          {judgeMeWidgets.verifiedReviewsCounter ? (
+            <VerifiedReviewsCounter
+              className="product-verified-reviews-counter"
+              data={{
+                ...judgeMeWidgets.verifiedReviewsCounter,
+                ...judgeMeWidgets.resources,
+              }}
+              includeStyles={false}
+            />
+          ) : null}
           <AllReviewsCounter
             className="product-reviews-counter"
             data={{

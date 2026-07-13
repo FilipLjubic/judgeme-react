@@ -51,6 +51,14 @@ export interface AllReviewsCounterMarkup extends LegacyShopWidgetMarkup {
 export interface AllReviewsCounterData
   extends AllReviewsCounterMarkup, LegacyWidgetResources {}
 
+export interface VerifiedReviewsCounterMarkup extends LegacyShopWidgetMarkup {
+  /** Total published reviews that Judge.me currently treats as verified. */
+  count: number;
+}
+
+export interface VerifiedReviewsCounterData
+  extends VerifiedReviewsCounterMarkup, LegacyWidgetResources {}
+
 export type AllReviewsWidgetReviewType = "product-reviews" | "shop-reviews";
 
 export interface AllReviewsWidgetMarkup extends LegacyShopWidgetMarkup {
@@ -85,6 +93,8 @@ export interface LegacyStorefrontWidgetsData extends LegacyProductWidgetsData {
   allReviewsWidget: AllReviewsWidgetMarkup;
   floatingReviewsTab: FloatingReviewsTabMarkup;
   reviewsCarousel: LegacyShopWidgetMarkup;
+  /** `null` until the store meets Judge.me's verified-review eligibility. */
+  verifiedReviewsCounter: VerifiedReviewsCounterMarkup | null;
 }
 
 export interface FetchLegacyReviewWidgetOptions {
@@ -123,6 +133,7 @@ export interface FetchAllReviewsWidgetOptions extends FetchReviewsCarouselOption
 
 export type FetchFloatingReviewsTabOptions = FetchReviewsCarouselOptions;
 export type FetchAllReviewsCounterOptions = FetchReviewsCarouselOptions;
+export type FetchVerifiedReviewsCounterOptions = FetchReviewsCarouselOptions;
 
 interface ProductReviewResponse {
   product_external_id: number | string;
@@ -144,6 +155,10 @@ interface AllReviewsCountResponse {
 
 interface AllReviewsRatingResponse {
   all_reviews_rating: number | string;
+}
+
+interface VerifiedBadgeResponse {
+  verified_badge: null | string;
 }
 
 interface ReviewsTabResponse {
@@ -296,6 +311,33 @@ export async function fetchAllReviewsCounter({
   };
 }
 
+/**
+ * Fetches Judge.me's exact Verified Reviews Counter markup. Ineligible stores
+ * return `null`; Judge.me currently requires at least 20 verified reviews.
+ */
+export async function fetchVerifiedReviewsCounter({
+  shopDomain,
+  publicToken,
+  signal,
+  fetch: fetchImplementation = globalThis.fetch,
+}: FetchVerifiedReviewsCounterOptions): Promise<VerifiedReviewsCounterData | null> {
+  const context = createLegacyShopRequestContext({
+    shopDomain,
+    publicToken,
+    signal,
+    fetchImplementation,
+  });
+
+  const [verifiedReviewsCounter, resources] = await Promise.all([
+    fetchVerifiedReviewsCounterMarkup(context),
+    fetchLegacyWidgetResources(context),
+  ]);
+
+  return verifiedReviewsCounter
+    ? { ...verifiedReviewsCounter, ...resources }
+    : null;
+}
+
 /** Fetches the legacy All Reviews Widget, also called Happy Customers. */
 export async function fetchAllReviewsWidget({
   shopDomain,
@@ -384,7 +426,7 @@ export async function fetchLegacyProductWidgets({
 
 /**
  * Fetches every currently implemented legacy storefront widget with one shared
- * settings/CSS request pair. Prefer this on routes that render all six.
+ * settings/CSS request pair. Prefer this on routes that render all seven.
  */
 export async function fetchLegacyStorefrontWidgets({
   shopDomain,
@@ -410,6 +452,7 @@ export async function fetchLegacyStorefrontWidgets({
     starRatingBadge,
     reviewsCarousel,
     reviewsTab,
+    verifiedReviewsCounter,
     resources,
     allReviewsPage,
   ] = await Promise.all([
@@ -417,6 +460,7 @@ export async function fetchLegacyStorefrontWidgets({
     fetchStarRatingBadgeMarkup(context),
     fetchReviewsCarouselMarkup(context),
     fetchReviewsTabResponse(context),
+    fetchVerifiedReviewsCounterMarkup(context),
     resourcesPromise,
     allReviewsPagePromise,
   ]);
@@ -445,6 +489,7 @@ export async function fetchLegacyStorefrontWidgets({
     reviewWidget,
     reviewsCarousel,
     starRatingBadge,
+    verifiedReviewsCounter,
   };
 }
 
@@ -560,6 +605,43 @@ async function fetchReviewsCarouselMarkup(
   assertSafeWidgetMarkup(response.featured_carousel, "Reviews Carousel");
 
   return { html: response.featured_carousel };
+}
+
+async function fetchVerifiedReviewsCounterMarkup(
+  context: LegacyShopRequestContext,
+): Promise<VerifiedReviewsCounterMarkup | null> {
+  const response = await fetchWidgetEndpoint<VerifiedBadgeResponse>(
+    "verified_badge",
+    context.commonParams,
+    context.fetchImplementation,
+    context.signal,
+  );
+
+  if (response.verified_badge === null) return null;
+  if (typeof response.verified_badge !== "string") {
+    throw new Error("Judge.me returned an invalid Verified Reviews Counter.");
+  }
+
+  assertSafeWidgetMarkup(
+    response.verified_badge,
+    "Verified Reviews Counter",
+  );
+
+  const countMatch = response.verified_badge.match(
+    /class=["'][^"']*\bjdgm-verified-badge__total\b[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i,
+  );
+  const serializedCount = countMatch?.[1]
+    ?.replace(/<[^>]*>/g, "")
+    .replace(/[\s,]/g, "");
+  const count = Number(serializedCount);
+
+  if (!serializedCount || !Number.isSafeInteger(count) || count < 0) {
+    throw new Error(
+      "Judge.me returned an invalid Verified Reviews Counter count.",
+    );
+  }
+
+  return { count, html: response.verified_badge };
 }
 
 async function fetchReviewsTabResponse(

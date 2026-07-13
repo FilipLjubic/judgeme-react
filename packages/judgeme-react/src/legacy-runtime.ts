@@ -31,6 +31,7 @@ interface JudgeMeRuntime {
     monochrome: boolean,
     compact: boolean,
     rebranded: boolean,
+    widgetRebrandingEnabled?: boolean,
   ) => void;
   _renderVerifiedJudgeme?: (
     root: unknown,
@@ -47,6 +48,13 @@ interface JudgeMeRuntime {
   initializeWidgets?: (root?: unknown) => void;
   initializeCarousel?: () => void;
   loadCSS?: (url: string) => unknown;
+  _loadSvg?: (
+    root: unknown,
+    imageHost: string,
+    svgHost: string,
+    monochrome?: boolean,
+    lazy?: boolean,
+  ) => unknown;
   loadScript?: (url: string) => unknown;
   setupMediaGallery?: (root: unknown) => void;
   widgetPath?: (asset: string) => string;
@@ -88,6 +96,13 @@ export interface InitializeReviewsCarouselOptions {
 }
 
 export interface InitializeAllReviewsCounterOptions {
+  container: HTMLElement;
+  publicToken: string;
+  settings: JudgeMeRuntimeSettings;
+  shopDomain: string;
+}
+
+export interface InitializeVerifiedReviewsCounterOptions {
   container: HTMLElement;
   publicToken: string;
   settings: JudgeMeRuntimeSettings;
@@ -235,6 +250,56 @@ export async function initializeAllReviewsCounter({
   }
 
   prepareAllReviewsCounterMarkup(root, settings, runtime);
+  root.dataset.judgemeReactSetup = "true";
+}
+
+/** Loads Judge.me's secondary bundle and initializes one verified counter. */
+export async function initializeVerifiedReviewsCounter({
+  container,
+  publicToken,
+  settings,
+  shopDomain,
+}: InitializeVerifiedReviewsCounterOptions): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = configureRuntime({
+    publicToken,
+    settings,
+    shopDomain,
+  });
+
+  await loadRuntimeScript();
+  if (!isVerifiedReviewsCounterRuntimeReady(runtimeWindow.jdgm)) {
+    await waitFor(
+      () => isSecondaryWidgetLoaderReady(runtimeWindow.jdgm),
+      "Judge.me's secondary-widget loader did not become ready.",
+    );
+    runtimeWindow.jdgm?.loadScript?.(`${JUDGE_ME_CDN_HOST}widget/others.js`);
+  }
+  await waitFor(
+    () => isVerifiedReviewsCounterRuntimeReady(runtimeWindow.jdgm),
+    "Judge.me's Verified Reviews Counter initializer did not become ready.",
+  );
+
+  // Let the bundle's initial document-ready scan win. If this root arrived via
+  // SPA navigation, reproduce that scan for the newly mounted counter only.
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+
+  const root = container.querySelector<HTMLElement>(".jdgm-verified-badge");
+  const runtime = runtimeWindow.jdgm;
+
+  if (!root || !runtime || !isVerifiedReviewsCounterRuntimeReady(runtime)) {
+    throw new Error("Judge.me did not return a Verified Reviews Counter root.");
+  }
+
+  if (!isVerifiedReviewsCounterStyled(root)) {
+    prepareVerifiedReviewsCounterMarkup(root, settings, runtime);
+  }
+
+  await waitFor(
+    () => isVerifiedReviewsCounterPrepared(root),
+    "Judge.me did not finish initializing the Verified Reviews Counter.",
+  );
   root.dataset.judgemeReactSetup = "true";
 }
 
@@ -562,6 +627,205 @@ function isAllReviewsCounterRuntimeReady(
     typeof runtime.$ === "function" &&
     typeof runtime.buildStarsFor === "function",
   );
+}
+
+type VerifiedReviewsCounterRuntime = Required<
+  Pick<JudgeMeRuntime, "$" | "_loadSvg">
+> &
+  JudgeMeRuntime;
+
+function isVerifiedReviewsCounterRuntimeReady(
+  runtime: JudgeMeRuntime | undefined,
+): runtime is VerifiedReviewsCounterRuntime {
+  return Boolean(
+    runtime &&
+    typeof runtime.$ === "function" &&
+    typeof runtime._loadSvg === "function",
+  );
+}
+
+function isVerifiedReviewsCounterPrepared(root: HTMLElement): boolean {
+  return (
+    isVerifiedReviewsCounterStyled(root) &&
+    Boolean(
+      root.querySelector(
+        ".jdgm-verified-badge__image img, .jdgm-verified-badge__image svg",
+      ),
+    )
+  );
+}
+
+function isVerifiedReviewsCounterStyled(root: HTMLElement): boolean {
+  return (
+    Array.from(root.classList).some((name) =>
+      name.startsWith("jdgm-verified-badge--style-"),
+    ) && root.style.display !== "none"
+  );
+}
+
+function prepareVerifiedReviewsCounterMarkup(
+  root: HTMLElement,
+  settings: JudgeMeRuntimeSettings,
+  runtime: VerifiedReviewsCounterRuntime,
+): void {
+  const total = Number(
+    root
+      .querySelector<HTMLElement>(".jdgm-verified-badge__total")
+      ?.textContent?.replace(/[\s,]/g, ""),
+  );
+
+  if (!Number.isSafeInteger(total) || total < 20) {
+    root.remove();
+    throw new Error(
+      "Judge.me requires at least 20 verified reviews for this counter.",
+    );
+  }
+
+  const style =
+    settings.verified_count_badge_style === "vintage"
+      ? "vintage"
+      : "branded";
+  root.classList.add(`jdgm-verified-badge--style-${style}`);
+
+  const image = root.querySelector<HTMLElement>(
+    ".jdgm-verified-badge__image",
+  );
+  if (!image) {
+    throw new Error(
+      "Judge.me returned incomplete Verified Reviews Counter markup.",
+    );
+  }
+
+  if (style === "vintage") {
+    if (!image.querySelector("img")) {
+      const assetPath = image.dataset.url;
+      if (!assetPath || !/^\/[a-z0-9._/-]+$/i.test(assetPath)) {
+        throw new Error(
+          "Judge.me returned an invalid classic Verified Reviews Counter asset.",
+        );
+      }
+
+      const classicImage = document.createElement("img");
+      classicImage.alt = "Verified Reviews";
+      classicImage.src =
+        "https://s3.amazonaws.com/me.judge.public-static-assets/general/verified-badge" +
+        assetPath;
+      image.appendChild(classicImage);
+    }
+    root.style.display = "inline-block";
+  } else {
+    root.querySelector(".jdgm-verified-badge__text")?.remove();
+    root.querySelector(".jdgm-verified-badge__stars")?.remove();
+
+    const colorStyle = settings.verified_count_badge_color_style;
+    const monochrome =
+      colorStyle === "monochromatic_version" || colorStyle === "custom";
+    const rebranded = runtime.WIDGET_REBRANDING_ENABLED === true;
+    image.dataset.url = monochrome
+      ? "/verified-badge-mono.svg"
+      : rebranded
+        ? "/verified-badge-2025.svg"
+        : "/verified-badge.svg";
+    const badgeAsset = rebranded
+      ? "https://judgeme-public-images.imgix.net/judgeme/verified-badge-v2/verified-badge-2025.svg?auto=format"
+      : "https://judgeme-public-images.imgix.net/judgeme/verified-badge-v2/verified-badge.svg?auto=format";
+    runtime._loadSvg(
+      runtime.$(image),
+      badgeAsset,
+      badgeAsset,
+      monochrome,
+    );
+
+    const showBranding = rebranded
+      ? true
+      : settings.verified_count_badge_show_jm_brand === true;
+    if (showBranding && !root.querySelector(".jdgm-verified-by")) {
+      const branding = document.createElement("span");
+      branding.className = rebranded
+        ? "jdgm-verified-by jdgm-verified-by--rebranding"
+        : "jdgm-verified-by";
+      const brandingText = document.createElement("span");
+      brandingText.className = rebranded
+        ? "jdgm-verified-by__text jdgm-verified-by__text--rebranding"
+        : "jdgm-verified-by__text";
+      brandingText.textContent = "by";
+      const brandingImage = document.createElement("span");
+      brandingImage.className = "jdgm-verified-by__image";
+      branding.append(brandingText, brandingImage);
+      root.appendChild(branding);
+
+      const color = getRuntimeColor(settings.verified_count_badge_color);
+      if (color) {
+        root.style.color = color;
+        const colorStyleElement = document.createElement("style");
+        colorStyleElement.dataset.judgemeReactVerifiedCounterColor = "true";
+        colorStyleElement.textContent = [
+          `.jdgm-widget.jdgm-verified-badge .jdgm-verified-badge__image svg circle { stroke: ${color}; }`,
+          `.jdgm-widget.jdgm-verified-badge .jdgm-verified-badge__image svg path { fill: ${color}; }`,
+          `.jdgm-verified-count-badget, .jdgm-widget.jdgm-verified-badge { color: ${color}; }`,
+          monochrome
+            ? `.jdgm-widget.jdgm-verified-badge .jdgm-verified-by .jdgm-svg__mono svg path { fill: ${color}; }`
+            : "",
+        ].join("\n");
+        root.appendChild(colorStyleElement);
+      }
+
+      runtime._renderVerifiedByJudgeme?.(
+        runtime.$(root),
+        monochrome,
+        false,
+        false,
+        rebranded,
+      );
+      const orientation =
+        settings.verified_count_badge_orientation === "vertical"
+          ? "vertical"
+          : "horizontal";
+      root.classList.add(
+        `jdgm-verified-badge--style-branded-${orientation}`,
+      );
+    }
+    root.style.display = "flex";
+  }
+
+  prepareVerifiedReviewsCounterLink(root, settings);
+}
+
+function prepareVerifiedReviewsCounterLink(
+  root: HTMLElement,
+  settings: JudgeMeRuntimeSettings,
+): void {
+  let link = root.closest<HTMLAnchorElement>("a.jdgm-verified-count-badget");
+
+  if (!link) {
+    link = document.createElement("a");
+    link.className = "jdgm-verified-count-badget";
+    root.before(link);
+    link.appendChild(root);
+  }
+
+  const configuredUrl = settings.verified_count_badge_url;
+  const brandingUrl = settings.branding_url;
+  const shouldUseBrandingUrl =
+    settings.is_verified_count_badge_a_link !== true &&
+    settings.can_be_branded === true &&
+    settings.shop_use_review_site === true;
+  const url = shouldUseBrandingUrl ? brandingUrl : configuredUrl;
+
+  if (typeof url === "string" && url.trim() && isSafeNavigationUrl(url)) {
+    link.href = url;
+    if (shouldUseBrandingUrl) {
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+    } else {
+      link.removeAttribute("target");
+      link.removeAttribute("rel");
+    }
+  } else {
+    link.removeAttribute("href");
+    link.removeAttribute("target");
+    link.removeAttribute("rel");
+  }
 }
 
 function prepareAllReviewsCounterMarkup(

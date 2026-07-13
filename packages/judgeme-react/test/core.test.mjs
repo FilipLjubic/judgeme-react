@@ -23,6 +23,7 @@ import {
   fetchStarRatingBadge,
   fetchTestimonialsCarousel,
   fetchTestimonialsCarouselPage,
+  fetchVerifiedReviewsCounter,
   fetchVideosCarousel,
   fetchVideosCarouselPage,
   getShopifyNumericId,
@@ -358,6 +359,80 @@ test("fetches a standalone All Reviews Counter with dashboard text", async () =>
   assert.match(data.html, /4.6 out of 5 stars based on 42 reviews/);
   assert.doesNotMatch(data.html, /javascript:/);
   assert.match(data.styles, /color:teal/);
+});
+
+test("fetches the exact eligible Verified Reviews Counter", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+    const endpoint = url.pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+    assert.equal(url.searchParams.get("api_token"), "public-token");
+    assert.equal(url.searchParams.has("external_id"), false);
+
+    if (endpoint === "verified_badge") {
+      return Response.json({
+        verified_badge:
+          '<div class="jdgm-widget jdgm-verified-badge"><style>.jdgm-verified-badge{display:none}</style><div class="jdgm-verified-badge__wrapper"><div class="jdgm-verified-badge__image" data-url="/badge.png"></div><div class="jdgm-verified-badge__total">866</div><div class="jdgm-verified-badge__text">Verified Reviews</div><div class="jdgm-verified-badge__stars"><span class="jdgm-star jdgm--on"></span></div></div></div>',
+      });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          '<script class="jdgm-settings-script">window.jdgmSettings={"verified_count_badge_style":"branded","verified_count_badge_orientation":"horizontal","verified_count_badge_color":"#108474"};</script><style>.jdgm-verified-badge{gap:8px}</style>',
+      });
+    }
+
+    return Response.json({ html_miracle: "" });
+  };
+
+  const data = await fetchVerifiedReviewsCounter({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    fetch: mockFetch,
+  });
+
+  assert.deepEqual(requestedEndpoints.sort(), [
+    "html_miracle",
+    "settings",
+    "verified_badge",
+  ]);
+  assert.ok(data);
+  assert.equal(data.count, 866);
+  assert.match(data.html, /jdgm-verified-badge__total">866/);
+  assert.equal(data.settings.verified_count_badge_style, "branded");
+  assert.match(data.styles, /gap:8px/);
+});
+
+test("returns null when the store is ineligible for the Verified Reviews Counter", async () => {
+  const mockFetch = async (input) => {
+    const endpoint = new URL(input).pathname.split("/").pop();
+
+    if (endpoint === "verified_badge") {
+      return Response.json({ verified_badge: null });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          '<script class="jdgm-settings-script">window.jdgmSettings={};</script>',
+      });
+    }
+
+    return Response.json({ html_miracle: "" });
+  };
+
+  assert.equal(
+    await fetchVerifiedReviewsCounter({
+      shopDomain: "store.myshopify.com",
+      publicToken: "public-token",
+      fetch: mockFetch,
+    }),
+    null,
+  );
 });
 
 test("fetches the exact v3 Reviews Grid from Judge.me's public CDN", async () => {
@@ -1001,6 +1076,14 @@ test("fetches all implemented storefront widgets with shared resources", async (
       return Response.json({ page: 1, reviews_tab: null });
     }
 
+    if (endpoint === "verified_badge") {
+      assert.equal(url.searchParams.has("external_id"), false);
+      return Response.json({
+        verified_badge:
+          '<div class="jdgm-widget jdgm-verified-badge"><div class="jdgm-verified-badge__image" data-url="/badge.png"></div><div class="jdgm-verified-badge__total">27</div></div>',
+      });
+    }
+
     if (endpoint === "all_reviews_page") {
       assert.equal(url.searchParams.has("external_id"), false);
       return Response.json({
@@ -1036,6 +1119,7 @@ test("fetches all implemented storefront widgets with shared resources", async (
     "product_review",
     "reviews_tab",
     "settings",
+    "verified_badge",
   ]);
   assert.equal(data.reviewWidget.productId, "12345");
   assert.equal(data.starRatingBadge.productId, "12345");
@@ -1046,6 +1130,7 @@ test("fetches all implemented storefront widgets with shared resources", async (
     /4.8 out of 5 stars based on 12 reviews/,
   );
   assert.match(data.reviewsCarousel.html, /Featured reviews/);
+  assert.equal(data.verifiedReviewsCounter?.count, 27);
   assert.equal(data.allReviewsWidget.initialReviewType, "product-reviews");
   assert.match(data.allReviewsWidget.html, /jdgm-all-reviews-widget/);
   assert.equal(data.floatingReviewsTab.source, "all-reviews-page-fallback");

@@ -8,6 +8,10 @@ import type {
 } from 'storefrontapi.generated';
 import {ProductItem} from '~/components/ProductItem';
 import {MockShopNotice} from '~/components/MockShopNotice';
+import {
+  fetchVerifiedReviewsCounter,
+  VerifiedReviewsCounter,
+} from '@judgeme-react/core';
 
 export const meta: Route.MetaFunction = () => {
   return [{title: 'Hydrogen | Home'}];
@@ -27,15 +31,30 @@ export async function loader(args: Route.LoaderArgs) {
  * Load data necessary for rendering content above the fold. This is the critical data
  * needed to render the page. If it's unavailable, the whole page should 400 or 500 error.
  */
-async function loadCriticalData({context}: Route.LoaderArgs) {
-  const [{collections}] = await Promise.all([
+async function loadCriticalData({context, request}: Route.LoaderArgs) {
+  const {env} = context;
+  const verifiedReviewsCounterPromise = env.JUDGEME_PUBLIC_TOKEN
+    ? fetchVerifiedReviewsCounter({
+        publicToken: env.JUDGEME_PUBLIC_TOKEN,
+        shopDomain: env.JUDGEME_SHOP_DOMAIN ?? env.PUBLIC_STORE_DOMAIN,
+        signal: request.signal,
+      }).catch((error: unknown) => {
+        console.error(
+          'Unable to load the Judge.me Verified Reviews Counter',
+          error,
+        );
+        return null;
+      })
+    : Promise.resolve(null);
+  const [{collections}, verifiedReviewsCounter] = await Promise.all([
     context.storefront.query(FEATURED_COLLECTION_QUERY),
-    // Add other queries here, so that they are loaded in parallel
+    verifiedReviewsCounterPromise,
   ]);
 
   return {
     isShopLinked: Boolean(context.env.PUBLIC_STORE_DOMAIN),
     featuredCollection: collections.nodes[0],
+    verifiedReviewsCounter,
   };
 }
 
@@ -64,6 +83,12 @@ export default function Homepage() {
     <div className="home">
       {data.isShopLinked ? null : <MockShopNotice />}
       <FeaturedCollection collection={data.featuredCollection} />
+      {data.verifiedReviewsCounter ? (
+        <VerifiedReviewsCounter
+          className="home-verified-reviews-counter"
+          data={data.verifiedReviewsCounter}
+        />
+      ) : null}
       <RecommendedProducts products={data.recommendedProducts} />
     </div>
   );
