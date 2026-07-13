@@ -562,6 +562,13 @@ button.reset:hover:not(:has(> *)) {
   margin-block: 3rem 1rem;
 }
 
+.product-reviews-counter {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin-block: 2rem 0;
+  text-align: center;
+}
+
 .product-all-reviews {
   grid-column: 1 / -1;
   min-width: 0;

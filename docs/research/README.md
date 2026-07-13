@@ -14,6 +14,7 @@
 | `reviews-carousel-spike-2026-07-13`              | notes | Working classic carousel endpoint, secondary runtime, shared batching, navigation, and Brave validation              |
 | `floating-reviews-tab-spike-2026-07-13`          | notes | Official tab contract, Free-plan All Reviews fallback, interactions, and SPA validation                              |
 | `all-reviews-widget-spike-2026-07-13`            | notes | Standalone All Reviews endpoint/runtime contract, paging mismatch, interactions, and SPA validation                  |
+| `all-reviews-counter-spike-2026-07-13`           | notes | Public aggregate endpoints, Liquid/settings contract, seven-request batching, Brave comparison, and verified limit   |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                            |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                        |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                            |
@@ -99,6 +100,16 @@ Query the All Reviews Widget report:
 ctx query \
   "How does the standalone All Reviews Widget use Judge.me's public endpoint and CDN runtime?" \
   --label all-reviews-widget-spike-2026-07-13 \
+  --kind notes \
+  --cwd /Users/panda/Code/judgeme-react
+```
+
+Query the All Reviews Counter report:
+
+```sh
+ctx query \
+  "How does the All Reviews Counter use public aggregates and dashboard styling without adding a batched request?" \
+  --label all-reviews-counter-spike-2026-07-13 \
   --kind notes \
   --cwd /Users/panda/Code/judgeme-react
 ```

@@ -1,32 +1,35 @@
 import { useEffect, useRef, type ComponentPropsWithoutRef } from "react";
-import type { FloatingReviewsTabData } from "./legacy-api.js";
-import {
-  disposeFloatingReviewsTab,
-  initializeFloatingReviewsTab,
-} from "./legacy-runtime.js";
+import type { AllReviewsCounterData } from "./legacy-api.js";
+import { initializeAllReviewsCounter } from "./legacy-runtime.js";
 import { useJudgeMe } from "./provider.js";
 
-export interface FloatingReviewsTabProps extends Omit<
+const VISIBLE_COUNTER_STYLE = `
+[data-judgeme-react-widget="all-reviews-counter"] .jdgm-all-reviews-text {
+  display: block;
+}
+[data-judgeme-react-widget="all-reviews-counter"] .jdgm-all-reviews-text__text {
+  display: inline;
+}
+`;
+
+export interface AllReviewsCounterProps extends Omit<
   ComponentPropsWithoutRef<"div">,
   "children" | "dangerouslySetInnerHTML"
 > {
-  data: FloatingReviewsTabData;
+  data: AllReviewsCounterData;
   /** Skip the shared dashboard CSS when another widget renders the same styles. */
   includeStyles?: boolean;
-  /** Mirrors the Shopify app-embed position setting. */
-  position?: "bottom" | "left" | "right";
 }
 
 /**
- * Renders Judge.me's Floating Reviews Tab, including a Free-plan fallback built
- * from the public All Reviews Page payload when Judge.me returns no tab markup.
+ * Server-renders Judge.me's store-wide rating and review count, then applies
+ * the dashboard-selected branded/text style and star treatment.
  */
-export function FloatingReviewsTab({
+export function AllReviewsCounter({
   data,
   includeStyles = true,
-  position = "bottom",
   ...containerProps
-}: FloatingReviewsTabProps) {
+}: AllReviewsCounterProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { meta } = useJudgeMe();
 
@@ -44,54 +47,43 @@ export function FloatingReviewsTab({
 
     container.dataset.judgemeReactRuntimeStatus = "loading";
 
-    initializeFloatingReviewsTab({
+    initializeAllReviewsCounter({
       container,
-      isCurrent: () => active,
-      position,
       publicToken,
       settings: data.settings,
       shopDomain: meta.config.shopDomain,
-      source: data.source,
     })
       .then(() => {
-        if (!active) return;
-
-        container.dataset.judgemeReactRuntimeStatus = "ready";
+        if (active) container.dataset.judgemeReactRuntimeStatus = "ready";
       })
       .catch((error: unknown) => {
         if (!active) return;
 
         container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error("Judge.me Floating Reviews Tab runtime error", error);
+        console.error("Judge.me All Reviews Counter runtime error", error);
       });
 
     return () => {
       active = false;
-      disposeFloatingReviewsTab(container);
     };
-  }, [
-    data.settings,
-    data.source,
-    meta.config.publicToken,
-    meta.config.shopDomain,
-    position,
-  ]);
+  }, [data.settings, meta.config.publicToken, meta.config.shopDomain]);
 
   return (
     <div
       {...containerProps}
       ref={containerRef}
+      data-judgeme-react-count={data.count}
+      data-judgeme-react-rating={data.rating}
       data-judgeme-react-runtime-status="loading"
-      data-judgeme-react-source={data.source}
-      data-judgeme-react-widget="floating-reviews-tab"
+      data-judgeme-react-widget="all-reviews-counter"
     >
       <div dangerouslySetInnerHTML={{ __html: data.html }} />
-      {includeStyles ? (
-        <style
-          data-judgeme-react-styles="legacy-widgets"
-          dangerouslySetInnerHTML={{ __html: data.styles }}
-        />
-      ) : null}
+      <style
+        data-judgeme-react-styles="all-reviews-counter"
+        dangerouslySetInnerHTML={{
+          __html: `${includeStyles ? data.styles : ""}\n${VISIBLE_COUNTER_STYLE}`,
+        }}
+      />
     </div>
   );
 }

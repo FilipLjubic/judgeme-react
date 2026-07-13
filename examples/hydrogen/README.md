@@ -1,6 +1,6 @@
 # Judge.me React Hydrogen harness
 
-This is the real-store integration harness for `@judgeme-react/core`. It mounts the implemented `StarRatingBadge`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, and `FloatingReviewsTab` on product routes. It is not a second publishable package.
+This is the real-store integration harness for `@judgeme-react/core`. It mounts the implemented `StarRatingBadge`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, and `FloatingReviewsTab` on product routes. It is not a second publishable package.
 
 ## Local setup
 
@@ -23,7 +23,7 @@ JUDGEME_PUBLIC_TOKEN=your-public-widget-api-token
 
 `JUDGEME_PRIVATE_TOKEN` is reserved for future server-only adapters. The current product widgets do not use it, and it must never be sent through route data or React context.
 
-Open a published product at `/products/<handle>`. The route fetches the product badge, classic carousel, legacy Review Widget, All Reviews Widget, and Floating Reviews Tab before returning loader data. It server-renders all five with one shared settings/CSS payload, then initializes Judge.me's CDN runtime after hydration. On a Free-plan store, the All Reviews response is reused for the floating tab when Judge.me returns no official tab markup.
+Open a published product at `/products/<handle>`. The route fetches the product badge, shop-wide counter, classic carousel, legacy Review Widget, All Reviews Widget, and Floating Reviews Tab before returning loader data. It server-renders all six with one shared settings/CSS payload, then initializes Judge.me's CDN runtime after hydration. The All Reviews response supplies the counter aggregates and is also reused for the floating tab when Judge.me returns no official tab markup on a Free-plan store.
 
 ## CSP
 
@@ -31,6 +31,7 @@ The tested host policy is in `app/entry.server.tsx`. When changing it:
 
 - preserve `'self'` when supplying a custom Hydrogen `scriptSrc`;
 - allow Judge.me's CDN, API, media, and frame hosts;
+- allow `judgeme-public-images.imgix.net` in both `connectSrc` and `imgSrc` because the branded verification helper fetches its SVG before rendering it;
 - use `workerSrc: ["'self'", 'blob:']` for Vite's local blob worker instead of adding `blob:` to `scriptSrc`.
 
 ## Verification

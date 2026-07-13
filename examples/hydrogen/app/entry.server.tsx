@@ -28,7 +28,11 @@ export default async function handleRequest(
     ],
     workerSrc: ["'self'", 'blob:'],
     styleSrc: ['https://cdnwidget.judge.me', 'https://cdn2.judge.me'],
-    connectSrc: ['https://judge.me', 'https://*.judge.me'],
+    connectSrc: [
+      'https://judge.me',
+      'https://*.judge.me',
+      'https://judgeme-public-images.imgix.net',
+    ],
     fontSrc: ['data:', 'https://cdnwidget.judge.me', 'https://cdn2.judge.me'],
     imgSrc: [
       "'self'",
@@ -38,10 +42,7 @@ export default async function handleRequest(
       'https://judgeme-public-images.imgix.net',
       'https://cdn.shopify.com',
     ],
-    mediaSrc: [
-      'https://*.judge.me',
-      'https://cdn.shopify.com',
-    ],
+    mediaSrc: ['https://*.judge.me', 'https://cdn.shopify.com'],
     frameSrc: [
       'https://*.judge.me',
       'https://www.youtube.com',

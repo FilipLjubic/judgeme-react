@@ -41,6 +41,16 @@ export interface StarRatingBadgeData
 export interface ReviewsCarouselData
   extends LegacyShopWidgetMarkup, LegacyWidgetResources {}
 
+export interface AllReviewsCounterMarkup extends LegacyShopWidgetMarkup {
+  /** Total published product and shop reviews across the store. */
+  count: number;
+  /** Average rating across the store, serialized as Judge.me returns it. */
+  rating: string;
+}
+
+export interface AllReviewsCounterData
+  extends AllReviewsCounterMarkup, LegacyWidgetResources {}
+
 export type AllReviewsWidgetReviewType = "product-reviews" | "shop-reviews";
 
 export interface AllReviewsWidgetMarkup extends LegacyShopWidgetMarkup {
@@ -71,6 +81,7 @@ export interface LegacyProductWidgetsData {
 
 /** A request-efficient payload for the implemented product and shop widgets. */
 export interface LegacyStorefrontWidgetsData extends LegacyProductWidgetsData {
+  allReviewsCounter: AllReviewsCounterMarkup;
   allReviewsWidget: AllReviewsWidgetMarkup;
   floatingReviewsTab: FloatingReviewsTabMarkup;
   reviewsCarousel: LegacyShopWidgetMarkup;
@@ -111,6 +122,7 @@ export interface FetchAllReviewsWidgetOptions extends FetchReviewsCarouselOption
 }
 
 export type FetchFloatingReviewsTabOptions = FetchReviewsCarouselOptions;
+export type FetchAllReviewsCounterOptions = FetchReviewsCarouselOptions;
 
 interface ProductReviewResponse {
   product_external_id: number | string;
@@ -124,6 +136,14 @@ interface PreviewBadgeResponse {
 
 interface FeaturedCarouselResponse {
   featured_carousel: string;
+}
+
+interface AllReviewsCountResponse {
+  all_reviews_count: number | string;
+}
+
+interface AllReviewsRatingResponse {
+  all_reviews_rating: number | string;
 }
 
 interface ReviewsTabResponse {
@@ -238,6 +258,44 @@ export async function fetchReviewsCarousel({
   return { ...reviewsCarousel, ...resources };
 }
 
+/** Fetches the configured store-wide rating and review-count badge. */
+export async function fetchAllReviewsCounter({
+  shopDomain,
+  publicToken,
+  signal,
+  fetch: fetchImplementation = globalThis.fetch,
+}: FetchAllReviewsCounterOptions): Promise<AllReviewsCounterData> {
+  const context = createLegacyShopRequestContext({
+    shopDomain,
+    publicToken,
+    signal,
+    fetchImplementation,
+  });
+
+  const [countResponse, ratingResponse, resources] = await Promise.all([
+    fetchWidgetEndpoint<AllReviewsCountResponse>(
+      "all_reviews_count",
+      context.commonParams,
+      context.fetchImplementation,
+      context.signal,
+    ),
+    fetchWidgetEndpoint<AllReviewsRatingResponse>(
+      "all_reviews_rating",
+      context.commonParams,
+      context.fetchImplementation,
+      context.signal,
+    ),
+    fetchLegacyWidgetResources(context),
+  ]);
+  const count = normalizeAllReviewsCount(countResponse.all_reviews_count);
+  const rating = normalizeAllReviewsRating(ratingResponse.all_reviews_rating);
+
+  return {
+    ...createAllReviewsCounterMarkup({ count, rating }, resources.settings),
+    ...resources,
+  };
+}
+
 /** Fetches the legacy All Reviews Widget, also called Happy Customers. */
 export async function fetchAllReviewsWidget({
   shopDomain,
@@ -326,7 +384,7 @@ export async function fetchLegacyProductWidgets({
 
 /**
  * Fetches every currently implemented legacy storefront widget with one shared
- * settings/CSS request pair. Prefer this on routes that render all five.
+ * settings/CSS request pair. Prefer this on routes that render all six.
  */
 export async function fetchLegacyStorefrontWidgets({
   shopDomain,
@@ -368,8 +426,16 @@ export async function fetchLegacyStorefrontWidgets({
     resources.settings,
     allReviewsPage,
   );
+  const allReviewsStats = readAllReviewsStats(allReviewsPage.headerHtml);
 
   return {
+    allReviewsCounter: createAllReviewsCounterMarkup(
+      {
+        count: normalizeAllReviewsCount(allReviewsStats.allReviews),
+        rating: normalizeAllReviewsRating(allReviewsStats.averageRating),
+      },
+      resources.settings,
+    ),
     allReviewsWidget: createAllReviewsWidgetMarkup(
       allReviewsPage,
       resources.settings,
@@ -567,6 +633,116 @@ async function fetchAllReviewsPageMarkup(
     reviewType,
     reviewsHtml: response.all_reviews,
   };
+}
+
+function createAllReviewsCounterMarkup(
+  {
+    count,
+    rating,
+  }: {
+    count: number;
+    rating: string;
+  },
+  settings: JudgeMeRuntimeSettings,
+): AllReviewsCounterMarkup {
+  const style = settings.all_reviews_text_style === "text" ? "text" : "branded";
+  const showStars =
+    style === "branded" ||
+    settings.show_stars_for_all_reviews_text_badge === true;
+  const ratingLabel = formatAllReviewsRating(rating);
+  const defaultText =
+    style === "branded"
+      ? `${ratingLabel} out of 5 stars based on ${count} reviews`
+      : `Customers rate us ${ratingLabel}/5 based on ${count} reviews.`;
+  const configuredTemplate = getStringSetting(
+    settings,
+    style === "branded"
+      ? "all_reviews_text_badge_text_branded_style"
+      : "all_reviews_text_badge_text",
+    defaultText,
+  );
+  const text = renderAllReviewsCounterText(
+    configuredTemplate,
+    ratingLabel,
+    count,
+    defaultText,
+  );
+  const locale = getStringSetting(settings, "locale", "en");
+  const ratingMarkup = `<span class="jdgm-all-reviews-rating" data-score="${escapeHtml(rating)}" role="img" aria-label="${escapeHtml(`${ratingLabel} out of 5 stars`)}"${showStars ? "" : ' style="display:none"'}></span>`;
+  const configuredUrl = getStringSetting(
+    settings,
+    "all_reviews_text_badge_url",
+    "",
+  );
+  const shouldLink =
+    settings.is_all_reviews_text_badge_a_link === true &&
+    isSafeWidgetNavigationUrl(configuredUrl);
+  const textContent = shouldLink
+    ? `<a href="${escapeHtml(configuredUrl)}">${escapeHtml(text)}</a>`
+    : escapeHtml(text);
+  const textMarkup = `<span class="jdgm-all-reviews-text__text" data-score="${escapeHtml(rating)}" data-number-of-reviews="${count}" data-locale="${escapeHtml(locale)}">${textContent}</span>`;
+
+  return {
+    count,
+    html: `<div class="jdgm-widget jdgm-all-reviews-text jdgm-all-reviews-text--style-${style}" data-judgeme-react-show-stars="${showStars}">${ratingMarkup}${textMarkup}</div>`,
+    rating,
+  };
+}
+
+function normalizeAllReviewsCount(value: unknown): number {
+  const count =
+    typeof value === "number" ? value : Number(String(value ?? "").trim());
+
+  if (!Number.isSafeInteger(count) || count < 0) {
+    throw new Error("Judge.me returned an invalid All Reviews count.");
+  }
+
+  return count;
+}
+
+function normalizeAllReviewsRating(value: unknown): string {
+  const serialized = String(value ?? "").trim();
+  const rating = Number(serialized);
+
+  if (!serialized || !Number.isFinite(rating) || rating < 0 || rating > 5) {
+    throw new Error("Judge.me returned an invalid All Reviews rating.");
+  }
+
+  return serialized;
+}
+
+function formatAllReviewsRating(rating: string): string {
+  return Number(rating).toFixed(1);
+}
+
+function renderAllReviewsCounterText(
+  template: string,
+  rating: string,
+  count: number,
+  fallback: string,
+): string {
+  const rendered = template
+    .replace(
+      /\{\{\s*(?:shop\.metafields\.judgeme\.)?all_reviews_rating(?:\s*\|\s*round\s*:\s*1)?\s*\}\}/gi,
+      rating,
+    )
+    .replace(
+      /\{\{\s*(?:shop\.metafields\.judgeme\.)?all_reviews_count\s*\}\}/gi,
+      String(count),
+    );
+
+  return /\{[{%]|[%}]\}/.test(rendered) ? fallback : rendered;
+}
+
+function isSafeWidgetNavigationUrl(value: string): boolean {
+  if (!value.trim()) return false;
+
+  try {
+    const url = new URL(value, "https://judgeme-react.invalid");
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function createAllReviewsWidgetMarkup(

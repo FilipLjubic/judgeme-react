@@ -1,6 +1,8 @@
 export { createJudgeMeConfig, normalizeShopDomain } from "./config.js";
+export { AllReviewsCounter } from "./all-reviews-counter.js";
 export { AllReviewsWidget } from "./all-reviews-widget.js";
 export {
+  fetchAllReviewsCounter,
   fetchAllReviewsWidget,
   fetchFloatingReviewsTab,
   fetchLegacyProductWidgets,
@@ -30,9 +32,12 @@ export type {
   ResolvedJudgeMeEngine,
 } from "./types.js";
 export type {
+  AllReviewsCounterData,
+  AllReviewsCounterMarkup,
   AllReviewsWidgetData,
   AllReviewsWidgetMarkup,
   AllReviewsWidgetReviewType,
+  FetchAllReviewsCounterOptions,
   FetchAllReviewsWidgetOptions,
   FetchFloatingReviewsTabOptions,
   FetchLegacyProductWidgetsOptions,
@@ -54,6 +59,7 @@ export type {
   ReviewsCarouselData,
   StarRatingBadgeData,
 } from "./legacy-api.js";
+export type { AllReviewsCounterProps } from "./all-reviews-counter.js";
 export type { AllReviewsWidgetProps } from "./all-reviews-widget.js";
 export type { FloatingReviewsTabProps } from "./floating-reviews-tab.js";
 export type { LegacyReviewWidgetProps } from "./legacy-review-widget.js";

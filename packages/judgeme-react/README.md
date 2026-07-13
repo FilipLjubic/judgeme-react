@@ -9,6 +9,7 @@ The package is intentionally framework-neutral. Hydrogen is a consumer under `ex
 | Surface                                 | Status                                                                                                                        |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Star Rating Badge                       | Implemented with the public `preview_badge` endpoint and Judge.me's interaction runtime                                       |
+| All Reviews Counter                     | Implemented with public aggregate endpoints, dashboard text/style settings, and Judge.me's secondary runtime                  |
 | Classic Reviews Carousel                | Implemented with the public `featured_carousel` endpoint and Judge.me's secondary-widget runtime                              |
 | All Reviews Widget                      | Implemented with the public `all_reviews_page` endpoint, dashboard settings, and React-owned SPA controls                     |
 | Floating Reviews Tab                    | Implemented with the public `reviews_tab` endpoint plus an `all_reviews_page` fallback for stores where the tab is plan-gated |
@@ -25,11 +26,13 @@ The package is intentionally framework-neutral. Hydrogen is a consumer under `ex
 - `fetchLegacyReviewWidget` fetches Review Widget HTML, dashboard settings, and dashboard CSS from Judge.me's public Widget API.
 - `fetchLegacyProductWidgets` fetches both product widgets while sharing the settings/CSS requests.
 - `fetchReviewsCarousel` fetches the standalone classic shop-level carousel, settings, and CSS.
+- `fetchAllReviewsCounter` fetches the standalone shop-wide rating/count, settings, and CSS.
 - `fetchAllReviewsWidget` fetches the standalone shop-level All Reviews Widget, settings, and CSS.
 - `fetchFloatingReviewsTab` fetches the official tab when available and otherwise builds a Free-plan fallback from All Reviews Page data.
-- `fetchLegacyStorefrontWidgets` fetches all five implemented widgets with one shared settings/CSS payload and reuses the All Reviews response for the Free-plan Floating Tab fallback.
+- `fetchLegacyStorefrontWidgets` fetches all six implemented widgets with one shared settings/CSS payload and reuses the All Reviews response for the counter and Free-plan Floating Tab fallback.
 - `StarRatingBadge` server-renders the product rating and enables its scroll-to-reviews behavior.
 - `ReviewsCarousel` server-renders the configured classic carousel and enables its navigation, auto-slide, and gallery behavior.
+- `AllReviewsCounter` server-renders the configured combined store rating/count and enables its branded/text star treatment.
 - `AllReviewsWidget` server-renders the configured all-store review stream and enables its tabs, filters, sorting, pagination, and SPA lifecycle.
 - `FloatingReviewsTab` server-renders the tab and enables its modal, review streams, pagination, filters, sorting, and SPA lifecycle.
 - `LegacyReviewWidget` server-renders that payload and progressively enables Judge.me's own review form and browser behavior.
@@ -41,10 +44,11 @@ Private Judge.me credentials do not belong in this React package. Server integra
 
 ## Implemented widgets
 
-Fetch all five widgets in a server loader. The batch makes seven requests: `product_review`, `preview_badge`, `featured_carousel`, `reviews_tab`, `all_reviews_page`, `settings`, and `html_miracle`. When `reviews_tab` is `null`, the same All Reviews response supplies both `AllReviewsWidget` and the Floating Tab fallback, so no eighth request is made. The large settings/CSS payload appears only once in route data. Awaiting the batch keeps the Judge.me-owned DOM outside a streamed Suspense boundary, which prevents its runtime from racing hydration.
+Fetch all six widgets in a server loader. The batch makes seven requests: `product_review`, `preview_badge`, `featured_carousel`, `reviews_tab`, `all_reviews_page`, `settings`, and `html_miracle`. The same All Reviews response supplies `AllReviewsWidget`, the aggregate values for `AllReviewsCounter`, and the Floating Tab fallback when `reviews_tab` is `null`, so no extra requests are made. The large settings/CSS payload appears only once in route data. Awaiting the batch keeps the Judge.me-owned DOM outside a streamed Suspense boundary, which prevents its runtime from racing hydration.
 
 ```ts
 import {
+  AllReviewsCounter,
   AllReviewsWidget,
   fetchLegacyStorefrontWidgets,
   FloatingReviewsTab,
@@ -76,6 +80,10 @@ Render it inside the store-level provider:
     data={{ ...widgets.starRatingBadge, ...widgets.resources }}
     includeStyles={false}
   />
+  <AllReviewsCounter
+    data={{ ...widgets.allReviewsCounter, ...widgets.resources }}
+    includeStyles={false}
+  />
   <ReviewsCarousel
     data={{ ...widgets.reviewsCarousel, ...widgets.resources }}
     includeStyles={false}
@@ -95,7 +103,9 @@ Render it inside the store-level provider:
 </JudgeMeProvider>
 ```
 
-`includeStyles={false}` prevents the badge, carousel, All Reviews Widget, and floating tab from emitting duplicate copies of the shared dashboard CSS; the Review Widget emits it once for all five. When rendering one widget, use its standalone fetcher and leave `includeStyles` at its default `true` where available. Use `fetchLegacyProductWidgets` when a route needs only the two product widgets.
+`includeStyles={false}` prevents the badge, counter, carousel, All Reviews Widget, and floating tab from emitting duplicate copies of the shared dashboard CSS; the Review Widget emits it once for all six. When rendering one widget, use its standalone fetcher and leave `includeStyles` at its default `true` where available. Use `fetchLegacyProductWidgets` when a route needs only the two product widgets.
+
+`AllReviewsCounter` is the store-wide aggregate, including product and shop reviews. Its standalone fetcher calls `all_reviews_count` and `all_reviews_rating`; the batched loader reads the equivalent values from the `all_reviews_page` header. Dashboard templates are rendered as escaped text, and unsafe `javascript:` destinations are not emitted.
 
 The host application must allow Judge.me's script, style, API, media, and image hosts in its Content Security Policy. The Hydrogen example in this repository contains the tested CSP configuration. It also preserves `'self'` when overriding `scriptSrc` and permits Vite's local blob worker with `workerSrc: ["'self'", 'blob:']`.
 

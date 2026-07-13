@@ -13,6 +13,7 @@ import {ProductImage} from '~/components/ProductImage';
 import {ProductForm} from '~/components/ProductForm';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
 import {
+  AllReviewsCounter,
   AllReviewsWidget,
   fetchLegacyStorefrontWidgets,
   FloatingReviewsTab,
@@ -157,6 +158,16 @@ export default function Product() {
         <div dangerouslySetInnerHTML={{__html: descriptionHtml}} />
         <br />
       </div>
+      {judgeMeWidgets ? (
+        <AllReviewsCounter
+          className="product-reviews-counter"
+          data={{
+            ...judgeMeWidgets.allReviewsCounter,
+            ...judgeMeWidgets.resources,
+          }}
+          includeStyles={false}
+        />
+      ) : null}
       {judgeMeWidgets ? (
         <ReviewsCarousel
           className="product-reviews-carousel"

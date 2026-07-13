@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createJudgeMeConfig,
+  fetchAllReviewsCounter,
   fetchAllReviewsWidget,
   fetchFloatingReviewsTab,
   fetchLegacyProductWidgets,
@@ -264,6 +265,57 @@ test("fetches a standalone classic Reviews Carousel payload", async () => {
   assert.equal(data.settings.featured_carousel_theme, "default");
 });
 
+test("fetches a standalone All Reviews Counter with dashboard text", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+    const endpoint = url.pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+    assert.equal(url.searchParams.get("api_token"), "public-token");
+    assert.equal(url.searchParams.has("external_id"), false);
+
+    if (endpoint === "all_reviews_count") {
+      return Response.json({ all_reviews_count: 42 });
+    }
+
+    if (endpoint === "all_reviews_rating") {
+      return Response.json({ all_reviews_rating: "4.64" });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          '<script class=\'jdgm-settings-script\'>window.jdgmSettings={"all_reviews_text_style":"branded","all_reviews_text_badge_text_branded_style":"{{ shop.metafields.judgeme.all_reviews_rating | round: 1 }} out of 5 stars based on {{ shop.metafields.judgeme.all_reviews_count }} reviews","is_all_reviews_text_badge_a_link":true,"all_reviews_text_badge_url":"javascript:alert(1)"};</script><style>.jdgm-all-reviews-text{color:teal}</style>',
+      });
+    }
+
+    return Response.json({ html_miracle: "" });
+  };
+
+  const data = await fetchAllReviewsCounter({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    fetch: mockFetch,
+  });
+
+  assert.deepEqual(requestedEndpoints.sort(), [
+    "all_reviews_count",
+    "all_reviews_rating",
+    "html_miracle",
+    "settings",
+  ]);
+  assert.equal(data.count, 42);
+  assert.equal(data.rating, "4.64");
+  assert.match(data.html, /jdgm-all-reviews-text--style-branded/);
+  assert.match(data.html, /data-score="4.64"/);
+  assert.match(data.html, /data-number-of-reviews="42"/);
+  assert.match(data.html, /4.6 out of 5 stars based on 42 reviews/);
+  assert.doesNotMatch(data.html, /javascript:/);
+  assert.match(data.styles, /color:teal/);
+});
+
 test("fetches the configured legacy All Reviews Widget", async () => {
   const requestedEndpoints = [];
   const mockFetch = async (input) => {
@@ -483,6 +535,12 @@ test("fetches all implemented storefront widgets with shared resources", async (
   ]);
   assert.equal(data.reviewWidget.productId, "12345");
   assert.equal(data.starRatingBadge.productId, "12345");
+  assert.equal(data.allReviewsCounter.count, 12);
+  assert.equal(data.allReviewsCounter.rating, "4.75");
+  assert.match(
+    data.allReviewsCounter.html,
+    /4.8 out of 5 stars based on 12 reviews/,
+  );
   assert.match(data.reviewsCarousel.html, /Featured reviews/);
   assert.equal(data.allReviewsWidget.initialReviewType, "product-reviews");
   assert.match(data.allReviewsWidget.html, /jdgm-all-reviews-widget/);
