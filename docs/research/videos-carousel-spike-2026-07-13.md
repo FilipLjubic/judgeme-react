@@ -75,6 +75,12 @@ The adapter seeds `window.jdgmCarouselMode[blockId]` with the server-fetched rev
 
 React owns CSP-safe arrow buttons. The Shopify block's inline handler attributes are not copied.
 
+### Current readiness contract
+
+The second live store exposed a false timeout in the adapter on 2026-07-13. Its tokenless `photo_and_video` response contained four photo cards, and Brave showed that Judge.me had built all four cards, selected one active card, set `_videoCarouselInitialized`, and attached a `_videoCarouselInstance` with navigation, timer, centering, and cleanup methods. The block was visible and interactive.
+
+The timeout came from waiting for `_initialPositioningComplete`. The current `video_carousel.js` sets that private flag in its cloned Cards Carousel positioning path, but does not set it for a normal Videos Carousel. Videos readiness now follows the state the current deployment actually establishes: initialized root, attached carousel instance, and an active media card. Empty feeds still use the explicit zero-review branch.
+
 ## Configuration parity and limits
 
 The live Highlight block supplied the card dimensions now used by the adapter. Perspective uses the same deployed CSS semantics with smaller secondary-card dimensions supplied by React; it is covered by the typed configuration and static tests but has not yet been compared against a saved Shopify Perspective block.
@@ -92,6 +98,7 @@ The adapter intentionally keeps the complete Judge.me review/media object rather
 - Clean Brave reload: four cards rendered with the expected current-store styling.
 - Next arrow: active-card navigation worked.
 - Photo card: Judge.me Media Gallery opened with the correct review and product CTA; Close worked.
+- Second-store regression check: four photo cards, one active card, attached navigation instance, and zero console messages after a clean reload and Next interaction.
 
 Production build verification is run with the final repository gate after documentation changes.
 

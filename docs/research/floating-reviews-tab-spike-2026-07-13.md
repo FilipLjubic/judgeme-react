@@ -43,7 +43,20 @@ interface ReviewsTabResponse {
 }
 ```
 
-`fetchFloatingReviewsTab` passes valid official markup through after rejecting script tags, inline event handlers, and `javascript:` URLs. This exact path still needs a live Awesome-plan fixture because the test store cannot produce it.
+`fetchFloatingReviewsTab` accepts valid official markup after rejecting script tags, inline event handlers, and `javascript:` URLs. The exact response is normalized when Judge.me returns only the drawer wrapper, as observed on the second live store below.
+
+## Second-store exact response
+
+On 2026-07-13, the current paid/eligible store returned HTTP 200 with a 15,534-byte `reviews_tab` string. Contrary to the complete root used by the original contract fixture, this response began with `.jdgm-revs-tab__wrapper` and contained the modal body, histogram, reviews, and 168-page pagination, but no element whose class token was exactly `.jdgm-revs-tab`. The apparent `jdgm-revs-tab` substring came only from the wrapper class and an embedded CSS selector.
+
+The Shopify app embed normally supplies the missing outer chrome. The headless adapter now does the same when needed:
+
+- wraps the official response in `.jdgm-widget.jdgm-revs-tab`;
+- creates the configured text/stars trigger, title, close control, rating, and review count;
+- derives the count from the product/shop totals and the average from the official histogram frequencies;
+- preserves a complete exact root unchanged for deployments that still return one.
+
+The raw response had 839 product reviews and 30 shop reviews. A clean Brave reload produced the configured trigger, opened the official 168-page drawer, closed it with Escape, restored focus, and emitted no console errors.
 
 ## Free-plan fallback
 
@@ -114,7 +127,6 @@ html_miracle
 
 ## Current limits
 
-- The exact `reviews_tab` response needs an Awesome-plan browser fixture.
 - The fallback covers reading, switching, filtering, sorting, media, and pagination. It does not yet reproduce the Awesome-only Write a Store Review flow.
 - Search and custom-form filters have not been added to the fallback.
 - Empty-state behavior needs a store with no published product or shop reviews.

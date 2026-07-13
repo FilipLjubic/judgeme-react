@@ -159,7 +159,10 @@ interface CarouselElement extends HTMLElement {
   _clickHandler?: EventListener;
   _initialPositioningComplete?: boolean;
   _videoCarouselInitialized?: boolean;
-  _videoCarouselInstance?: { destroy?: () => void };
+  _videoCarouselInstance?: {
+    destroy?: () => void;
+    syncActiveCard?: () => void;
+  };
 }
 
 interface ExactJudgeMeWindow extends Window {
@@ -1691,9 +1694,9 @@ function isVideosCarouselReady(
 ): boolean {
   return (
     container._videoCarouselInitialized === true &&
+    container._videoCarouselInstance !== undefined &&
     (reviewCount === 0 ||
-      (container.querySelector(".jdgm-media-card") !== null &&
-        container._initialPositioningComplete === true))
+      container.querySelector(".jdgm-media-card.active") !== null)
   );
 }
 

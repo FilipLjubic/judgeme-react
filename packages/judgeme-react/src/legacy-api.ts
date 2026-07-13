@@ -665,7 +665,10 @@ async function resolveFloatingReviewsTabMarkup(
 
   if (exactHtml !== null) {
     assertSafeWidgetMarkup(exactHtml, "Floating Reviews Tab");
-    return { html: exactHtml, source: "reviews-tab" };
+    return {
+      html: normalizeExactFloatingReviewsTabMarkup(exactHtml, settings),
+      source: "reviews-tab",
+    };
   }
 
   const fallback =
@@ -913,6 +916,82 @@ function getReviewsTabHtml(
   }
 
   throw new Error("Judge.me returned an invalid Floating Reviews Tab.");
+}
+
+function normalizeExactFloatingReviewsTabMarkup(
+  html: string,
+  settings: JudgeMeRuntimeSettings,
+): string {
+  if (/class=["'][^"']*\bjdgm-revs-tab\b[^"']*["']/i.test(html)) {
+    return html;
+  }
+
+  if (!/class=["'][^"']*\bjdgm-revs-tab__wrapper\b[^"']*["']/i.test(html)) {
+    throw new Error("Judge.me returned incomplete Floating Reviews Tab markup.");
+  }
+
+  const stats = readReviewsTabStats(html);
+  const buttonLabel = getStringSetting(
+    settings,
+    "floating_tab_button_name",
+    "Reviews",
+  );
+  const title = getStringSetting(
+    settings,
+    "floating_tab_title",
+    "Customer Reviews",
+  );
+  const buttonStyle =
+    settings.floating_tab_tab_style === "stars" ? "stars" : "text";
+  const tabLabel =
+    buttonStyle === "stars"
+      ? createFloatingTabRating(stats.averageRating)
+      : escapeHtml(buttonLabel);
+  const mobileStyles = settings.floating_tab_hide_mobile_install_preference
+    ? "<style>@media(max-width:768px){.jdgm-revs-tab-btn{display:none!important}}</style>"
+    : "";
+
+  // The current reviews_tab endpoint can return only the drawer wrapper. The
+  // Shopify app embed supplies this missing trigger/header shell in Liquid.
+  return [
+    '<section class="jdgm-widget jdgm-revs-tab" data-judgeme-react-source="reviews-tab">',
+    mobileStyles,
+    `<div class="jdgm-revs-tab-btn btn" data-style="${buttonStyle}" position="bottom" tabindex="0" role="button" aria-label="Open Judge.me reviews">${tabLabel}</div>`,
+    `<div class="jdgm-revs-tab__header"><a class="jdgm-close-ico" tabindex="0" role="button" aria-label="Close Judge.me reviews"></a><h3 class="jdgm-revs-tab__title">${escapeHtml(title)}</h3><div class="jdgm-revs-tab__url"><div class="jdgm-all-reviews-rating" data-score="${stats.averageRating}"></div><span class="jdgm-all-reviews-count">${stats.allReviews}</span> reviews</div></div>`,
+    html,
+    "</section>",
+  ].join("");
+}
+
+function readReviewsTabStats(html: string): {
+  allReviews: string;
+  averageRating: string;
+} {
+  const productReviews = Number(
+    readNumericHtmlAttribute(html, "data-number-of-product-reviews", "0"),
+  );
+  const shopReviews = Number(
+    readNumericHtmlAttribute(html, "data-number-of-shop-reviews", "0"),
+  );
+  let frequencyTotal = 0;
+  let ratingTotal = 0;
+
+  for (const match of html.matchAll(
+    /<[^>]+class=["'][^"']*\bjdgm-histogram__row\b[^"']*["'][^>]*>/gi,
+  )) {
+    const rating = Number(readNumericHtmlAttribute(match[0], "data-rating", "0"));
+    const frequency = Number(
+      readNumericHtmlAttribute(match[0], "data-frequency", "0"),
+    );
+    ratingTotal += rating * frequency;
+    frequencyTotal += frequency;
+  }
+
+  return {
+    allReviews: String(productReviews + shopReviews),
+    averageRating:
+      frequencyTotal > 0 ? (ratingTotal / frequencyTotal).toFixed(2) : "0",
+  };
 }
 
 function createFloatingReviewsTabFallback({

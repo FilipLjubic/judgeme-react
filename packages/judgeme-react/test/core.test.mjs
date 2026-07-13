@@ -989,6 +989,43 @@ test("fetches an exact Floating Reviews Tab when Judge.me provides one", async (
   assert.match(data.html, /jdgm-revs-tab-btn/);
 });
 
+test("supplies the app-embed shell for a wrapper-only Floating Reviews Tab", async () => {
+  const mockFetch = async (input) => {
+    const endpoint = new URL(input).pathname.split("/").pop();
+
+    if (endpoint === "reviews_tab") {
+      return Response.json({
+        page: 1,
+        reviews_tab:
+          "<section class='jdgm-revs-tab__wrapper'><div class='jdgm-revs-tab__main'><div class='jdgm-revs-tab__content-header' data-number-of-product-reviews='9' data-number-of-shop-reviews='3'><div class='jdgm-histogram__row' data-rating='5' data-frequency='9'></div><div class='jdgm-histogram__row' data-rating='4' data-frequency='3'></div></div></div></section>",
+      });
+    }
+
+    if (endpoint === "settings") {
+      return Response.json({
+        settings:
+          '<script class=\'jdgm-settings-script\'>window.jdgmSettings={"floating_tab_tab_style":"stars","floating_tab_title":"Verified feedback"};</script>',
+      });
+    }
+
+    return Response.json({ html_miracle: "" });
+  };
+
+  const data = await fetchFloatingReviewsTab({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    fetch: mockFetch,
+  });
+
+  assert.equal(data.source, "reviews-tab");
+  assert.match(data.html, /class="jdgm-widget jdgm-revs-tab"/);
+  assert.match(data.html, /class="jdgm-revs-tab-btn btn"/);
+  assert.match(data.html, /data-score="4\.75"/);
+  assert.match(data.html, />12<\/span> reviews/);
+  assert.match(data.html, /Verified feedback/);
+  assert.match(data.html, /class='jdgm-revs-tab__wrapper'/);
+});
+
 test("builds a Free-plan Floating Reviews Tab from All Reviews data", async () => {
   const requestedEndpoints = [];
   const mockFetch = async (input) => {
