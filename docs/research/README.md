@@ -22,6 +22,7 @@
 | `popup-reviews-spike-2026-07-13`                 | notes | Dashboard settings, tokenless selection feed, product-image boundary, timing, page targeting, and native lifecycle   |
 | `ai-reviews-summary-spike-2026-07-13`            | notes | Shopify metafield payload, public status route, app-block configuration, exact module, and Brave lifecycle           |
 | `review-snippets-spike-2026-07-13`               | notes | Tokenless snippet endpoint, exact extension module, preload bridge, block configuration, and Brave lightbox          |
+| `questions-and-answers-spike-2026-07-13`         | notes | Official nested placement, tokenless read/write routes, dashboard mapping, native React UI, and Free-plan limits      |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                            |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                        |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                            |
@@ -34,6 +35,7 @@
 | `judge-me-ai-reviews-summary`                    | docs  | Official AI Reviews Summary plan, content, eligibility, configuration, and Shopify app-block contract                |
 | `judge-me-review-snippets`                       | docs  | Official Review Snippets plan, product behavior, content, configuration, and empty-state contract                    |
 | `judge-me-cart-widgets`                          | docs  | Official cart-widget Review Snippets selection and ten-review behavior                                               |
+| `judge-me-questions-and-answers`                  | docs  | Official Q&A plan, placement, settings, moderation, and new Review Widget requirements                               |
 | `judge-me-hydrogen-npm-metadata`                 | docs  | Registry metadata for Judge.me's official Hydrogen package                                                           |
 | `judge-me-liquid-widgets`                        | docs  | Official Liquid markup and Judge.me metafield dependencies                                                           |
 | `shopify-theme-app-extensions`                   | docs  | Official Shopify app-block, app-embed, Liquid-scope, and CDN model                                                   |
@@ -194,6 +196,16 @@ Query the Review Snippets report:
 ctx query \
   "How does Review Snippets fetch once and mount Judge.me's exact current module in Hydrogen?" \
   --label review-snippets-spike-2026-07-13 \
+  --kind notes \
+  --cwd /Users/panda/Code/judgeme-react
+```
+
+Query the Questions & Answers report:
+
+```sh
+ctx query \
+  "How does Questions & Answers read, submit, configure, and render in Hydrogen?" \
+  --label questions-and-answers-spike-2026-07-13 \
   --kind notes \
   --cwd /Users/panda/Code/judgeme-react
 ```

@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createAiReviewsSummaryData,
   createPopupReviewsData,
+  createQuestionsAndAnswersData,
   createReviewSnippetsData,
   createJudgeMeConfig,
   fetchCardsCarousel,
@@ -15,6 +16,7 @@ import {
   fetchLegacyStorefrontWidgets,
   fetchAiReviewsSummaryStatus,
   fetchPopupReviewsPage,
+  fetchQuestionsAndAnswersPage,
   fetchReviewSnippetsPage,
   fetchReviewsCarousel,
   fetchReviewsGrid,
@@ -27,10 +29,12 @@ import {
   normalizeTestimonialsCarouselConfig,
   normalizeAiReviewsSummaryConfig,
   normalizePopupReviewsConfig,
+  normalizeQuestionsAndAnswersConfig,
   normalizeReviewSnippetsConfig,
   normalizeVideosCarouselConfig,
   parseAiReviewsSummaryMetafield,
   resolveJudgeMeEngine,
+  submitQuestion,
 } from "../dist/index.js";
 
 test("normalizes the permanent Shopify domain", () => {
@@ -1376,6 +1380,175 @@ test("normalizes Review Snippets block settings and validates public HTML", asyn
   assert.throws(
     () => normalizeReviewSnippetsConfig({ maxReviews: 11 }),
     /review count must be between 1 and 10/,
+  );
+});
+
+test("fetches and normalizes the tokenless Questions & Answers feed", async () => {
+  const page = await fetchQuestionsAndAnswersPage({
+    shopDomain: "https://STORE.myshopify.com/products/example",
+    productId: "gid://shopify/Product/12345",
+    page: 1,
+    previewMode: "sample_data",
+    fetch: async (input, init) => {
+      const url = new URL(input);
+      assert.equal(url.origin, "https://api.judge.me");
+      assert.equal(url.pathname, "/api/questions/questions_for_widget");
+      assert.equal(url.searchParams.get("product_id"), "12345");
+      assert.equal(url.searchParams.get("page"), "1");
+      assert.equal(url.searchParams.get("json_request"), "true");
+      assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+      assert.equal(url.searchParams.get("platform"), "shopify");
+      assert.equal(url.searchParams.get("preview_mode"), "sample_data");
+      assert.equal(url.searchParams.has("api_token"), false);
+      assert.equal(init?.headers.Accept, "application/json");
+
+      return Response.json({
+        total_pages: 2,
+        current_page: 1,
+        per_page: 2,
+        questions: [
+          {
+            uuid: "question-1",
+            content_html: "<p>Does it contain &amp; use cotton?</p>",
+            created_at: "2025-01-25T10:30:00.000+00:00",
+            shop_as_asker: false,
+            asker_name: "Emma Wilson",
+            asker_initial: "E",
+            answers: [
+              {
+                uuid: "answer-1",
+                content_html: "<p>Yes.<br>It uses organic cotton.</p>",
+                created_at: "2025-01-26T09:15:00.000+00:00",
+                shop_as_answerer: true,
+                answerer_name: "Store Team",
+                answerer_initial: "S",
+              },
+            ],
+          },
+        ],
+      });
+    },
+  });
+
+  assert.equal(page.productId, "12345");
+  assert.equal(page.previewMode, "sample_data");
+  assert.equal(page.totalPages, 2);
+  assert.equal(page.questions[0].content, "Does it contain & use cotton?");
+  assert.equal(
+    page.questions[0].answers[0].content,
+    "Yes.\nIt uses organic cotton.",
+  );
+});
+
+test("maps Q&A dashboard settings and rejects mismatched product data", () => {
+  const settings = {
+    review_widget_qna_enabled: true,
+    review_widget_reviews_section_theme: "cards",
+    widget_questions_and_answers_text: "Product questions",
+    widget_open_question_form_text: "Ask us",
+    qna_content_screen_title_text: "What would you like to know?",
+    qna_widget_flow_gdpr_statement:
+      "We'll contact you under our <a href='https://judge.me/privacy'>privacy policy</a>.",
+    qna_widget_answer_reply_label: "Reply from {{ answerer_name }}:",
+    review_widget_button_color: "#123456",
+    review_widget_corner_styling: "round",
+    review_widget_review_title_text_size: "large",
+  };
+  const config = normalizeQuestionsAndAnswersConfig(settings);
+
+  assert.equal(config.dashboardEnabled, true);
+  assert.equal(config.theme, "cards");
+  assert.equal(config.headingText, "Product questions");
+  assert.equal(config.askQuestionText, "Ask us");
+  assert.equal(config.buttonColor, "#123456");
+  assert.equal(config.cornerStyle, "round");
+  assert.equal(config.titleTextSize, "large");
+  assert.equal(
+    config.privacyText,
+    "We'll contact you under our privacy policy.",
+  );
+
+  const page = {
+    currentPage: 1,
+    totalPages: 1,
+    perPage: 5,
+    productId: "12345",
+    questions: [],
+  };
+  const data = createQuestionsAndAnswersData({
+    page,
+    productId: "gid://shopify/Product/12345",
+    productTitle: "Poster",
+    productHandle: "/products/poster",
+    settings,
+    shopDomain: "store.myshopify.com",
+  });
+  assert.deepEqual(data.product, {
+    id: "12345",
+    title: "Poster",
+    handle: "poster",
+  });
+
+  assert.throws(
+    () =>
+      createQuestionsAndAnswersData({
+        page,
+        productId: "99999",
+        productTitle: "Poster",
+        productHandle: "poster",
+        settings,
+        shopDomain: "store.myshopify.com",
+      }),
+    /mismatched Questions & Answers/,
+  );
+});
+
+test("submits a shopper question without either Judge.me token", async () => {
+  let requestCount = 0;
+  await submitQuestion({
+    shopDomain: "https://STORE.myshopify.com/products/example",
+    productId: "gid://shopify/Product/12345",
+    productTitle: "Wall Art Poster",
+    productHandle: "/products/wall-art-poster",
+    name: "Ada Lovelace",
+    email: "ada@example.com",
+    question: "Can this be framed?",
+    fetch: async (input, init) => {
+      requestCount += 1;
+      const url = new URL(input);
+      assert.equal(url.origin, "https://api.judge.me");
+      assert.equal(url.pathname, "/api/questions");
+      assert.equal(url.searchParams.has("api_token"), false);
+      assert.equal(init?.method, "POST");
+      assert.ok(init?.body instanceof FormData);
+      assert.equal(init.body.get("name"), "Ada Lovelace");
+      assert.equal(init.body.get("email"), "ada@example.com");
+      assert.equal(init.body.get("question_content"), "Can this be framed?");
+      assert.equal(init.body.get("id"), "12345");
+      assert.equal(init.body.get("product_title"), "Wall Art Poster");
+      assert.equal(init.body.get("handle"), "wall-art-poster");
+      assert.equal(init.body.get("shop_domain"), "store.myshopify.com");
+      assert.equal(init.body.get("platform"), "shopify");
+      assert.equal(init.body.has("api_token"), false);
+      return Response.json({ ok: true });
+    },
+  });
+  assert.equal(requestCount, 1);
+
+  await assert.rejects(
+    submitQuestion({
+      shopDomain: "store.myshopify.com",
+      productId: "12345",
+      productTitle: "Poster",
+      productHandle: "poster",
+      name: "Ada",
+      email: "not-an-email",
+      question: "Can this be framed?",
+      fetch: async () => {
+        throw new Error("fetch should not be called");
+      },
+    }),
+    /valid email address/,
   );
 });
 

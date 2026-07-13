@@ -20,6 +20,7 @@ import {
   createAiReviewsSummaryData,
   createCardsCarouselData,
   createPopupReviewsData,
+  createQuestionsAndAnswersData,
   createReviewSnippetsData,
   createReviewsGridData,
   createTestimonialsCarouselData,
@@ -27,6 +28,7 @@ import {
   fetchCardsCarouselPage,
   fetchLegacyStorefrontWidgets,
   fetchPopupReviewsPage,
+  fetchQuestionsAndAnswersPage,
   fetchReviewSnippetsPage,
   fetchReviewsGridPage,
   fetchTestimonialsCarouselPage,
@@ -35,6 +37,7 @@ import {
   getShopifyNumericId,
   LegacyReviewWidget,
   PopupReviews,
+  QuestionsAndAnswers,
   ReviewsCarousel,
   ReviewsGrid,
   ReviewSnippets,
@@ -60,6 +63,8 @@ export async function loader(args: Route.LoaderArgs) {
   const judgeMeWidgets = await loadJudgeMeWidgets({
     aiReviewsSummaryMetafieldValue: criticalData.aiReviewsSummaryMetafieldValue,
     productId: criticalData.product.id,
+    productHandle: criticalData.product.handle,
+    productTitle: criticalData.product.title,
     publicToken: env.JUDGEME_PUBLIC_TOKEN,
     shopDomain: env.JUDGEME_SHOP_DOMAIN ?? env.PUBLIC_STORE_DOMAIN,
     v3AssetBaseUrl: env.JUDGEME_V3_ASSET_BASE_URL,
@@ -105,6 +110,8 @@ async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
 async function loadJudgeMeWidgets({
   aiReviewsSummaryMetafieldValue,
   productId,
+  productHandle,
+  productTitle,
   publicToken,
   shopDomain,
   v3AssetBaseUrl,
@@ -112,6 +119,8 @@ async function loadJudgeMeWidgets({
 }: {
   aiReviewsSummaryMetafieldValue: string | null;
   productId: string;
+  productHandle: string;
+  productTitle: string;
   publicToken?: string;
   shopDomain: string;
   v3AssetBaseUrl?: string;
@@ -134,6 +143,10 @@ async function loadJudgeMeWidgets({
       reviewSelection: 'current_product',
       showReviewMedia: true,
     } as const;
+    // The fixture store has Q&A disabled and no published questions. Judge.me's
+    // own read-only sample feed lets the harness exercise the complete renderer
+    // without inventing content or posting into the moderation queue.
+    const questionsAndAnswersPreviewMode = 'sample_data' as const;
     const legacyWidgetsPromise = fetchLegacyStorefrontWidgets({
       productId: numericProductId,
       publicToken,
@@ -147,6 +160,7 @@ async function loadJudgeMeWidgets({
       testimonialsCarouselPage,
       videosCarouselPage,
       reviewSnippetsPage,
+      questionsAndAnswersPage,
     ] = await Promise.all([
       legacyWidgetsPromise,
       v3AssetBaseUrl
@@ -189,6 +203,12 @@ async function loadJudgeMeWidgets({
             signal,
           })
         : Promise.resolve(null),
+      fetchQuestionsAndAnswersPage({
+        shopDomain,
+        productId: numericProductId,
+        previewMode: questionsAndAnswersPreviewMode,
+        signal,
+      }),
     ]);
     const popupReviewsPage = await fetchPopupReviewsPage({
       shopDomain,
@@ -217,6 +237,14 @@ async function loadJudgeMeWidgets({
       aiReviewsSummary,
       popupReviews: createPopupReviewsData({
         page: popupReviewsPage,
+        settings: legacyWidgets.resources.settings,
+        shopDomain,
+      }),
+      questionsAndAnswers: createQuestionsAndAnswersData({
+        page: questionsAndAnswersPage,
+        productId: numericProductId,
+        productHandle,
+        productTitle,
         settings: legacyWidgets.resources.settings,
         shopDomain,
       }),
@@ -367,6 +395,10 @@ export default function Product() {
               data={judgeMeWidgets.reviewSnippets}
             />
           ) : null}
+          <QuestionsAndAnswers
+            className="product-questions-and-answers"
+            data={judgeMeWidgets.questionsAndAnswers}
+          />
           {judgeMeWidgets.cardsCarousel ? (
             <CardsCarousel
               className="product-cards-carousel"

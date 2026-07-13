@@ -35,6 +35,14 @@ export {
   fetchPopupReviewsPage,
   normalizePopupReviewsConfig,
 } from "./popup-reviews-api.js";
+export { QuestionsAndAnswers } from "./questions-and-answers.js";
+export {
+  createQuestionsAndAnswersData,
+  fetchQuestionsAndAnswers,
+  fetchQuestionsAndAnswersPage,
+  normalizeQuestionsAndAnswersConfig,
+  submitQuestion,
+} from "./questions-and-answers-api.js";
 export { ReviewsCarousel } from "./reviews-carousel.js";
 export { ReviewsGrid } from "./reviews-grid.js";
 export {
@@ -162,6 +170,21 @@ export type {
   PopupReviewsPosition,
   PopupReviewsSelection,
 } from "./popup-reviews-api.js";
+export type { QuestionsAndAnswersProps } from "./questions-and-answers.js";
+export type {
+  CreateQuestionsAndAnswersDataOptions,
+  FetchQuestionsAndAnswersOptions,
+  FetchQuestionsAndAnswersPageOptions,
+  QuestionsAndAnswersAnswer,
+  QuestionsAndAnswersConfig,
+  QuestionsAndAnswersData,
+  QuestionsAndAnswersPageData,
+  QuestionsAndAnswersPreviewMode,
+  QuestionsAndAnswersProduct,
+  QuestionsAndAnswersQuestion,
+  QuestionsAndAnswersTheme,
+  SubmitQuestionInput,
+} from "./questions-and-answers-api.js";
 export type { StarRatingBadgeProps } from "./star-rating-badge.js";
 export type { TestimonialsCarouselProps } from "./testimonials-carousel.js";
 export type {
