@@ -81,9 +81,9 @@
       "kind": "notes",
       "url": "file:///Users/panda/Code/judgeme-react/docs/research/judgeme-widget-coverage-and-workarounds-2026-07-13.md",
       "reason": null,
-      "current": "20260713T210937Z-ee6fd215ff40",
-      "created_at": "2026-07-13T10:27:31Z",
-      "updated_at": "2026-07-13T21:09:37Z"
+      "current": "20260714T134900Z-3386ef63bade",
+      "created_at": "2026-07-13T21:09:37Z",
+      "updated_at": "2026-07-14T13:49:00Z"
     },
     {
       "id": "5b78d041f6b94209",
@@ -511,9 +511,9 @@
       "kind": "notes",
       "url": "file:///Users/panda/Code/judgeme-react/docs/research/hardening-baseline-2026-07-14.md",
       "reason": null,
-      "current": "20260714T103702Z-04386a7eae48",
-      "created_at": "2026-07-14T09:30:53Z",
-      "updated_at": "2026-07-14T10:37:02Z"
+      "current": "20260714T134859Z-78a8c5f5bcc6",
+      "created_at": "2026-07-14T10:37:02Z",
+      "updated_at": "2026-07-14T13:48:59Z"
     },
     {
       "id": "9e369573574cb0f8",
@@ -521,9 +521,9 @@
       "kind": "notes",
       "url": "file:///Users/panda/Code/judgeme-react/docs/research/widget-activation-and-limitations-2026-07-14.md",
       "reason": null,
-      "current": "20260714T103706Z-669f0af1774b",
-      "created_at": "2026-07-14T09:56:54Z",
-      "updated_at": "2026-07-14T10:37:06Z"
+      "current": "20260714T134900Z-bd99153c7fe8",
+      "created_at": "2026-07-14T10:37:06Z",
+      "updated_at": "2026-07-14T13:49:00Z"
     },
     {
       "id": "ac7acb915a41bfbb",
@@ -581,9 +581,79 @@
       "kind": "notes",
       "url": "file:///Users/panda/Code/judgeme-react/docs/research/npm-package-and-example-release-2026-07-14.md",
       "reason": null,
-      "current": "20260714T125411Z-5bc3b01ba884",
-      "created_at": "2026-07-14T12:48:06Z",
-      "updated_at": "2026-07-14T12:54:11Z"
+      "current": "20260714T134859Z-938a0e9f7ca6",
+      "created_at": "2026-07-14T12:54:11Z",
+      "updated_at": "2026-07-14T13:48:59Z"
+    },
+    {
+      "id": "2c91b47afb4c1431",
+      "label": "licensing-and-release-readiness-2026-07-14",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/licensing-and-release-readiness-2026-07-14.md",
+      "reason": null,
+      "current": "20260714T135127Z-afcdca299d8a",
+      "created_at": "2026-07-14T13:48:59Z",
+      "updated_at": "2026-07-14T13:51:27Z"
+    },
+    {
+      "id": "fc84b7bb863d41be",
+      "label": "npm-package-json-license-metadata",
+      "kind": "docs",
+      "url": "https://docs.npmjs.com/files/package.json/",
+      "reason": null,
+      "current": "20260714T133410Z-8be2afb085c4",
+      "created_at": "2026-07-14T13:34:09Z",
+      "updated_at": "2026-07-14T13:34:09Z"
+    },
+    {
+      "id": "6048a76d4f14377a",
+      "label": "npm-scoped-public-publishing",
+      "kind": "docs",
+      "url": "https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/",
+      "reason": null,
+      "current": "20260714T133411Z-f819f1bd429e",
+      "created_at": "2026-07-14T13:34:10Z",
+      "updated_at": "2026-07-14T13:34:10Z"
+    },
+    {
+      "id": "84540e0b03e9822b",
+      "label": "npm-trusted-publishing",
+      "kind": "docs",
+      "url": "https://docs.npmjs.com/trusted-publishers/",
+      "reason": null,
+      "current": "20260714T133412Z-56cd32af5851",
+      "created_at": "2026-07-14T13:34:11Z",
+      "updated_at": "2026-07-14T13:34:11Z"
+    },
+    {
+      "id": "1ec355217dddaac7",
+      "label": "osi-mit-license",
+      "kind": "docs",
+      "url": "https://opensource.org/license/mit",
+      "reason": null,
+      "current": "20260714T133416Z-b98973141a1e",
+      "created_at": "2026-07-14T13:34:12Z",
+      "updated_at": "2026-07-14T13:34:12Z"
+    },
+    {
+      "id": "9c8e4fd87dad364b",
+      "label": "osi-apache-2-license",
+      "kind": "docs",
+      "url": "https://opensource.org/license/apache-2-0",
+      "reason": null,
+      "current": "20260714T133420Z-3911ebc3a5ed",
+      "created_at": "2026-07-14T13:34:16Z",
+      "updated_at": "2026-07-14T13:34:16Z"
+    },
+    {
+      "id": "919328befc07a69c",
+      "label": "npm-unscoped-public-publishing",
+      "kind": "docs",
+      "url": "https://docs.npmjs.com/creating-and-publishing-unscoped-public-packages/",
+      "reason": null,
+      "current": "20260714T135117Z-db75c53d24ca",
+      "created_at": "2026-07-14T13:51:16Z",
+      "updated_at": "2026-07-14T13:51:16Z"
     }
   ]
 }

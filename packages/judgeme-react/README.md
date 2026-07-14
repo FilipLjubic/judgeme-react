@@ -1,17 +1,17 @@
-# @judgeme-react/core
+# judgeme-react
 
 Alpha React adapters for Judge.me storefront widgets, built for headless Shopify and Hydrogen.
 
 The package is intentionally framework-neutral. Hydrogen is a consumer under `examples/hydrogen`, not a dependency of this package.
 
-This is a compatibility project rather than an official Judge.me package. It combines documented public Widget API reads, tokenless CDN reads, Shopify metafields, and current Judge.me browser modules. Pin alpha versions and run the compatibility harness before upgrading.
+This is a compatibility project rather than an official Judge.me package. It is not affiliated with, endorsed by, or sponsored by Judge.me Ltd. Judge.me and its related marks remain the property of their respective owner. The package combines documented public Widget API reads, tokenless CDN reads, Shopify metafields, and current Judge.me browser modules. Pin alpha versions and run the compatibility harness before upgrading.
 
 ## Install
 
 The package is ESM-only and expects React 18.3 or 19:
 
 ```sh
-bun add @judgeme-react/core
+bun add judgeme-react
 ```
 
 Server loaders fetch and validate public Judge.me data. React components receive those serializable payloads and progressively initialize the matching browser runtime. Never pass a Judge.me private token or Shopify Admin token to `JudgeMeProvider`.
@@ -34,9 +34,9 @@ Shopify Headless, Storefront API, Customer Account API, and optional Shopify Adm
 
 The package has three public entry points:
 
-- `@judgeme-react/core/server` contains fetchers, normalizers, data combiners, Shopify ID helpers, and v3 asset discovery. Import it only from server loaders or server modules.
-- `@judgeme-react/core/react` is the client boundary for providers, components, and component prop types.
-- `@judgeme-react/core` remains the all-in-one compatibility entry point for Hydrogen and other bundlers without React Server Components.
+- `judgeme-react/server` contains fetchers, normalizers, data combiners, Shopify ID helpers, and v3 asset discovery. Import it only from server loaders or server modules.
+- `judgeme-react/react` is the client boundary for providers, components, and component prop types.
+- `judgeme-react` remains the all-in-one compatibility entry point for Hydrogen and other bundlers without React Server Components.
 
 ## Quick start
 
@@ -46,7 +46,7 @@ Fetch Judge.me data in the product loader. The public token is valid for these p
 import {
   fetchLegacyProductWidgets,
   getShopifyNumericId,
-} from "@judgeme-react/core/server";
+} from "judgeme-react/server";
 
 const judgeMe = await fetchLegacyProductWidgets({
   productId: getShopifyNumericId(product.id),
@@ -67,7 +67,7 @@ import {
   JudgeMeWidgetStyles,
   LegacyReviewWidget,
   StarRatingBadge,
-} from "@judgeme-react/core/react";
+} from "judgeme-react/react";
 
 <JudgeMeProvider
   config={{
@@ -255,7 +255,7 @@ Private Judge.me credentials do not belong in this React package. Server integra
 Exact widgets depend on Judge.me's current Shopify extension deployment. Resolve that URL in a server loader instead of hardcoding a deployment UUID:
 
 ```ts
-import { resolveJudgeMeV3AssetDeployment } from "@judgeme-react/core";
+import { resolveJudgeMeV3AssetDeployment } from "judgeme-react";
 
 const deployment = await resolveJudgeMeV3AssetDeployment({
   shopDomain: env.JUDGEME_SHOP_DOMAIN,
@@ -340,7 +340,7 @@ import {
   UgcMediaGrid,
   VerifiedReviewsCounter,
   VideosCarousel,
-} from "@judgeme-react/core";
+} from "judgeme-react";
 
 const widgets = await fetchLegacyStorefrontWidgets({
   shopDomain: env.JUDGEME_SHOP_DOMAIN,
@@ -669,3 +669,7 @@ The host application must allow Judge.me's script, style, API, media, and image 
 In a combined loader, render every nullable result from `fetchLegacyStorefrontWidgets` independently and wrap each v3/optional adapter construction in its own error boundary. The batch retries shared resources through the standalone settings endpoints when its cache payload is unusable, then falls back to empty settings and any recoverable CSS. It also falls back to the aggregate endpoints if `all_reviews_page` fails. Collection adapters discard malformed records and default optional pagination or summary fields. They still reject executable HTML, mismatched product IDs, and mismatched selection data.
 
 The Widget API response is treated as trusted third-party HTML. The helper rejects script tags, inline event handlers, and `javascript:` URLs before the payload reaches server rendering. Judge.me's runtime is loaded from its CDN after React hydration and is never copied into this package.
+
+## License
+
+MIT © 2026 Filip Ljubic. See [LICENSE](LICENSE).

@@ -35,7 +35,7 @@ import {
   UgcMediaGrid,
   VideosCarousel,
   VerifiedReviewsCounter,
-} from '@judgeme-react/core/react';
+} from 'judgeme-react/react';
 import {
   createAiReviewsSummaryData,
   createCardsCarouselData,
@@ -62,7 +62,7 @@ import {
   fetchVideosCarouselPage,
   getShopifyNumericId,
   normalizeQuestionsAndAnswersConfig,
-} from '@judgeme-react/core/server';
+} from 'judgeme-react/server';
 
 export const meta: Route.MetaFunction = ({data}) => {
   return [

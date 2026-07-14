@@ -1,7 +1,7 @@
 {
-  "name": "@judgeme-react/hydrogen-example",
+  "name": "judgeme-react-hydrogen-example",
   "private": true,
-  "description": "Reference Hydrogen storefront for @judgeme-react/core.",
+  "description": "Reference Hydrogen storefront for judgeme-react.",
   "sideEffects": false,
   "version": "2026.4.3",
   "type": "module",
@@ -16,7 +16,7 @@
   },
   "prettier": "@shopify/prettier-config",
   "dependencies": {
-    "@judgeme-react/core": "0.1.0-alpha.0",
+    "judgeme-react": "0.1.0-alpha.0",
     "@shopify/hydrogen": "2026.4.3",
     "graphql": "^16.10.0",
     "graphql-tag": "^2.12.6",

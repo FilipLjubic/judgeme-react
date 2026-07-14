@@ -16,7 +16,7 @@ import {FOOTER_QUERY, HEADER_QUERY} from '~/lib/fragments';
 import resetStyles from '~/styles/reset.css?url';
 import appStyles from '~/styles/app.css?url';
 import {PageLayout} from './components/PageLayout';
-import {JudgeMeProvider} from '@judgeme-react/core/react';
+import {JudgeMeProvider} from 'judgeme-react/react';
 import {resolveJudgeMeAssets} from '~/lib/judgeme.server';
 
 export type RootLoader = typeof loader;

@@ -1,7 +1,18 @@
 {
-  "name": "@judgeme-react/core",
+  "name": "judgeme-react",
   "version": "0.1.0-alpha.0",
   "description": "React adapters for Judge.me widgets across Shopify headless storefronts.",
+  "license": "MIT",
+  "author": "Filip Ljubic",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FilipLjubic/judgeme-react.git",
+    "directory": "packages/judgeme-react"
+  },
+  "homepage": "https://github.com/FilipLjubic/judgeme-react/tree/main/packages/judgeme-react#readme",
+  "bugs": {
+    "url": "https://github.com/FilipLjubic/judgeme-react/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -10,7 +21,8 @@
   "files": [
     "dist",
     "README.md",
-    "SETUP_PROMPT.md"
+    "SETUP_PROMPT.md",
+    "LICENSE"
   ],
   "exports": {
     ".": {

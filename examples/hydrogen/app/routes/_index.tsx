@@ -8,8 +8,8 @@ import type {
 } from 'storefrontapi.generated';
 import {ProductItem} from '~/components/ProductItem';
 import {MockShopNotice} from '~/components/MockShopNotice';
-import {VerifiedReviewsCounter} from '@judgeme-react/core/react';
-import {fetchVerifiedReviewsCounter} from '@judgeme-react/core/server';
+import {VerifiedReviewsCounter} from 'judgeme-react/react';
+import {fetchVerifiedReviewsCounter} from 'judgeme-react/server';
 
 export const meta: Route.MetaFunction = () => {
   return [{title: 'Hydrogen | Home'}];

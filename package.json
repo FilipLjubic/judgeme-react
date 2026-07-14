@@ -2,6 +2,7 @@
   "name": "judgeme-react-workspace",
   "private": true,
   "version": "0.0.0",
+  "license": "MIT",
   "type": "module",
   "packageManager": "bun@1.3.14",
   "engines": {
@@ -13,11 +14,11 @@
   ],
   "scripts": {
     "build": "bun run build:library && bunx shopify hydrogen build --codegen --path examples/hydrogen",
-    "build:library": "bun run --filter @judgeme-react/core build",
+    "build:library": "bun run --filter judgeme-react build",
     "dev": "bun run build:library && bunx shopify hydrogen dev --codegen --port 3001 --path examples/hydrogen",
     "lint": "bun run --workspaces --sequential lint",
-    "release:check": "bun run test && bun run lint && bun run typecheck && bun run build && bun run --filter @judgeme-react/core pack:check && bun run --filter @judgeme-react/core publint",
-    "test": "bun run --filter @judgeme-react/core test",
+    "release:check": "bun run test && bun run lint && bun run typecheck && bun run build && bun run --filter judgeme-react pack:check && bun run --filter judgeme-react publint",
+    "test": "bun run --filter judgeme-react test",
     "typecheck": "bun run --workspaces --sequential typecheck"
   }
 }

@@ -136,7 +136,7 @@ flowchart TD
 
 ### Package layers
 
-1. `@judgeme-react/core`
+1. `judgeme-react`
    - typed shop/product context;
    - script/style registry;
    - route-change reinitialization;

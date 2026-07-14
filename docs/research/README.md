@@ -36,6 +36,7 @@
 | `graceful-degradation-hardening-2026-07-14`      | notes | Per-widget legacy isolation, tolerant collection parsing, strict security boundaries, and regression coverage         |
 | `widget-style-layout-hardening-2026-07-14`       | notes | Shared dashboard stylesheet ownership, v3 star font, and classic-carousel sizing compatibility                         |
 | `npm-package-and-example-release-2026-07-14`     | notes | npm entry points, example portability, setup prompt, release checks, and first-publish owner blockers                  |
+| `licensing-and-release-readiness-2026-07-14`     | notes | License choices, package-local license requirement, trademark risk, metadata gaps, and secure npm publishing          |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                             |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                         |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                             |

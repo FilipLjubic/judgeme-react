@@ -1,6 +1,6 @@
-# `@judgeme-react/core` Hydrogen example
+# `judgeme-react` Hydrogen example
 
-This is the reference storefront for integrating the package into a real Shopify Hydrogen app. It is intentionally private and is not a second npm package. Its `@judgeme-react/core` dependency is pinned to the same exact alpha version as the workspace library, so the directory can also be copied into a standalone repository after that version is published.
+This is the reference storefront for integrating the package into a real Shopify Hydrogen app. It is intentionally private and is not a second npm package. Its `judgeme-react` dependency is pinned to the same exact alpha version as the workspace library, so the directory can also be copied into a standalone repository after that version is published.
 
 The app demonstrates every implemented storefront component, but the most reusable integration points are small:
 
@@ -12,7 +12,7 @@ The app demonstrates every implemented storefront component, but the most reusab
 | `app/entry.server.tsx` | The complete tested Hydrogen CSP allowlist |
 | `.env.example` | Public configuration and optional server-only Shopify Admin variables |
 
-Server code imports from `@judgeme-react/core/server`. Components import from `@judgeme-react/core/react`. The all-in-one package root still works, but the split imports make the credential and rendering boundaries obvious and are compatible with React Server Component tooling.
+Server code imports from `judgeme-react/server`. Components import from `judgeme-react/react`. The all-in-one package root still works, but the split imports make the credential and rendering boundaries obvious and are compatible with React Server Component tooling.
 
 ## Prerequisites
 
@@ -81,7 +81,7 @@ The storefront runs at `http://localhost:3001`; port 3000 stays free for other p
 
 ## Run as a standalone example
 
-After `@judgeme-react/core@0.1.0-alpha.0` is published, copy `examples/hydrogen` into its own repository, then run:
+After `judgeme-react@0.1.0-alpha.0` is published, copy `examples/hydrogen` into its own repository, then run:
 
 ```sh
 bun install
@@ -150,4 +150,4 @@ bun run build
 
 Compilation cannot prove a mutable third-party deployment is healthy. Perform a clean Brave reload of a published product and exercise at least one relevant interaction, such as opening Write a review, moving a carousel, switching an All Reviews stream, or opening a media lightbox.
 
-For a smaller first integration, use the copy-paste prompt shipped as `SETUP_PROMPT.md` in `@judgeme-react/core`. This app started from Shopify's Hydrogen Skeleton; refer to the [Hydrogen documentation](https://shopify.dev/docs/storefronts/headless/hydrogen) for the base storefront and Customer Account setup.
+For a smaller first integration, use the copy-paste prompt shipped as `SETUP_PROMPT.md` in `judgeme-react`. This app started from Shopify's Hydrogen Skeleton; refer to the [Hydrogen documentation](https://shopify.dev/docs/storefronts/headless/hydrogen) for the base storefront and Customer Account setup.

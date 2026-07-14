@@ -6,14 +6,14 @@
       "name": "judgeme-react-workspace",
     },
     "examples/hydrogen": {
-      "name": "@judgeme-react/hydrogen-example",
+      "name": "judgeme-react-hydrogen-example",
       "version": "2026.4.3",
       "dependencies": {
-        "@judgeme-react/core": "*",
         "@shopify/hydrogen": "2026.4.3",
         "graphql": "^16.10.0",
         "graphql-tag": "^2.12.6",
         "isbot": "^5.1.22",
+        "judgeme-react": "0.1.0-alpha.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "react-router": "7.16.0",
@@ -54,7 +54,7 @@
       },
     },
     "packages/judgeme-react": {
-      "name": "@judgeme-react/core",
+      "name": "judgeme-react",
       "version": "0.1.0-alpha.0",
       "devDependencies": {
         "@types/react": "^18.3.28",
@@ -267,10 +267,6 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, ""],
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, ""],
-
-    "@judgeme-react/core": ["@judgeme-react/core@workspace:packages/judgeme-react"],
-
-    "@judgeme-react/hydrogen-example": ["@judgeme-react/hydrogen-example@workspace:examples/hydrogen"],
 
     "@juggle/resize-observer": ["@juggle/resize-observer@3.4.0", "", {}, ""],
 
@@ -947,6 +943,10 @@
     "json5": ["json5@2.2.3", "", { "bin": "lib/cli.js" }, ""],
 
     "jsx-ast-utils": ["jsx-ast-utils@3.3.5", "", { "dependencies": { "array-includes": "^3.1.6", "array.prototype.flat": "^1.3.1", "object.assign": "^4.1.4", "object.values": "^1.1.6" } }, ""],
+
+    "judgeme-react": ["judgeme-react@workspace:packages/judgeme-react"],
+
+    "judgeme-react-hydrogen-example": ["judgeme-react-hydrogen-example@workspace:examples/hydrogen"],
 
     "keyv": ["keyv@4.5.4", "", { "dependencies": { "json-buffer": "3.0.1" } }, ""],
 

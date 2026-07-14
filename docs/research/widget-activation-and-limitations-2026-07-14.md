@@ -1,7 +1,7 @@
 # Judge.me widget activation and package limitations
 
 Date: 2026-07-14
-Audience: merchants and developers integrating `@judgeme-react/core`
+Audience: merchants and developers integrating `judgeme-react`
 
 ## Why this guide exists
 

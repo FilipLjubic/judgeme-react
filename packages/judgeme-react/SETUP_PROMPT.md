@@ -3,7 +3,7 @@
 Paste the prompt below into Codex or another coding agent while it is opened in your existing Shopify Hydrogen repository. Replace the values in the **Store details** section first.
 
 ```text
-Integrate @judgeme-react/core into this existing Shopify Hydrogen storefront.
+Integrate judgeme-react into this existing Shopify Hydrogen storefront.
 
 Store details:
 - Permanent myshopify domain: <STORE>.myshopify.com
@@ -16,7 +16,7 @@ Use the installed package's public API and the upstream examples/hydrogen implem
 Requirements:
 
 1. Inspect the app before editing. Identify its Hydrogen/React Router version, product route, root provider location, server entry/CSP, environment typing, and existing package manager. Do not introduce a second lockfile.
-2. Install @judgeme-react/core. Import server-only fetchers from @judgeme-react/core/server and React components from @judgeme-react/core/react. Do not import the server entry from browser-only modules.
+2. Install judgeme-react. Import server-only fetchers from judgeme-react/server and React components from judgeme-react/react. Do not import the server entry from browser-only modules.
 3. Tell me where to obtain the Judge.me public token: Judge.me Admin > Settings > Integrations > View API tokens. Use only the Public API Token; the package does not need the private token.
 4. Add these server environment variables and an .env.example without real secrets:
    - JUDGEME_SHOP_DOMAIN=<STORE>.myshopify.com

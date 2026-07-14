@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { startJudgeMeRuntime } from "../dist/runtime-lifecycle.js";
 import {
@@ -71,6 +72,22 @@ test("publishes separate React and server entry points", async () => {
   assert.equal(typeof serverEntry.fetchLegacyProductWidgets, "function");
   assert.equal(typeof serverEntry.resolveJudgeMeV3AssetDeployment, "function");
   assert.equal("JudgeMeProvider" in serverEntry, false);
+});
+
+test("publishes the final npm identity with matching MIT licenses", async () => {
+  const [packageJsonSource, packageLicense, repositoryLicense] =
+    await Promise.all([
+      readFile(new URL("../package.json", import.meta.url), "utf8"),
+      readFile(new URL("../LICENSE", import.meta.url), "utf8"),
+      readFile(new URL("../../../LICENSE", import.meta.url), "utf8"),
+    ]);
+  const packageJson = JSON.parse(packageJsonSource);
+
+  assert.equal(packageJson.name, "judgeme-react");
+  assert.equal(packageJson.license, "MIT");
+  assert.equal(packageJson.author, "Filip Ljubic");
+  assert.equal(packageLicense, repositoryLicense);
+  assert.match(repositoryLicense, /Copyright \(c\) 2026 Filip Ljubic/);
 });
 
 test("renders the batched Judge.me dashboard styles through an explicit mount", () => {

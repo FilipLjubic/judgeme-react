@@ -44,7 +44,7 @@ The nine migrated exact components are Reviews Grid, Cards Carousel, Testimonial
 
 ## Package boundary
 
-`@judgeme-react/core` remains framework-neutral and ESM-only. The package now uses alpha version `0.1.0-alpha.0`, declares its React peer range, exports JavaScript and declaration entry points, marks public npm access, and runs a build during `bun pm pack --dry-run`.
+`judgeme-react` remains framework-neutral and ESM-only. The package now uses alpha version `0.1.0-alpha.0`, declares its React peer range, exports JavaScript and declaration entry points, marks public npm access, and runs a build during `bun pm pack --dry-run`.
 
 The public API has four layers:
 
@@ -55,7 +55,7 @@ The public API has four layers:
 
 The private Judge.me token and Shopify Admin token remain outside the React/provider boundary. Trust Badge and the AI-summary Storefront fallback use server-only Admin reads and serialize only public display data.
 
-No license or repository URL has been invented. Those remain owner decisions before the first registry publish.
+The owner subsequently selected MIT under Filip Ljubic and created `https://github.com/FilipLjubic/judgeme-react`; both license copies and final package metadata are release invariants.
 
 ## Fixture verification matrix
 

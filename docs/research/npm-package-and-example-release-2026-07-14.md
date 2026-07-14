@@ -7,10 +7,10 @@ Scope: package exports, registry dry-run, example portability, user setup, and f
 
 The existing framework-neutral library and Hydrogen harness are now shaped as two public-facing artifacts:
 
-1. `@judgeme-react/core` is the publishable ESM package under `packages/judgeme-react`;
+1. `judgeme-react` is the publishable ESM package under `packages/judgeme-react`;
 2. `examples/hydrogen` is the reference consumer and can be extracted to a standalone repository after the matching alpha reaches npm.
 
-The package retains its all-in-one root export for current Hydrogen consumers and adds explicit `@judgeme-react/core/server` and `@judgeme-react/core/react` subpaths. The server path exposes fetchers, data combiners, Shopify ID normalization, runtime policy, and v3 deployment discovery without exporting React components. The React path is marked with a `use client` boundary and exposes providers/components without the server fetch API.
+The package retains its all-in-one root export for current Hydrogen consumers and adds explicit `judgeme-react/server` and `judgeme-react/react` subpaths. The server path exposes fetchers, data combiners, Shopify ID normalization, runtime policy, and v3 deployment discovery without exporting React components. The React path is marked with a `use client` boundary and exposes providers/components without the server fetch API.
 
 This split is an API organization and tooling boundary, not a security sandbox. Secrets remain protected by keeping private/Admin credentials in server loaders and returning only validated public data.
 
@@ -38,18 +38,20 @@ The release contract adds:
 
 The pre-change dry-run contained 178 files and approximately 0.99 MB unpacked. It contained only compiled output, package metadata, and the README; no `.env` or workspace app files were present.
 
-## Registry and owner blockers
+After finalizing the `judgeme-react` name and MIT license, the release gate passed with 61 tests. The final dry-run contained 188 files and approximately 1.0 MB unpacked, including the package-local `LICENSE`, split entry points, README, and setup prompt. `publint` reported no errors.
 
-On 2026-07-14, an unauthenticated registry lookup returned HTTP 404 for `@judgeme-react/core`, so no public package currently occupies that exact name. This is not proof that the current owner controls or can create the `@judgeme-react` scope. `npm whoami` returned `ENEEDAUTH`, and the local Git repository has no configured remote.
+## Registry status and finalized owner decisions
 
-The following decisions are intentionally not invented by implementation work:
+On 2026-07-14, an unauthenticated registry lookup returned HTTP 404 for `judgeme-react`, so no public package currently occupies that exact name. This is not proof of ownership until the first publish succeeds. `npm whoami` returned `ENEEDAUTH`. The public source repository was subsequently created at `https://github.com/FilipLjubic/judgeme-react` and configured as `origin`.
 
-1. npm organization/scope ownership or a replacement package name;
-2. the software license;
-3. the public source repository, issue tracker, and homepage URLs;
-4. whether the example remains in the monorepo or is mirrored to another repository.
+The owner subsequently finalized:
 
-`docs/PUBLISHING.md` records the exact first-publish procedure and keeps the initial release under the `alpha` dist-tag. A public package should not be published until the owner adds an explicit license and accurate repository metadata.
+1. unscoped npm package name `judgeme-react`;
+2. MIT under `Filip Ljubic`, with identical repository/package license files;
+3. public source, issue tracker and homepage under `https://github.com/FilipLjubic/judgeme-react`;
+4. the Hydrogen example remains in the public monorepo as the reference consumer.
+
+`docs/PUBLISHING.md` records the exact first-publish procedure and keeps the initial release under the `alpha` dist-tag. The remaining external action is npm authentication and the first reviewed publish, which establishes ownership of the currently unclaimed name.
 
 ## Reusable rules
 
@@ -63,7 +65,7 @@ The following decisions are intentionally not invented by implementation work:
 
 - live package manifests and build output in this repository
 - `bun pm pack --dry-run` run from `packages/judgeme-react`
-- npm registry lookup for `@judgeme-react/core` on 2026-07-14
+- npm registry lookup for `judgeme-react` on 2026-07-14
 - local `npm whoami` and Git remote checks on 2026-07-14
 
 No credentials, npm auth material, or deployment-specific third-party asset URL is retained in this report.
