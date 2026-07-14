@@ -39,6 +39,29 @@ The observed query contract is:
 
 On 2026-07-13, a `current_product` request for numeric product `15151876309375` returned HTTP 200, `Access-Control-Allow-Origin: *`, a public 1,200-second cache policy, five reviews, and no token requirement.
 
+### 2026-07-14 endpoint drift and fallback
+
+The same v2 endpoint returned HTTP 404 on 2026-07-14 for Moon Phase Prints, including for `selection_source=all`. The historical 2026-07-13 result above remains useful evidence of the module's intended request contract, but the endpoint can no longer be treated as the only public data source.
+
+The tokenless Cards Carousel feed remained available:
+
+```text
+GET https://cdn.judge.me/reviews/reviews_for_carousel
+```
+
+With `carousel_type=cards`, it returned HTTP 200 and public review records containing the fields needed by the current Review Snippets module. The fallback maps `reviewer_name` to `public_reviewer_name`, the localized/product title to `product_name`, and the first HTTPS `picture` or `pictures_urls` variant to `review_image_url`. It preserves `uuid`, numeric `rating`, safe `body_html`, `verified_buyer`, and `product_variant_title`. Plain-text bodies are HTML-escaped before being wrapped in a paragraph.
+
+`fetchReviewSnippetsPage` now keeps two URL concepts:
+
+- `requestUrl` is always the canonical `reviews_for_review_snippet_widget` URL Judge.me's exact module will request in the browser;
+- `sourceUrl` records the public URL that actually supplied the normalized reviews, whether the primary snippet endpoint or the carousel fallback.
+
+The exact runtime bridge remains keyed only by `requestUrl`. Therefore a fallback response is still served to Judge.me's unchanged module when it makes its expected GET, and the `cdn.judge.me` source URL is never mistaken for the interception key.
+
+The fallback translates `selection_source` to the carousel feed's `reviews_selection`, uses the closest server-side star bucket, enforces the exact minimum rating and count again after normalization, and forwards the caller's abort signal to both attempts. A two-star minimum over-fetches a bounded public page because the carousel feed has no exact two-to-five-star bucket. Pinned, featured, and custom-tag filters are not represented in the observed carousel schema, so those filters remain best-effort only when the primary snippet endpoint is unavailable.
+
+Neither fallback request includes a Judge.me public, private, or Shopify Admin token. If both public sources fail, the adapter reports both failures and leaves the widget unavailable rather than exposing a private credential.
+
 The payload has two top-level fields:
 
 ```ts
@@ -119,6 +142,8 @@ The local Hydrogen product route was clean-opened in the installed Brave binary 
 The browser performance log showed the manifest-resolved CSS and unique `review_snippet.js` module, with zero real browser resources for `reviews_for_review_snippet_widget`; the preload bridge served the module from loader data. Moving to the next card changed the visible reviewer. Activating a card opened Judge.me's exact current lightbox with `role=dialog`, `aria-modal=true`, and the expected review content; Escape closed it.
 
 The signed-in theme preview did not contain a `.jdgm-review-snippet-widget-v2` root on the tested Free-plan product. That prevents an exact theme-versus-Hydrogen visual comparison, but it is consistent with the official plan gate and does not affect the public endpoint/runtime validation.
+
+On 2026-07-14, the Moon Phase Prints Hydrogen route was clean-loaded after the primary endpoint began returning 404. The public carousel fallback supplied five normalized cards to the exact Review Snippets module, Previous/Next controls were interactive, and the Brave console contained no Judge.me runtime errors. The module did not make an uncaught second request to the unavailable endpoint because the package bridge answered its canonical request from the normalized loader payload.
 
 ## Security and operational notes
 

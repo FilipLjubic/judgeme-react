@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { shouldUpdateCarouselHeaderText } from "../dist/exact-runtime.js";
+import {
+  createReviewSnippetsPreloadedResponse,
+  shouldUpdateCarouselHeaderText,
+} from "../dist/exact-runtime.js";
 import { createReviewWidgetV3OverlayController } from "../dist/review-widget-v3-overlay.js";
 import { startJudgeMeRuntime } from "../dist/runtime-lifecycle.js";
 import {
@@ -91,7 +94,7 @@ test("publishes the final npm identity with matching MIT licenses", async () => 
   const exampleJson = JSON.parse(exampleJsonSource);
 
   assert.equal(packageJson.name, "judgeme-react");
-  assert.equal(packageJson.version, "1.0.2");
+  assert.equal(packageJson.version, "1.0.3");
   assert.equal(exampleJson.dependencies[packageJson.name], packageJson.version);
   assert.equal(packageJson.license, "MIT");
   assert.equal(packageJson.author, "Filip Ljubic");
@@ -2129,6 +2132,178 @@ test("fetches the exact Review Snippets feed without a token", async () => {
   assert.equal(data.page.reviews.length, 1);
   assert.equal(data.page.reviews[0].uuid, "snippet-review-1");
   assert.equal(data.page.settings.star_color, "#108474");
+  assert.equal(data.page.sourceUrl, data.page.requestUrl);
+});
+
+test("falls back to the public carousel feed and preserves the snippets runtime URL", async () => {
+  const requests = [];
+  const page = await fetchReviewSnippetsPage({
+    shopDomain: "https://STORE.myshopify.com/products/example",
+    config: {
+      reviewSelection: "all",
+      maxReviews: 2,
+      minStarRating: "4",
+    },
+    fetch: async (input, init) => {
+      const url = new URL(input);
+      requests.push(url);
+      assert.equal(url.searchParams.has("api_token"), false);
+      assert.equal(init?.headers.Accept, "application/json");
+
+      if (url.origin === "https://api.judge.me") {
+        assert.equal(
+          url.pathname,
+          "/reviews/reviews_for_review_snippet_widget",
+        );
+        assert.equal(url.searchParams.get("selection_source"), "all");
+        assert.equal(url.searchParams.get("count"), "2");
+        assert.equal(url.searchParams.get("min_star_rating"), "4");
+        return new Response(null, { status: 404 });
+      }
+
+      assert.equal(url.origin, "https://cdn.judge.me");
+      assert.equal(url.pathname, "/reviews/reviews_for_carousel");
+      assert.equal(url.searchParams.get("reviews_selection"), "all");
+      assert.equal(url.searchParams.get("carousel_type"), "cards");
+      assert.equal(url.searchParams.get("star_rating"), "4_to_5_star");
+      assert.equal(url.searchParams.get("max_reviews"), "2");
+      assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+      assert.equal(url.searchParams.get("platform"), "shopify");
+
+      return Response.json({
+        reviews: [
+          {
+            uuid: "fallback-review-1",
+            rating: 5,
+            reviewer_name: "Public Customer",
+            body_html: "<p>Excellent print.</p>",
+            verified_buyer: true,
+            product_title: "Moon Print",
+            product_variant_title: "Large",
+            picture: {
+              urls: {
+                small: "https://judgeme.imgix.net/review-small.jpg",
+              },
+            },
+          },
+          {
+            uuid: "below-minimum",
+            rating: 3,
+            reviewer_name: "Filtered Customer",
+            body_html: "<p>Filtered.</p>",
+          },
+          {
+            uuid: "fallback-review-2",
+            rating: 4,
+            reviewer_name: "Second Customer",
+            body: "Useful & safe <review>.",
+            verified_buyer: false,
+            product_title_localized: "Localized Print",
+            product_variant_title: "",
+            pictures_urls: [
+              {
+                original: "https://judgeme.imgix.net/review-original.jpg",
+              },
+            ],
+          },
+          {
+            uuid: "over-count-limit",
+            rating: 5,
+            reviewer_name: "Third Customer",
+            body_html: "<p>Not serialized.</p>",
+          },
+        ],
+      });
+    },
+  });
+
+  assert.equal(requests.length, 2);
+  assert.equal(
+    new URL(page.requestUrl).origin,
+    "https://api.judge.me",
+  );
+  assert.equal(new URL(page.sourceUrl).origin, "https://cdn.judge.me");
+  assert.equal(page.reviews.length, 2);
+  assert.deepEqual(page.reviews[0], {
+    uuid: "fallback-review-1",
+    rating: 5,
+    body_html: "<p>Excellent print.</p>",
+    public_reviewer_name: "Public Customer",
+    verified_buyer: true,
+    product_name: "Moon Print",
+    product_variant_title: "Large",
+    review_image_url: "https://judgeme.imgix.net/review-small.jpg",
+  });
+  assert.equal(
+    page.reviews[1].body_html,
+    "<p>Useful &amp; safe &lt;review&gt;.</p>",
+  );
+  assert.equal(page.reviews[1].rating, 4);
+  assert.equal(page.reviews[1].product_name, "Localized Print");
+  assert.equal(
+    page.reviews[1].review_image_url,
+    "https://judgeme.imgix.net/review-original.jpg",
+  );
+
+  const data = createReviewSnippetsData({
+    config: {
+      reviewSelection: "all",
+      maxReviews: 2,
+      minStarRating: "4",
+    },
+    page,
+    settings: { locale: "en" },
+    shopDomain: "store.myshopify.com",
+  });
+  const preloaded = createReviewSnippetsPreloadedResponse(data);
+  const preloadedPayload = JSON.parse(preloaded.payload);
+
+  assert.equal(preloaded.requestKey, canonicalizeUrlForTest(page.requestUrl));
+  assert.notEqual(preloaded.requestKey, canonicalizeUrlForTest(page.sourceUrl));
+  assert.deepEqual(preloadedPayload.reviews, page.reviews);
+  assert.deepEqual(preloadedPayload.settings, page.settings);
+});
+
+test("propagates Review Snippets fallback aborts without wrapping them", async () => {
+  const controller = new AbortController();
+  const abortError = new DOMException("stop fallback", "AbortError");
+  let requestCount = 0;
+
+  await assert.rejects(
+    fetchReviewSnippetsPage({
+      shopDomain: "store.myshopify.com",
+      signal: controller.signal,
+      fetch: async (_input, init) => {
+        requestCount += 1;
+        assert.equal(init?.signal, controller.signal);
+        if (requestCount === 1) return new Response(null, { status: 404 });
+        controller.abort(abortError);
+        throw abortError;
+      },
+    }),
+    (error) => error === abortError,
+  );
+  assert.equal(requestCount, 2);
+});
+
+test("reports both public Review Snippets sources when neither is available", async () => {
+  let requestCount = 0;
+  await assert.rejects(
+    fetchReviewSnippetsPage({
+      shopDomain: "store.myshopify.com",
+      config: { reviewSelection: "all" },
+      fetch: async (input) => {
+        requestCount += 1;
+        const url = new URL(input);
+        assert.equal(url.searchParams.has("api_token"), false);
+        return new Response(null, {
+          status: url.origin === "https://api.judge.me" ? 404 : 503,
+        });
+      },
+    }),
+    /Primary: Review Snippets request failed with HTTP 404\. Fallback: Review Snippets public carousel fallback request failed with HTTP 503\./,
+  );
+  assert.equal(requestCount, 2);
 });
 
 test("normalizes Review Snippets block settings and validates public HTML", async () => {
@@ -3072,6 +3247,17 @@ function createTrustBadgeModalFixture() {
     total_reviews_count: 45,
     verified_reviews_count: 42,
   };
+}
+
+function canonicalizeUrlForTest(value) {
+  const url = new URL(value);
+  const params = [...url.searchParams.entries()].sort(
+    ([leftKey, leftValue], [rightKey, rightValue]) =>
+      leftKey === rightKey
+        ? leftValue.localeCompare(rightValue)
+        : leftKey.localeCompare(rightKey),
+  );
+  return `${url.origin}${url.pathname}?${new URLSearchParams(params).toString()}`;
 }
 
 function createHappyCustomersApiFixture() {

@@ -159,7 +159,7 @@ Judge.me's older fixed-height Reviews Carousel for storefronts that use its clas
 
 #### Review Snippets
 
-The compact rotating product or cart review strip.
+The compact rotating product or cart review strip. Its loader first tries Judge.me's dedicated tokenless feed and automatically normalizes the public Cards Carousel feed when that route is unavailable. `page.requestUrl` remains the URL expected by Judge.me's browser module, while `page.sourceUrl` identifies the public feed that supplied the reviews. Neither path needs a private token.
 
 ![Review Snippets](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/review-snippets.jpeg)
 
@@ -320,7 +320,7 @@ A good product-page starting set is `StarRatingBadge` near the title, `ReviewWid
 | `TestimonialsCarousel` | One-at-a-time quote carousel | Current carousel endpoint and extension assets |
 | `VideosCarousel` | Photo/video review cards | Current media scripts; real playback needs video reviews |
 | `ReviewsCarousel` | Judge.me's classic carousel | Public legacy cache + dashboard runtime |
-| `ReviewSnippets` | Compact rotating product/cart reviews | Public tokenless feed + current extension module |
+| `ReviewSnippets` | Compact rotating product/cart reviews | Dedicated tokenless feed, public Cards fallback + current extension module |
 | `ReviewsGrid` | Dense visual review/media grid | Public tokenless feed + current extension module |
 | `HappyCustomers` | Current All Reviews v2025 experience | Public feed + current extension manager |
 | `AllReviewsWidget` | Standalone product/store review streams | Public Widget API + React-owned controls |

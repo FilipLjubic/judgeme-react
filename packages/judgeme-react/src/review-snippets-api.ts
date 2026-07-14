@@ -11,7 +11,9 @@ import {
 } from "./resilient-data.js";
 
 const JUDGE_ME_API = "https://api.judge.me";
+const JUDGE_ME_CDN_API = "https://cdn.judge.me";
 const REVIEW_SNIPPETS_PATH = "/reviews/reviews_for_review_snippet_widget";
+const REVIEWS_CAROUSEL_PATH = "/reviews/reviews_for_carousel";
 
 export type ReviewSnippetsSelection =
   | "all"
@@ -58,6 +60,8 @@ export type ReviewSnippetsReview = Readonly<Record<string, JudgeMeJsonValue>>;
 
 export interface ReviewSnippetsPageData {
   requestUrl: string;
+  /** The public URL that supplied `reviews`; defaults to `requestUrl`. */
+  sourceUrl?: string;
   reviews: readonly ReviewSnippetsReview[];
   settings: Readonly<Record<string, JudgeMeJsonValue>>;
 }
@@ -120,7 +124,15 @@ interface ReviewSnippetsApiResponse {
   settings?: unknown;
 }
 
-/** Fetches the current tokenless Review Snippets feed and styling fallback. */
+interface ReviewSnippetsFallbackResponse {
+  reviews?: unknown;
+}
+
+type PublicJsonAttempt =
+  | { ok: true; payload: unknown }
+  | { error: Error; ok: false };
+
+/** Fetches public Review Snippets data without either Judge.me token. */
 export async function fetchReviewSnippetsPage({
   shopDomain,
   productId,
@@ -133,26 +145,42 @@ export async function fetchReviewSnippetsPage({
     productId,
     shopDomain,
   });
-  const url = createReviewSnippetsRequestUrl(context);
-  const response = await fetchImplementation(url, {
-    headers: { Accept: "application/json" },
+  const requestUrl = createReviewSnippetsRequestUrl(context);
+  const primary = await attemptPublicJsonRequest({
+    fetchImplementation,
+    label: "Review Snippets",
     signal,
+    url: requestUrl,
   });
 
-  if (!response.ok) {
-    throw new Error(
-      `Judge.me Review Snippets request failed with HTTP ${response.status}.`,
+  if (primary.ok) {
+    return normalizeReviewSnippetsPage(
+      primary.payload as ReviewSnippetsApiResponse,
+      requestUrl,
+      requestUrl,
+      context.config.maxReviews,
     );
   }
 
-  let payload: ReviewSnippetsApiResponse;
-  try {
-    payload = (await response.json()) as ReviewSnippetsApiResponse;
-  } catch {
-    throw new Error("Judge.me Review Snippets returned invalid JSON.");
+  const sourceUrl = createReviewSnippetsFallbackUrl(context);
+  const fallback = await attemptPublicJsonRequest({
+    fetchImplementation,
+    label: "Review Snippets public carousel fallback",
+    signal,
+    url: sourceUrl,
+  });
+  if (!fallback.ok) {
+    throw new Error(
+      `Judge.me Review Snippets public sources failed. Primary: ${primary.error.message} Fallback: ${fallback.error.message}`,
+    );
   }
 
-  return normalizeReviewSnippetsPage(payload, url, context.config.maxReviews);
+  return normalizeReviewSnippetsFallbackPage(
+    fallback.payload as ReviewSnippetsFallbackResponse,
+    requestUrl,
+    sourceUrl,
+    context.config,
+  );
 }
 
 /** Fetches a standalone Review Snippets payload with shared Judge.me settings. */
@@ -333,26 +361,152 @@ function createReviewSnippetsRequestUrl({
   return url;
 }
 
+function createReviewSnippetsFallbackUrl({
+  config,
+  productId,
+  shopDomain,
+}: {
+  config: ReviewSnippetsConfig;
+  productId?: string;
+  shopDomain: string;
+}): URL {
+  const url = new URL(REVIEWS_CAROUSEL_PATH, JUDGE_ME_CDN_API);
+  const selection = mapReviewSnippetsFallbackSelection(
+    config.reviewSelection,
+    Boolean(productId),
+  );
+
+  url.searchParams.set("reviews_selection", selection);
+  url.searchParams.set("carousel_type", "cards");
+  url.searchParams.set(
+    "star_rating",
+    mapReviewSnippetsFallbackRating(config.minStarRating),
+  );
+  url.searchParams.set(
+    "max_reviews",
+    String(config.minStarRating === "2" ? 30 : config.maxReviews),
+  );
+  url.searchParams.set("url", `https://${shopDomain}`);
+  url.searchParams.set("shop_domain", shopDomain);
+  url.searchParams.set("platform", "shopify");
+  url.searchParams.set("primary_language", "en");
+  url.searchParams.set("display_order", "most_recent");
+
+  if (selection === "current_product" && productId) {
+    url.searchParams.set("product_ids", productId);
+  }
+  if (selection === "current_collection" && config.collectionId) {
+    url.searchParams.set("collection_id", config.collectionId);
+  }
+  if (selection === "custom_products") {
+    for (const selectedProductId of config.selectedProductIds) {
+      url.searchParams.append("product_ids[]", selectedProductId);
+    }
+  }
+
+  return url;
+}
+
+function mapReviewSnippetsFallbackSelection(
+  selection: ReviewSnippetsSelection,
+  hasProductId: boolean,
+): string {
+  switch (selection) {
+    case "auto":
+      return hasProductId ? "current_product" : "all";
+    case "current_collection":
+    case "current_product":
+      return selection;
+    case "custom":
+      return "custom_products";
+    case "product":
+      return "product_reviews";
+    case "store":
+      return "store_reviews";
+    default:
+      return "all";
+  }
+}
+
+function mapReviewSnippetsFallbackRating(
+  minStarRating: ReviewSnippetsStarRating,
+): string {
+  switch (minStarRating) {
+    case "5":
+      return "5_star";
+    case "4":
+      return "4_to_5_star";
+    case "3":
+      return "3_to_5_star";
+    default:
+      return "all";
+  }
+}
+
+async function attemptPublicJsonRequest({
+  fetchImplementation,
+  label,
+  signal,
+  url,
+}: {
+  fetchImplementation: typeof globalThis.fetch;
+  label: string;
+  signal?: AbortSignal;
+  url: URL;
+}): Promise<PublicJsonAttempt> {
+  try {
+    const response = await fetchImplementation(url, {
+      headers: { Accept: "application/json" },
+      signal,
+    });
+    if (!response.ok) {
+      return {
+        error: new Error(`${label} request failed with HTTP ${response.status}.`),
+        ok: false,
+      };
+    }
+
+    try {
+      return { ok: true, payload: await response.json() };
+    } catch {
+      return {
+        error: new Error(`${label} returned invalid JSON.`),
+        ok: false,
+      };
+    }
+  } catch (error) {
+    if (signal?.aborted || isAbortError(error)) throw error;
+    return {
+      error:
+        error instanceof Error
+          ? new Error(`${label} request failed: ${error.message}`)
+          : new Error(`${label} request failed.`),
+      ok: false,
+    };
+  }
+}
+
 function normalizeReviewSnippetsPage(
   payload: ReviewSnippetsApiResponse,
   requestUrl: URL,
+  sourceUrl: URL,
   maxReviews: number,
 ): ReviewSnippetsPageData {
   const reviews = (Array.isArray(payload.reviews) ? payload.reviews : [])
     .flatMap((review) => {
-    if (
-      !isJsonObject(review) ||
-      typeof review.uuid !== "string" ||
-      !review.uuid.trim() ||
-      typeof review.public_reviewer_name !== "string" ||
-      typeof review.body_html !== "string"
-    ) {
-      return [];
-    }
+      if (
+        !isJsonObject(review) ||
+        typeof review.uuid !== "string" ||
+        !review.uuid.trim() ||
+        typeof review.public_reviewer_name !== "string" ||
+        typeof review.body_html !== "string"
+      ) {
+        return [];
+      }
 
-    const rating = Number(review.rating);
-    if (!Number.isFinite(rating) || rating < 1 || rating > 5) return [];
-    assertSafeReviewBody(review.body_html);
+      const rating = Number(review.rating);
+      if (!Number.isFinite(rating) || rating < 1 || rating > 5) return [];
+      assertSafeReviewBody(review.body_html);
 
       return [review];
     })
@@ -360,9 +514,140 @@ function normalizeReviewSnippetsPage(
 
   return {
     requestUrl: requestUrl.toString(),
+    sourceUrl: sourceUrl.toString(),
     reviews,
     settings: isJsonObject(payload.settings) ? payload.settings : {},
   };
+}
+
+function normalizeReviewSnippetsFallbackPage(
+  payload: ReviewSnippetsFallbackResponse,
+  requestUrl: URL,
+  sourceUrl: URL,
+  config: ReviewSnippetsConfig,
+): ReviewSnippetsPageData {
+  const minimumRating =
+    config.minStarRating === "inherit" ? 1 : Number(config.minStarRating);
+  const reviews = (Array.isArray(payload.reviews) ? payload.reviews : [])
+    .flatMap((review) => {
+      const normalized = normalizeReviewSnippetsFallbackReview(review);
+      if (!normalized || Number(normalized.rating) < minimumRating) return [];
+      return [normalized];
+    })
+    .slice(0, config.maxReviews);
+
+  return {
+    requestUrl: requestUrl.toString(),
+    sourceUrl: sourceUrl.toString(),
+    reviews,
+    settings: {},
+  };
+}
+
+function normalizeReviewSnippetsFallbackReview(
+  review: unknown,
+): ReviewSnippetsReview | undefined {
+  if (!isJsonObject(review)) return undefined;
+
+  const uuid = readPublicString(review.uuid);
+  const reviewerName =
+    readPublicString(review.public_reviewer_name) ||
+    readPublicString(review.reviewer_name);
+  const rating = Number(review.rating);
+  if (
+    !uuid ||
+    !reviewerName ||
+    !Number.isFinite(rating) ||
+    rating < 1 ||
+    rating > 5
+  ) {
+    return undefined;
+  }
+
+  const bodyHtml =
+    typeof review.body_html === "string"
+      ? review.body_html
+      : typeof review.body === "string"
+        ? `<p>${escapeHtml(review.body)}</p>`
+        : "";
+  assertSafeReviewBody(bodyHtml);
+
+  const productName =
+    readPublicString(review.product_name) ||
+    readPublicString(review.product_title_localized) ||
+    readPublicString(review.product_title);
+
+  return {
+    uuid,
+    rating,
+    body_html: bodyHtml,
+    public_reviewer_name: reviewerName,
+    verified_buyer: review.verified_buyer === true,
+    product_name: productName,
+    product_variant_title: readPublicString(review.product_variant_title),
+    review_image_url: readReviewImageUrl(review),
+  };
+}
+
+function readReviewImageUrl(
+  review: Record<string, JudgeMeJsonValue>,
+): string | null {
+  const direct = normalizePublicImageUrl(review.review_image_url);
+  if (direct) return direct;
+
+  const pictureUrl = readNestedImageUrl(review.picture);
+  if (pictureUrl) return pictureUrl;
+
+  if (Array.isArray(review.pictures_urls)) {
+    for (const picture of review.pictures_urls) {
+      const url = readNestedImageUrl(picture);
+      if (url) return url;
+    }
+  }
+  return null;
+}
+
+function readNestedImageUrl(value: JudgeMeJsonValue | undefined): string | null {
+  if (!isJsonObject(value)) return null;
+  const urls = isJsonObject(value.urls) ? value.urls : value;
+  return (
+    normalizePublicImageUrl(urls.small) ||
+    normalizePublicImageUrl(urls.compact) ||
+    normalizePublicImageUrl(urls.original) ||
+    normalizePublicImageUrl(urls.huge)
+  );
+}
+
+function normalizePublicImageUrl(value: JudgeMeJsonValue | undefined): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function readPublicString(value: JudgeMeJsonValue | undefined): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError"
+  );
 }
 
 function assertReviewSnippetsSelectionContext(

@@ -1729,12 +1729,8 @@ function createReviewWidgetV3PreviewKey(
 }
 
 function registerReviewSnippetsResponse(data: ReviewSnippetsData): void {
-  const requestKey = canonicalizeReviewSnippetsRequest(data.page.requestUrl);
+  const { payload, requestKey } = createReviewSnippetsPreloadedResponse(data);
   const existing = reviewSnippetsResponses.get(requestKey);
-  const payload = JSON.stringify({
-    reviews: data.page.reviews,
-    settings: data.page.settings,
-  });
   reviewSnippetsResponses.set(requestKey, {
     payload,
     references: (existing?.references ?? 0) + 1,
@@ -1781,8 +1777,26 @@ function registerReviewSnippetsResponse(data: ReviewSnippetsData): void {
   reviewSnippetsFetchBridgeInstalled = true;
 }
 
+/** Builds the exact response retained for Judge.me's canonical snippets GET. */
+export function createReviewSnippetsPreloadedResponse(
+  data: ReviewSnippetsData,
+): { payload: string; requestKey: string } {
+  return {
+    requestKey: canonicalizeReviewSnippetsRequest(data.page.requestUrl),
+    payload: JSON.stringify({
+      reviews: data.page.reviews,
+      settings: data.page.settings,
+    }),
+  };
+}
+
 function canonicalizeReviewSnippetsRequest(value: string): string {
-  const url = new URL(value, window.location.href);
+  const url = new URL(
+    value,
+    typeof window === "undefined"
+      ? "https://judgeme-react.invalid/"
+      : window.location.href,
+  );
   const params: Array<[string, string]> = [];
   url.searchParams.forEach((paramValue, paramKey) => {
     params.push([paramKey, paramValue]);
