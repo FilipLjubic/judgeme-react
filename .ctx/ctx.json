@@ -654,6 +654,16 @@
       "current": "20260714T135117Z-db75c53d24ca",
       "created_at": "2026-07-14T13:51:16Z",
       "updated_at": "2026-07-14T13:51:16Z"
+    },
+    {
+      "id": "d6b9b06f7b371f67",
+      "label": "carousel-localization-v3-overlay-lifecycle-2026-07-14",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/carousel-localization-and-v3-overlay-lifecycle-2026-07-14.md",
+      "reason": null,
+      "current": "20260714T195005Z-79f879cbe88f",
+      "created_at": "2026-07-14T19:50:00Z",
+      "updated_at": "2026-07-14T19:50:05Z"
     }
   ]
 }

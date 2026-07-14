@@ -18,6 +18,7 @@ import type { TrustBadgeData } from "./trust-badge-api.js";
 import type { HappyCustomersData } from "./happy-customers-api.js";
 import type { ReviewWidgetV3Data } from "./review-widget-v3-api.js";
 import { ensureJudgeMeCoreRuntime } from "./legacy-runtime.js";
+import { bindReviewWidgetV3OverlayLifecycle } from "./review-widget-v3-overlay.js";
 
 const JUDGE_ME_API_HOST = "https://api.judge.me";
 const JUDGE_ME_CDN_API_HOST = "https://cdn.judge.me/";
@@ -349,6 +350,10 @@ const reviewWidgetV3Managers = new WeakMap<
   ReviewWidgetV3WidgetManager
 >();
 const reviewWidgetV3Disposals = new WeakMap<HTMLElement, number>();
+const reviewWidgetV3OverlayDisposers = new WeakMap<
+  HTMLElement,
+  () => void
+>();
 const reviewWidgetV3PreviewKeys = new WeakMap<HTMLElement, string>();
 const reviewWidgetV3PreviewResponses = new Map<
   string,
@@ -564,6 +569,8 @@ export function initializeReviewWidgetV3(
   if (existing) return existing;
 
   const initializer = initializeReviewWidgetV3Root(options).catch((error) => {
+    reviewWidgetV3OverlayDisposers.get(options.container)?.();
+    reviewWidgetV3OverlayDisposers.delete(options.container);
     releaseReviewWidgetV3PreviewResponse(options.container);
     reviewWidgetV3Initializers.delete(options.container);
     throw error;
@@ -728,10 +735,12 @@ export function disposeReviewWidgetV3(container: HTMLElement): void {
   const timeoutId = window.setTimeout(() => {
     reviewWidgetV3Disposals.delete(container);
     const cleanup = () => {
+      reviewWidgetV3OverlayDisposers.get(container)?.();
       const manager = reviewWidgetV3Managers.get(container);
       manager?.widget?.app?.unmount?.();
       container.replaceChildren();
       releaseReviewWidgetV3PreviewResponse(container);
+      reviewWidgetV3OverlayDisposers.delete(container);
       reviewWidgetV3Managers.delete(container);
       reviewWidgetV3Initializers.delete(container);
     };
@@ -1029,6 +1038,9 @@ async function initializeReviewWidgetV3Root({
     throw new Error("Judge.me's Review Widget v3 manager export is missing.");
   }
 
+  const disposeOverlayLifecycle =
+    bindReviewWidgetV3OverlayLifecycle(container);
+  reviewWidgetV3OverlayDisposers.set(container, disposeOverlayLifecycle);
   const manager = new (Manager as ReviewWidgetV3WidgetManagerConstructor)(
     container,
   );
@@ -1103,7 +1115,7 @@ async function initializeCardsCarouselRoot({
 
   utils.setAverage(container, data.aggregate.rating);
   utils.setVerified(container);
-  utils.updateHeaderText(container, config);
+  updateCarouselHeaderText(utils, container, config);
   utils.buildCards(container, config, buildCards);
   utils.attachCarouselLightbox(container, mode, config);
   runtimeWindow.jdgmSetCardsWidth?.(container, config, mode.revCount);
@@ -1195,7 +1207,7 @@ async function initializeTestimonialsCarouselRoot({
 
   utils.setAverage(container, data.aggregate.rating);
   utils.setVerified(container);
-  utils.updateHeaderText(container, config);
+  updateCarouselHeaderText(utils, container, config);
   utils.buildCards(container, config, buildCards);
   utils.attachCarouselLightbox(container, mode, config);
   container.style.setProperty("--slides-count", String(mode.revCount));
@@ -1278,7 +1290,7 @@ async function initializeVideosCarouselRoot({
 
   utils.setAverage(container, data.aggregate.rating);
   utils.setVerified(container);
-  utils.updateHeaderText(container, config);
+  updateCarouselHeaderText(utils, container, config);
   utils.buildCards(container, config, buildCards);
   utils.attachCarouselLightbox(container, mode, config);
   container.style.setProperty("--slides-count", String(mode.revCount));
@@ -1402,6 +1414,35 @@ function createHappyCustomersPagination(
     total_count: pagination.totalCount,
     total_pages: pagination.totalPages,
   };
+}
+
+/**
+ * Mirrors Judge.me's language-prefix behavior without treating casing as a
+ * locale change (for example, an `EN` document and an `en` block config).
+ */
+export function shouldUpdateCarouselHeaderText(
+  documentLanguage: string,
+  primaryLanguage: string,
+): boolean {
+  return !documentLanguage
+    .trim()
+    .toLowerCase()
+    .includes(primaryLanguage.trim().toLowerCase());
+}
+
+function updateCarouselHeaderText(
+  utils: CarouselUtils,
+  container: HTMLElement,
+  config: CarouselRuntimeConfig,
+): void {
+  if (
+    shouldUpdateCarouselHeaderText(
+      document.documentElement.lang,
+      config.primary_lang,
+    )
+  ) {
+    utils.updateHeaderText(container, config);
+  }
 }
 
 function createCardsCarouselRuntimeConfig(

@@ -16,7 +16,7 @@
   },
   "prettier": "@shopify/prettier-config",
   "dependencies": {
-    "judgeme-react": "1.0.1",
+    "judgeme-react": "1.0.2",
     "@shopify/hydrogen": "2026.4.3",
     "graphql": "^16.10.0",
     "graphql-tag": "^2.12.6",

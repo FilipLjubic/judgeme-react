@@ -16,7 +16,7 @@ The first publish established these release decisions:
 ## Release contract
 
 - Package: `judgeme-react` from `packages/judgeme-react`
-- Current version: `1.0.1`
+- Current version: `1.0.2`
 - Registry access: public
 - Runtime: ESM, React 18.3 or 19
 - Entry points:

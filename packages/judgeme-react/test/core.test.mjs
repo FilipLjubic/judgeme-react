@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { shouldUpdateCarouselHeaderText } from "../dist/exact-runtime.js";
+import { createReviewWidgetV3OverlayController } from "../dist/review-widget-v3-overlay.js";
 import { startJudgeMeRuntime } from "../dist/runtime-lifecycle.js";
 import {
   createAiReviewsSummaryData,
@@ -89,7 +91,7 @@ test("publishes the final npm identity with matching MIT licenses", async () => 
   const exampleJson = JSON.parse(exampleJsonSource);
 
   assert.equal(packageJson.name, "judgeme-react");
-  assert.equal(packageJson.version, "1.0.1");
+  assert.equal(packageJson.version, "1.0.2");
   assert.equal(exampleJson.dependencies[packageJson.name], packageJson.version);
   assert.equal(packageJson.license, "MIT");
   assert.equal(packageJson.author, "Filip Ljubic");
@@ -311,6 +313,99 @@ test("runtime lifecycle reports missing deployment configuration", () => {
   assert.equal(statuses[0].phase, "configuration");
   assert.match(statuses[0].error.message, /v3AssetBaseUrl/);
   cleanup();
+});
+
+test("carousel localization compares document and config languages case-insensitively", () => {
+  assert.equal(shouldUpdateCarouselHeaderText("EN", "en"), false);
+  assert.equal(shouldUpdateCarouselHeaderText("en-US", "EN"), false);
+  assert.equal(shouldUpdateCarouselHeaderText("PT-BR", "pt"), false);
+  assert.equal(shouldUpdateCarouselHeaderText("fr", "en"), true);
+  assert.equal(shouldUpdateCarouselHeaderText("", "en"), true);
+});
+
+test("v3 overlay ownership removes Judge.me's hidden close-time replacement", () => {
+  const timers = createManualTimers();
+  let keyboardReleases = 0;
+  const controller = createReviewWidgetV3OverlayController({
+    ownerId: "test-owner",
+    releaseKeyboardHandler: () => {
+      keyboardReleases += 1;
+    },
+    scheduleTimer: timers.schedule,
+    cancelTimer: timers.cancel,
+  });
+  const activeOverlay = createOverlayFixture("block");
+  const hiddenReplacement = createOverlayFixture("none");
+
+  controller.arm();
+  assert.equal(controller.claimOverlay(activeOverlay), "claimed");
+  controller.markOpened(activeOverlay);
+  controller.beginClose(activeOverlay);
+  activeOverlay.isConnected = false;
+  controller.handleRemovedOverlay(activeOverlay);
+  assert.equal(controller.claimOverlay(hiddenReplacement), "claimed");
+
+  timers.flush();
+
+  assert.equal(hiddenReplacement.removed, true);
+  assert.equal(
+    hiddenReplacement.attributes.get(
+      "data-judgeme-react-review-widget-owner",
+    ),
+    "test-owner",
+  );
+  assert.equal(controller.owns(hiddenReplacement), false);
+  assert.equal(keyboardReleases, 1);
+});
+
+test("v3 overlay ownership preserves an intentional visible reopen", () => {
+  const timers = createManualTimers();
+  let keyboardReleases = 0;
+  const controller = createReviewWidgetV3OverlayController({
+    ownerId: "test-owner",
+    releaseKeyboardHandler: () => {
+      keyboardReleases += 1;
+    },
+    scheduleTimer: timers.schedule,
+    cancelTimer: timers.cancel,
+  });
+  const activeOverlay = createOverlayFixture("block");
+  const visibleReplacement = createOverlayFixture("block");
+
+  controller.arm();
+  controller.claimOverlay(activeOverlay);
+  controller.markOpened(activeOverlay);
+  controller.beginClose(activeOverlay);
+  activeOverlay.isConnected = false;
+  controller.handleRemovedOverlay(activeOverlay);
+  controller.claimOverlay(visibleReplacement);
+  controller.markOpened(visibleReplacement);
+  timers.flush();
+
+  assert.equal(visibleReplacement.removed, false);
+  assert.equal(controller.owns(visibleReplacement), true);
+  assert.equal(keyboardReleases, 0);
+
+  assert.equal(controller.dispose(), 1_200);
+  assert.equal(visibleReplacement.removed, true);
+  assert.equal(keyboardReleases, 1);
+});
+
+test("v3 overlay ownership removes a late modal after its root unmounts", () => {
+  let keyboardReleases = 0;
+  const controller = createReviewWidgetV3OverlayController({
+    ownerId: "test-owner",
+    releaseKeyboardHandler: () => {
+      keyboardReleases += 1;
+    },
+  });
+  const lateOverlay = createOverlayFixture("block");
+
+  controller.arm();
+  assert.equal(controller.dispose(), 11_000);
+  assert.equal(controller.claimOverlay(lateOverlay), "removed");
+  assert.equal(lateOverlay.removed, true);
+  assert.equal(keyboardReleases, 1);
 });
 
 test("extracts Shopify numeric IDs from GraphQL IDs", () => {
@@ -3055,5 +3150,45 @@ function createReviewWidgetV3Fixture() {
         video_external_ids: ["removed-vimeo-fixture"],
       },
     ],
+  };
+}
+
+function createOverlayFixture(display) {
+  return {
+    attributes: new Map(),
+    hidden: false,
+    isConnected: true,
+    removed: false,
+    style: { display },
+    remove() {
+      this.isConnected = false;
+      this.removed = true;
+    },
+    setAttribute(name, value) {
+      this.attributes.set(name, value);
+    },
+  };
+}
+
+function createManualTimers() {
+  let nextHandle = 0;
+  const callbacks = new Map();
+
+  return {
+    cancel(handle) {
+      callbacks.delete(handle);
+    },
+    flush() {
+      while (callbacks.size > 0) {
+        const pending = [...callbacks.values()];
+        callbacks.clear();
+        for (const callback of pending) callback();
+      }
+    },
+    schedule(callback) {
+      const handle = ++nextHandle;
+      callbacks.set(handle, callback);
+      return handle;
+    },
   };
 }
