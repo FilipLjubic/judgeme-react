@@ -1,6 +1,6 @@
 # `judgeme-react` Hydrogen example
 
-This is the reference storefront for integrating the package into a real Shopify Hydrogen app. It is intentionally private and is not a second npm package. Its `judgeme-react` dependency is pinned to the same exact alpha version as the workspace library, so the directory can also be copied into a standalone repository after that version is published.
+This is the reference storefront for integrating the package into a real Shopify Hydrogen app. It is intentionally private and is not a second npm package. Its `judgeme-react` dependency is pinned to the same exact version as the workspace library, so the directory can also be copied into a standalone repository after that version is published.
 
 The app demonstrates every implemented storefront component, but the most reusable integration points are small:
 
@@ -81,7 +81,7 @@ The storefront runs at `http://localhost:3001`; port 3000 stays free for other p
 
 ## Run as a standalone example
 
-After `judgeme-react@0.1.0-alpha.0` is published, copy `examples/hydrogen` into its own repository, then run:
+After `judgeme-react@1.0.0` is published, copy `examples/hydrogen` into its own repository, then run:
 
 ```sh
 bun install

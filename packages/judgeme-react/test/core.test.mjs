@@ -75,15 +75,22 @@ test("publishes separate React and server entry points", async () => {
 });
 
 test("publishes the final npm identity with matching MIT licenses", async () => {
-  const [packageJsonSource, packageLicense, repositoryLicense] =
+  const [packageJsonSource, exampleJsonSource, packageLicense, repositoryLicense] =
     await Promise.all([
       readFile(new URL("../package.json", import.meta.url), "utf8"),
+      readFile(
+        new URL("../../../examples/hydrogen/package.json", import.meta.url),
+        "utf8",
+      ),
       readFile(new URL("../LICENSE", import.meta.url), "utf8"),
       readFile(new URL("../../../LICENSE", import.meta.url), "utf8"),
     ]);
   const packageJson = JSON.parse(packageJsonSource);
+  const exampleJson = JSON.parse(exampleJsonSource);
 
   assert.equal(packageJson.name, "judgeme-react");
+  assert.equal(packageJson.version, "1.0.0");
+  assert.equal(exampleJson.dependencies[packageJson.name], packageJson.version);
   assert.equal(packageJson.license, "MIT");
   assert.equal(packageJson.author, "Filip Ljubic");
   assert.equal(packageLicense, repositoryLicense);

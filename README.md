@@ -5,7 +5,7 @@ Alpha-stage project for exposing Judge.me widgets through React, with Shopify Hy
 ## Package and example
 
 - `packages/judgeme-react` builds the ESM-only `judgeme-react` npm package. New integrations should import loaders from `judgeme-react/server` and components from `judgeme-react/react`.
-- `examples/hydrogen` is the copyable reference storefront. It is pinned to the package's exact alpha version and contains the complete provider, CSP, loader, graceful-degradation, and widget composition example.
+- `examples/hydrogen` is the copyable reference storefront. It is pinned to the package's exact version and contains the complete provider, CSP, loader, graceful-degradation, and widget composition example.
 - `packages/judgeme-react/SETUP_PROMPT.md` is a prompt users can paste into a coding agent to add the first widgets to an existing Hydrogen app.
 - `docs/PUBLISHING.md` is the release checklist for the MIT-licensed `judgeme-react` package and its public source repository.
 
@@ -59,7 +59,7 @@ Every current entry in `JUDGE_ME_WIDGETS` has an implementation, and the review-
 
 The repository is a Bun workspace:
 
-- `packages/judgeme-react` contains the framework-neutral `judgeme-react` alpha package.
+- `packages/judgeme-react` contains the framework-neutral `judgeme-react` package.
 - `examples/hydrogen` is a real Hydrogen storefront used as the integration and compatibility harness.
 - `docs/research` and ctx remain the source of truth for reverse-engineering and implementation decisions.
 

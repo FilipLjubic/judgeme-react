@@ -8,7 +8,7 @@ Scope: package exports, registry dry-run, example portability, user setup, and f
 The existing framework-neutral library and Hydrogen harness are now shaped as two public-facing artifacts:
 
 1. `judgeme-react` is the publishable ESM package under `packages/judgeme-react`;
-2. `examples/hydrogen` is the reference consumer and can be extracted to a standalone repository after the matching alpha reaches npm.
+2. `examples/hydrogen` is the reference consumer and can be extracted to a standalone repository after the matching package version reaches npm.
 
 The package retains its all-in-one root export for current Hydrogen consumers and adds explicit `judgeme-react/server` and `judgeme-react/react` subpaths. The server path exposes fetchers, data combiners, Shopify ID normalization, runtime policy, and v3 deployment discovery without exporting React components. The React path is marked with a `use client` boundary and exposes providers/components without the server fetch API.
 
@@ -16,7 +16,7 @@ This split is an API organization and tooling boundary, not a security sandbox. 
 
 ## Example portability
 
-The example dependency now names exact version `0.1.0-alpha.0` instead of `*`. Bun satisfies that version from the workspace during development, while the same manifest resolves from npm when `examples/hydrogen` is copied elsewhere. There are no workspace-relative source imports in the app.
+The example dependency now names exact version `1.0.0` instead of `*`. Bun satisfies that version from the workspace during development, while the same manifest resolves from npm when `examples/hydrogen` is copied elsewhere. There are no workspace-relative source imports in the app.
 
 The example uses split subpath imports, generic placeholder environment values, one provider, automatic deployment discovery, the tested CSP, nullable per-widget composition, and one shared stylesheet mount. Its README maps the four most important integration files and documents how to run it inside or outside the monorepo.
 
@@ -38,7 +38,7 @@ The release contract adds:
 
 The pre-change dry-run contained 178 files and approximately 0.99 MB unpacked. It contained only compiled output, package metadata, and the README; no `.env` or workspace app files were present.
 
-After finalizing the `judgeme-react` name and MIT license, the release gate passed with 61 tests. The final dry-run contained 188 files and approximately 1.0 MB unpacked, including the package-local `LICENSE`, split entry points, README, and setup prompt. `publint` reported no errors.
+After finalizing the `judgeme-react` name, MIT license, and stable `1.0.0` version, the release gate passed with 61 tests. The final dry-run produced `judgeme-react-1.0.0.tgz` with 188 files and approximately 1.0 MB unpacked, including the package-local `LICENSE`, split entry points, README, and setup prompt. `publint` reported no errors.
 
 ## Registry status and finalized owner decisions
 
@@ -51,12 +51,12 @@ The owner subsequently finalized:
 3. public source, issue tracker and homepage under `https://github.com/FilipLjubic/judgeme-react`;
 4. the Hydrogen example remains in the public monorepo as the reference consumer.
 
-`docs/PUBLISHING.md` records the exact first-publish procedure and keeps the initial release under the `alpha` dist-tag. The remaining external action is npm authentication and the first reviewed publish, which establishes ownership of the currently unclaimed name.
+`docs/PUBLISHING.md` records the exact first-publish procedure. The owner selected stable version `1.0.0` under the `latest` dist-tag. The remaining external action is npm authentication and the first reviewed publish, which establishes ownership of the currently unclaimed name.
 
 ## Reusable rules
 
 - Keep server and React imports split in examples, even though the compatibility barrel remains supported.
-- Keep the example dependency pinned to the exact library prerelease and update both versions together.
+- Keep the example dependency pinned to the exact library version and update both versions together.
 - Run the full workspace gates plus dry-run and `publint` before a registry publish.
 - Verify a copied, out-of-workspace example against the registry package after publishing.
 - Never put real store domains, storefront IDs, tokens, or deployment UUIDs in `.env.example` or package docs.

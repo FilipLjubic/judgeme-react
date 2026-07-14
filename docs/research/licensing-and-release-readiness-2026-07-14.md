@@ -8,7 +8,7 @@ This is an engineering release audit, not legal advice. The software license and
 
 ## Current repository state
 
-The package is technically packable and its owner-controlled metadata is ready for a public alpha:
+The package is technically packable and its owner-controlled metadata is ready for a stable 1.0 release:
 
 - identical MIT `LICENSE` files exist at the workspace and package roots;
 - `packages/judgeme-react/package.json` declares `license: MIT` and `author: Filip Ljubic`;
@@ -59,11 +59,11 @@ Source: [Judge.me Terms](https://judge.me/terms), observed 2026-07-14.
 
 ## Remaining publication metadata
 
-The public repository is `https://github.com/FilipLjubic/judgeme-react`. The package includes its monorepo-aware `repository`, `homepage`, and `bugs` fields plus the final `name`, `author`, `license`, and alpha version. Keep the package and Hydrogen example names and versions synchronized for every release.
+The public repository is `https://github.com/FilipLjubic/judgeme-react`. The package includes its monorepo-aware `repository`, `homepage`, and `bugs` fields plus the final `name`, `author`, `license`, and stable version. Keep the package and Hydrogen example names and versions synchronized for every release.
 
 ## Secure first-publish path
 
-The first unscoped public publish establishes ownership of the available package name. npm currently requires two-factor authentication or an eligible granular token for direct publishing. Prefer an interactive, reviewed alpha publish for version `0.1.0-alpha.0`.
+The first unscoped public publish establishes ownership of the available package name. npm currently requires two-factor authentication or an eligible granular token for direct publishing. The owner selected an interactive, reviewed stable publish for version `1.0.0`.
 
 Once a public repository and package exist, npm trusted publishing is the preferred ongoing path. It uses hosted-CI OIDC rather than a long-lived write token and automatically produces provenance for eligible public GitHub/GitLab releases. npm currently requires npm CLI 11.5.1 or later and Node 22.14.0 or later for trusted publishing.
 
@@ -74,4 +74,4 @@ Sources:
 
 ## Remaining owner action
 
-Authenticate the intended npm account with two-factor authentication, run the complete release check, inspect the archive, and publish `judgeme-react@0.1.0-alpha.0` with the `alpha` dist-tag. The first successful unscoped publish establishes package-name ownership.
+Authenticate the intended npm account with two-factor authentication, run the complete release check, inspect the archive, and publish `judgeme-react@1.0.0` with the `latest` dist-tag. The first successful unscoped publish establishes package-name ownership.

@@ -11,7 +11,7 @@ This hardening pass establishes four release foundations:
 
 1. current Judge.me extension assets can be discovered and manifest-validated on the server;
 2. every exact widget reports a common loading/ready/error lifecycle and has one cleanup boundary;
-3. the npm package has an alpha version, publish metadata, a pack check, and a documented public API;
+3. the npm package has stable version metadata, a pack check, and a documented public API;
 4. implementation coverage is separated from real-state fixture verification.
 
 ## Automated extension asset discovery
@@ -44,7 +44,7 @@ The nine migrated exact components are Reviews Grid, Cards Carousel, Testimonial
 
 ## Package boundary
 
-`judgeme-react` remains framework-neutral and ESM-only. The package now uses alpha version `0.1.0-alpha.0`, declares its React peer range, exports JavaScript and declaration entry points, marks public npm access, and runs a build during `bun pm pack --dry-run`.
+`judgeme-react` remains framework-neutral and ESM-only. The owner selected stable version `1.0.0` for the first publish. The package declares its React peer range, exports JavaScript and declaration entry points, marks public npm access, and runs a build during `bun pm pack --dry-run`.
 
 The public API has four layers:
 
@@ -88,7 +88,7 @@ The owner subsequently selected MIT under Filip Ljubic and created `https://gith
 
 - Videos Carousel: photo/media filtering, navigation, and image lightbox are verified. Actual iframe playback/autoplay and a Perspective layout comparison still require a published video review.
 
-## Stable-release fixture gaps
+## Version 1.0 fixture gaps
 
 The following are compatibility checks, not missing implementation work:
 

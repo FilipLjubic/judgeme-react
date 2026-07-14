@@ -4,7 +4,7 @@ Alpha React adapters for Judge.me storefront widgets, built for headless Shopify
 
 The package is intentionally framework-neutral. Hydrogen is a consumer under `examples/hydrogen`, not a dependency of this package.
 
-This is a compatibility project rather than an official Judge.me package. It is not affiliated with, endorsed by, or sponsored by Judge.me Ltd. Judge.me and its related marks remain the property of their respective owner. The package combines documented public Widget API reads, tokenless CDN reads, Shopify metafields, and current Judge.me browser modules. Pin alpha versions and run the compatibility harness before upgrading.
+This is a compatibility project rather than an official Judge.me package. It is not affiliated with, endorsed by, or sponsored by Judge.me Ltd. Judge.me and its related marks remain the property of their respective owner. The package combines documented public Widget API reads, tokenless CDN reads, Shopify metafields, and current Judge.me browser modules. Pin exact versions and run the compatibility harness before upgrading.
 
 ## Install
 
@@ -183,7 +183,7 @@ Implementation coverage and live-state verification are tracked separately:
 | Correct live empty/disabled state  | UGC Media Grid and Questions & Answers                                                                                                                                                                                                                                                                                                                                  |
 | Partial media verification         | Videos Carousel photo/video selection, navigation, and image lightbox are verified; actual video iframe playback and autoplay still need a published video-review fixture                                                                                                                                                                                               |
 
-Before a stable release, close the remaining real-state gaps with authorized fixtures: a published video review, published Q&A plus one end-to-end moderated submission, and published UGC. Disabled previews and sample feeds are never presented as production store data.
+Version 1.0 ships with three explicitly documented real-state verification gaps: published video playback, published Q&A plus one end-to-end moderated submission, and published UGC. These remain compatibility-verification work, not missing component implementations. Disabled previews and sample feeds are never presented as production store data.
 
 ## Current API boundary
 
