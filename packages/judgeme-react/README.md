@@ -9,6 +9,9 @@ bun add judgeme-react
 > [!WARNING]
 > This is an unofficial, reverse-engineered compatibility library. It is not affiliated with or endorsed by Judge.me. It talks to public Judge.me APIs and CDN endpoints, reads public Shopify storefront data, and loads parts of Judge.me's current Shopify extension runtime. Judge.me can change those internals without warning, so pin the package version and test upgrades against a real store.
 
+> [!TIP]
+> These docs are written for coding agents. The recommended setup is to open your storefront repository in Codex, Claude Code, Cursor, or another agent that can inspect and edit the project, then give it the full [`SETUP_PROMPT.md`](https://github.com/FilipLjubic/judgeme-react/blob/main/packages/judgeme-react/SETUP_PROMPT.md). It will ask for the missing store choices first, then handle the provider, loaders, CSP, widget selection, fallbacks, and verification. Manual instructions remain below for reference and review.
+
 ## Why this exists
 
 Judge.me works well in a Liquid theme because its app embed, app blocks, generated markup, settings payload, CSS, and browser runtime all arrive together. A headless React storefront does not get any of that automatically.
@@ -203,6 +206,34 @@ Do not use the Judge.me private token. None of the current adapters need it.
 
 Shopify Headless, Storefront API, Customer Account API, and optional Shopify Admin credentials belong to the host app. The [Hydrogen example guide](https://github.com/FilipLjubic/judgeme-react/tree/main/examples/hydrogen#readme) shows where to get those values and which ones must remain server-only.
 
+#### Where `v3AssetBaseUrl` comes from
+
+`v3AssetBaseUrl` is not a token or a value exposed in Judge.me Admin. It is the public directory for the store's current Judge.me Shopify theme-extension assets. Its validated shape is:
+
+```text
+https://cdn.shopify.com/extensions/<deployment-id>/<extension-handle>/assets/
+```
+
+The deployment identifiers can change whenever Judge.me publishes its Shopify extension, so the library must not hardcode one. Resolve it in a server loader from the public Online Store URL where the Judge.me app embed is enabled:
+
+```ts
+import {resolveJudgeMeV3AssetDeployment} from "judgeme-react/server";
+
+const judgeMeAssets = await resolveJudgeMeV3AssetDeployment({
+  shopDomain: context.env.JUDGEME_SHOP_DOMAIN,
+  storefrontUrl: context.env.JUDGEME_STOREFRONT_URL,
+  fallbackAssetBaseUrl:
+    context.env.JUDGEME_V3_ASSET_BASE_URL || undefined,
+  signal: request.signal,
+});
+
+const v3AssetBaseUrl = judgeMeAssets.assetBaseUrl;
+```
+
+The resolver fetches that public storefront page on the server, extracts its Shopify-extension asset candidates, and accepts only a deployment whose `manifest.json` contains the Judge.me modules expected by this package. It caches successful discovery and can temporarily reuse a previous success after a refresh error.
+
+Pass `judgeMeAssets.assetBaseUrl` through loader data to `JudgeMeProvider`. `JUDGEME_V3_ASSET_BASE_URL` is only an optional input to the resolver when automatic discovery is unavailable; it is not the normal source of the provider value. If you want a production fallback, copy a previously returned `judgeMeAssets.assetBaseUrl` into that env variable and refresh it after Judge.me deployment changes. The value is public, but it is version-specific.
+
 ### 2. Fetch widget data on the server
 
 This starter fetches the product badge and legacy Review Widget in one batch:
@@ -241,7 +272,7 @@ import {
   config={{
     shopDomain: judgeMeShopDomain,
     publicToken: judgeMePublicToken,
-    v3AssetBaseUrl,
+    v3AssetBaseUrl, // judgeMeAssets.assetBaseUrl from the server loader
   }}
 >
   <JudgeMeWidgetStyles data={judgeMe.resources} />

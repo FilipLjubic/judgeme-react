@@ -39,7 +39,8 @@ Ask for:
      JUDGEME_PUBLIC_TOKEN=
      JUDGEME_STOREFRONT_URL=https://store.myshopify.com/products/published-product
      JUDGEME_V3_ASSET_BASE_URL=
-   - Explain that JUDGEME_V3_ASSET_BASE_URL is an optional last-known-good fallback. It is normally blank because the server discovers the current deployment.
+   - Explain that v3AssetBaseUrl is not copied from Judge.me Admin. It is the public `cdn.shopify.com/extensions/<deployment>/<handle>/assets/` directory returned by server-side discovery.
+   - Explain that JUDGEME_V3_ASSET_BASE_URL is only an optional last-known-good input to discovery. It is normally blank; if the user wants a fallback, they can copy a previously returned `deployment.assetBaseUrl` into it.
    - Never request, add, serialize, log, or expose the Judge.me Private API Token. This package does not need it.
 
 3. Widgets
@@ -107,7 +108,7 @@ Environment and asset discovery
    SHOPIFY_ADMIN_ACCESS_TOKEN=        # optional, server-only
    SHOPIFY_ADMIN_API_VERSION=2026-04 # optional
 7. JUDGEME_STOREFRONT_URL must be an HTTPS page on the store's public Online Store theme. Never scrape review content from that page. It is only an extension-deployment discovery source.
-8. Create a server-only helper around resolveJudgeMeV3AssetDeployment. Pass the permanent shop domain, public storefront URL, and optional fallback URL. Catch discovery failures, report them once, and return null so legacy/native widgets can still render.
+8. Create a server-only helper around resolveJudgeMeV3AssetDeployment. Pass the permanent shop domain, public storefront URL, and optional fallback URL. Catch discovery failures, report them once, and return null so legacy/native widgets can still render. Pass the helper's returned deployment.assetBaseUrl through loader data as v3AssetBaseUrl; never treat the raw fallback env variable as the normal provider value.
 9. Do not hardcode a cdn.shopify.com extension deployment UUID. Judge.me can replace it on deployment.
 
 Provider and runtime

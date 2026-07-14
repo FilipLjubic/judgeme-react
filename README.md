@@ -13,6 +13,9 @@ This project reconstructs those pieces for React. It combines public Judge.me Wi
 > [!WARNING]
 > This is a compatibility hack, not an official Judge.me SDK. It is not affiliated with or endorsed by Judge.me. Undocumented endpoints and deployed extension modules can change, so pin versions and verify upgrades against a real store.
 
+> [!TIP]
+> These docs are agent-first on purpose. Open your storefront repository in Codex, Claude Code, Cursor, or whichever coding agent you trust, then give it the [copy-paste setup prompt](packages/judgeme-react/SETUP_PROMPT.md). The prompt makes the agent inspect your app, ask for the missing store choices, implement the integration, and verify it against the [Hydrogen example](examples/hydrogen). You can follow the guide by hand, but that is not the primary path.
+
 ## Why use it?
 
 Judge.me's [official Hydrogen package](https://www.npmjs.com/package/@judgeme/shopify-hydrogen) is client-only, exposes a smaller set of older widgets, and does not reproduce the current Shopify app-block runtime. This library takes on that messy runtime work so a headless storefront can keep more of the merchant's existing setup.
@@ -39,6 +42,8 @@ The recommended onboarding path is agent-assisted:
 The prompt includes token instructions, CSP, provider setup, server/client boundaries, automatic extension-asset discovery, per-widget fallbacks, testing, and a clean Brave verification pass.
 
 If you are integrating by hand, read the [npm package guide](packages/judgeme-react/README.md). It includes a minimal loader/component example, the complete widget table, merchant activation requirements, loading options, and known limits.
+
+New extension-driven widgets also need `v3AssetBaseUrl`. This is not a Judge.me Admin setting: the server [discovers the store's current Shopify extension deployment](packages/judgeme-react/README.md#where-v3assetbaseurl-comes-from) from a public theme page where the Judge.me app embed is enabled. The similarly named env variable is only an optional last-known-good fallback.
 
 ## Widget gallery
 

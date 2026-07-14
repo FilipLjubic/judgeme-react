@@ -4,6 +4,9 @@ This is the working reference storefront for [`judgeme-react`](../../packages/ju
 
 Use it as a comparison repo, not as an instruction to replace your storefront. The package itself has no Hydrogen dependency.
 
+> [!TIP]
+> This guide is primarily reference material for coding agents. Start with the package's [copy-paste setup prompt](../../packages/judgeme-react/SETUP_PROMPT.md) in your own storefront repository, using Codex, Claude Code, Cursor, or another coding agent. The agent should compare your app with this example instead of copying the repository blindly.
+
 ## What to copy
 
 | File | What it demonstrates |
@@ -49,6 +52,30 @@ JUDGEME_V3_ASSET_BASE_URL=
 `JUDGEME_STOREFRONT_URL` points at a public theme page where the Judge.me app embed is enabled. The server inspects that page only to find the current `cdn.shopify.com/extensions/.../assets/` deployment; it does not scrape reviews from Liquid HTML.
 
 `JUDGEME_V3_ASSET_BASE_URL` is an optional last-known-good fallback for a password-protected, rate-limited, or unavailable theme. Most storefronts should leave it blank and use automatic discovery.
+
+### Where `v3AssetBaseUrl` comes from
+
+There is no `v3AssetBaseUrl` field to copy from Judge.me Admin. It is the public directory of the current Judge.me Shopify extension deployment:
+
+```text
+https://cdn.shopify.com/extensions/<deployment-id>/<extension-handle>/assets/
+```
+
+The example resolves it on the server with [`resolveJudgeMeAssets`](app/lib/judgeme.server.ts), which wraps the package's `resolveJudgeMeV3AssetDeployment` helper:
+
+```ts
+const judgeMeAssets = await resolveJudgeMeAssets({
+  shopDomain: env.JUDGEME_SHOP_DOMAIN,
+  storefrontUrl: env.JUDGEME_STOREFRONT_URL,
+  fallbackAssetBaseUrl: env.JUDGEME_V3_ASSET_BASE_URL,
+});
+
+const v3AssetBaseUrl = judgeMeAssets?.assetBaseUrl;
+```
+
+The helper fetches the public theme page, finds its versioned Shopify-extension asset URLs, and validates each candidate's `manifest.json` before returning one. The product route then passes `judgeMeAssets?.assetBaseUrl` into widget data, while [`app/root.tsx`](app/root.tsx) passes the same value into `JudgeMeProvider`.
+
+The env variable is not passed straight to React. It is validated and used only when discovery fails. To keep a fallback, copy a previously discovered `judgeMeAssets.assetBaseUrl` into `JUDGEME_V3_ASSET_BASE_URL`; do not copy an individual `.js` file URL. Leave it blank when the public theme is reliably discoverable.
 
 The public token is intended for storefront Widget API reads. The private token must never enter loader data, React props, `JudgeMeProvider`, logs, fixtures, or committed files. Judge.me documents the tokens in its [API credential guide](https://judge.me/help/en/articles/8409180-using-judge-me-api).
 

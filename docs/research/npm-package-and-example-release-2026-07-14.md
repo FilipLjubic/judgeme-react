@@ -61,6 +61,8 @@ The package now ships a two-phase copy-paste setup prompt. A coding agent first 
 
 `docs/WIDGET_GALLERY.md` contains one tightly bounded Brave screenshot for every public component, and the npm-facing package README embeds the same 20 images beside a short description of each component. Long review feeds are represented through complete leading review cards rather than multi-thousand-pixel page captures. The Q&A image is visibly labeled as Judge.me sample data, the UGC image is labeled as a documentation fixture rendered through the real runtime, and the Videos Carousel image does not claim to verify iframe playback. Screenshot content and live-fixture coverage remain separate claims.
 
+Element capture must account for Judge.me's lazy media. Scroll the target widget into the viewport, wait until every intended image is complete with a positive `naturalWidth`, wait for `document.fonts`, and only then isolate and capture the widget root. The first Reviews Grid gallery image was taken before its offscreen `loading="lazy"` images decoded; the cards and their valid `review-images.judge.me` URLs were present, but the resulting screenshot showed blank media panels.
+
 The published example uses port 3000 by default. Shopify Headless channel credentials, Storefront and Customer Account tokens, optional Admin access, Hydrogen environment mapping, and the host CSP remain in the Hydrogen guide rather than the framework-neutral package guide.
 
 ## Reusable rules
