@@ -30,6 +30,8 @@ The first twenty components are `StarRatingBadge`, `VerifiedReviewsCounter`, `Ju
 
 `ReviewWidgetV3` mounts Judge.me's exact current Shopify Review Widget manager and deployment stylesheet. Its tokenless CDN feed supplies structured reviews for enabled stores; disabled stores return `null` unless a theme-editor-style harness explicitly requests Judge.me's labeled sample preview. The component preserves dashboard styling, filters, Product/Store tabs, sorting, media, and the Write a review modal while owning SPA cleanup.
 
+The shared legacy dashboard stylesheet is now an explicit `JudgeMeWidgetStyles` mount in batched routes. It includes Judge.me's `JudgemeStar` icon font, which the current v3 Review Widget also references; relying on whichever legacy widget happens to render first could therefore turn stars into missing-glyph boxes. The classic Reviews Carousel also applies Shopify-compatible `border-box` sizing within its own root so its fixed-height card theme cannot clip reviewer details under Hydrogen's lighter reset.
+
 `VerifiedReviewsCounter` renders Judge.me's exact verified-review badge for eligible stores. Its public fetcher returns `null` below Judge.me's 20-verified-review threshold and otherwise preserves the dashboard's branded/classic style, orientation, color, branding, and link. The shared storefront batch adds one `verified_badge` read.
 
 `AllReviewsCounter` renders the store's combined product-and-shop rating/count with the dashboard-selected branded or text treatment. Its standalone fetcher uses the public aggregate endpoints; the full storefront batch derives the same values from the existing All Reviews header, so this component does not add another request to the seven-read exact-cache batch or its eight-read UGC fallback path.
@@ -85,6 +87,7 @@ The workspace pins Bun 1.3.14 and uses `bun.lock` as its only dependency lockfil
 - [Live widget activation audit](docs/research/widget-activation-audit-2026-07-14.md), queryable in ctx as `widget-activation-audit-2026-07-14`.
 - [Post-fix widget activation hardening result](docs/research/widget-activation-hardening-2026-07-14.md), queryable in ctx as `widget-activation-hardening-2026-07-14`.
 - [Graceful-degradation hardening](docs/research/graceful-degradation-hardening-2026-07-14.md), queryable in ctx as `graceful-degradation-hardening-2026-07-14`.
+- [Widget stylesheet and classic carousel sizing investigation](docs/research/widget-style-layout-hardening-2026-07-14.md), queryable in ctx as `widget-style-layout-hardening-2026-07-14`.
 - [Research workflow and resource index](docs/research/README.md)
 - Project documentation sources are pinned in `.ctx/ctx.json`.
 - `ctx` Codex hooks are installed under `.ctx/hooks` and pass `ctx hook doctor`.

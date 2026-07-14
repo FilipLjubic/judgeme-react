@@ -6,6 +6,15 @@ import {
 } from "./legacy-runtime.js";
 import {useJudgeMe} from "./provider.js";
 
+const CAROUSEL_LAYOUT_COMPATIBILITY_STYLE = `
+[data-judgeme-react-widget="reviews-carousel"] .jdgm-carousel,
+[data-judgeme-react-widget="reviews-carousel"] .jdgm-carousel *,
+[data-judgeme-react-widget="reviews-carousel"] .jdgm-carousel *::before,
+[data-judgeme-react-widget="reviews-carousel"] .jdgm-carousel *::after {
+  box-sizing: border-box;
+}
+`;
+
 export interface ReviewsCarouselProps
   extends Omit<
     ComponentPropsWithoutRef<"div">,
@@ -72,6 +81,12 @@ export function ReviewsCarousel({
       data-judgeme-react-widget="reviews-carousel"
     >
       <div dangerouslySetInnerHTML={{__html: data.html}} />
+      <style
+        data-judgeme-react-styles="reviews-carousel-layout"
+        dangerouslySetInnerHTML={{
+          __html: CAROUSEL_LAYOUT_COMPATIBILITY_STYLE,
+        }}
+      />
       {includeStyles ? (
         <style
           data-judgeme-react-styles="legacy-widgets"

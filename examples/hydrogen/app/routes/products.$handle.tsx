@@ -45,6 +45,7 @@ import {
   getShopifyNumericId,
   HappyCustomers,
   JudgeMeMedals,
+  JudgeMeWidgetStyles,
   LegacyReviewWidget,
   normalizeQuestionsAndAnswersConfig,
   PopupReviews,
@@ -549,6 +550,9 @@ export default function Product() {
 
   return (
     <div className="product">
+      {judgeMeWidgets ? (
+        <JudgeMeWidgetStyles data={judgeMeWidgets.resources} />
+      ) : null}
       <ProductImage image={selectedVariant?.image} />
       <div className="product-main">
         <h1>{title}</h1>
@@ -707,6 +711,7 @@ export default function Product() {
                 ...judgeMeWidgets.reviewWidget,
                 ...judgeMeWidgets.resources,
               }}
+              includeStyles={false}
             />
           ) : null}
           {judgeMeWidgets.allReviewsWidget ? (

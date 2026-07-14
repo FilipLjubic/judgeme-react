@@ -245,6 +245,7 @@ import {
   HappyCustomers,
   JudgeMeMedals,
   JudgeMeProvider,
+  JudgeMeWidgetStyles,
   LegacyReviewWidget,
   normalizeQuestionsAndAnswersConfig,
   PopupReviews,
@@ -471,6 +472,7 @@ Render it inside the store-level provider:
     v3AssetBaseUrl: env.JUDGEME_V3_ASSET_BASE_URL,
   }}
 >
+  <JudgeMeWidgetStyles data={widgets.resources} />
   {widgets.starRatingBadge ? (
     <StarRatingBadge
       data={{ ...widgets.starRatingBadge, ...widgets.resources }}
@@ -521,6 +523,7 @@ Render it inside the store-level provider:
   {widgets.reviewWidget ? (
     <LegacyReviewWidget
       data={{ ...widgets.reviewWidget, ...widgets.resources }}
+      includeStyles={false}
     />
   ) : null}
   {widgets.allReviewsWidget ? (
@@ -541,7 +544,7 @@ Render it inside the store-level provider:
 </JudgeMeProvider>
 ```
 
-`includeStyles={false}` prevents the product badge, Verified Reviews Counter, Medals, UGC Media Grid, aggregate counter, carousel, All Reviews Widget, and floating tab from emitting duplicate copies of the shared dashboard CSS; the Review Widget emits it once for all nine. When rendering one widget, use its standalone fetcher and leave `includeStyles` at its default `true` where available. Use `fetchLegacyProductWidgets` when a route needs only the two product widgets.
+`JudgeMeWidgetStyles` emits the shared dashboard CSS once for a batched response. Keep `includeStyles={false}` on every legacy component in that batch, including `LegacyReviewWidget`, so they do not emit duplicate copies. Mounting the shared styles explicitly is important even when the route uses exact v3 components: Judge.me's current v3 Review Widget still references the `JudgemeStar` icon font declared by the shared CSS. When rendering one legacy widget from a standalone fetcher, omit `JudgeMeWidgetStyles` and leave `includeStyles` at its default `true`. Use `fetchLegacyProductWidgets` when a route needs only the two product widgets.
 
 `VerifiedReviewsCounter` is eligibility-aware. `fetchVerifiedReviewsCounter` returns `null` when Judge.me's public `verified_badge` response is `null`, which currently means the store has not reached the 20-verified-review requirement. Do not substitute the All Reviews count: that includes reviews Judge.me does not classify as verified.
 
@@ -557,7 +560,7 @@ Render it inside the store-level provider:
 
 The host application must allow Judge.me's script, style, API, media, and image hosts in its Content Security Policy. Exact extension adapters also require `https://cdn.shopify.com` in script, style, connect, font, and image policies. Happy Customers reviewer avatars additionally require `https://judgeme.imgix.net` in `img-src`. The Hydrogen example in this repository contains the tested configuration. It preserves `'self'` when overriding `scriptSrc` and permits Vite's local blob worker with `workerSrc: ["'self'", 'blob:']`.
 
-`ReviewsCarousel` implements Judge.me's classic carousel, sometimes called the legacy Reviews Carousel. It is not an adapter for the newer Cards, Testimonials, or Videos carousel blocks.
+`ReviewsCarousel` implements Judge.me's classic carousel, sometimes called the legacy Reviews Carousel. It is not an adapter for the newer Cards, Testimonials, or Videos carousel blocks. Its card theme assumes Shopify's conventional `border-box` sizing while applying fixed heights, padding, and `overflow: hidden`; the component supplies that sizing rule within its own root so host resets cannot clip the reviewer footer.
 
 `AllReviewsWidget` uses Judge.me's official platform-independent marker and CDN styling, but React owns its interactive request lifecycle. Judge.me's `arp.js` normally pages through a cache-server contract; the adapter instead captures the same controls and reads `all_reviews_page` with the public token. Do not infer the API batch size from the header's `data-per-page`: on the current store the header says 10 while the endpoint returns 25 reviews per full page. The adapter records the largest observed batch size and uses returned review counts to detect the end.
 

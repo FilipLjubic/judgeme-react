@@ -40,6 +40,7 @@ import {
   fetchVideosCarousel,
   fetchVideosCarouselPage,
   getShopifyNumericId,
+  JudgeMeWidgetStyles,
   normalizeTestimonialsCarouselConfig,
   normalizeTrustBadgeConfig,
   normalizeAiReviewsSummaryConfig,
@@ -57,6 +58,22 @@ import {
   HappyCustomers,
   ReviewWidgetV3,
 } from "../dist/index.js";
+
+test("renders the batched Judge.me dashboard styles through an explicit mount", () => {
+  const element = JudgeMeWidgetStyles({
+    data: {
+      styles: "@font-face{font-family:'JudgemeStar'}",
+    },
+  });
+
+  assert.equal(element.type, "style");
+  assert.equal(element.props["data-judgeme-react-styles"], "legacy-widgets");
+  assert.equal(
+    element.props.dangerouslySetInnerHTML.__html,
+    "@font-face{font-family:'JudgemeStar'}",
+  );
+  assert.equal(JudgeMeWidgetStyles({data: {styles: ""}}), null);
+});
 
 test("normalizes the permanent Shopify domain", () => {
   assert.deepEqual(

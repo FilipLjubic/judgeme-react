@@ -42,6 +42,7 @@ export {
   normalizeHappyCustomersConfig,
 } from "./happy-customers-api.js";
 export { JudgeMeMedals } from "./judge-me-medals.js";
+export { JudgeMeWidgetStyles } from "./widget-styles.js";
 export { LegacyReviewWidget } from "./legacy-review-widget.js";
 export { JudgeMeProvider, useJudgeMe } from "./provider.js";
 export { PopupReviews } from "./popup-reviews.js";
@@ -337,6 +338,7 @@ export type {
   ResolveJudgeMeV3AssetDeploymentOptions,
 } from "./v3-assets.js";
 export type { ReviewsCarouselProps } from "./reviews-carousel.js";
+export type { JudgeMeWidgetStylesProps } from "./widget-styles.js";
 export type { ReviewsGridProps } from "./reviews-grid.js";
 export type {
   CreateReviewsGridDataOptions,

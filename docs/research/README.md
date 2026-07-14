@@ -277,6 +277,16 @@ ctx query \
   --cwd /Users/panda/Code/judgeme-react
 ```
 
+Query the widget stylesheet and classic carousel sizing report:
+
+```sh
+ctx query \
+  "Why did stars render as boxes and classic carousel reviewers get clipped?" \
+  --label widget-style-layout-hardening-2026-07-14 \
+  --kind notes \
+  --cwd /Users/panda/Code/judgeme-react
+```
+
 ## Adding a research report
 
 1. Write a dated Markdown report in `docs/research/`.
