@@ -16,6 +16,8 @@ import type {
 } from "./videos-carousel-api.js";
 import type { TrustBadgeData } from "./trust-badge-api.js";
 import type { HappyCustomersData } from "./happy-customers-api.js";
+import type { ReviewWidgetV3Data } from "./review-widget-v3-api.js";
+import { ensureJudgeMeCoreRuntime } from "./legacy-runtime.js";
 
 const JUDGE_ME_API_HOST = "https://api.judge.me";
 const JUDGE_ME_CDN_API_HOST = "https://cdn.judge.me/";
@@ -26,6 +28,9 @@ const TRUST_BADGE_ENTRY_KEY = "trust-badge/main.js";
 const HAPPY_CUSTOMERS_ENTRY_KEY = "all-reviews-widget-v2025/main.js";
 const HAPPY_CUSTOMERS_MANAGER_ENTRY_KEY =
   "all-reviews-widget-v2025/AllReviewsWidgetV2025Manager.js";
+const REVIEW_WIDGET_V3_ENTRY_KEY = "review-widget/main.js";
+const REVIEW_WIDGET_V3_MANAGER_ENTRY_KEY =
+  "review-widget/ReviewWidgetManager.js";
 const REVIEWS_GRID_ENTRY_FILE = "reviews_grid.js";
 const CAROUSEL_LIGHTBOX_ENTRY_KEY = "carousel-lightbox/main.js";
 const CAROUSEL_STYLES_FILE = "carousels.css";
@@ -198,6 +203,21 @@ type HappyCustomersWidgetManagerConstructor = new (
   },
 ) => HappyCustomersWidgetManager;
 
+interface ReviewWidgetV3Widget {
+  app?: {
+    unmount?: () => void;
+  };
+}
+
+interface ReviewWidgetV3WidgetManager {
+  initialize: () => Promise<ReviewWidgetV3Widget>;
+  widget?: ReviewWidgetV3Widget;
+}
+
+type ReviewWidgetV3WidgetManagerConstructor = new (
+  container: HTMLElement,
+) => ReviewWidgetV3WidgetManager;
+
 interface ExactJudgeMeWindow extends Window {
   jdgm?: ExactJudgeMeRuntime;
   judgeme?: ExactJudgeMeRuntime;
@@ -280,6 +300,13 @@ export interface InitializeHappyCustomersOptions {
   publicToken?: string;
 }
 
+export interface InitializeReviewWidgetV3Options {
+  assetBaseUrl: string;
+  container: HTMLElement;
+  data: ReviewWidgetV3Data;
+  publicToken?: string;
+}
+
 let exactRuntimeShopDomain: string | undefined;
 let exactRuntimeAssetBaseUrl: string | undefined;
 let moduleInstance = 0;
@@ -316,6 +343,18 @@ const happyCustomersManagers = new WeakMap<
   HappyCustomersWidgetManager
 >();
 const happyCustomersDisposals = new WeakMap<HTMLElement, number>();
+const reviewWidgetV3Initializers = new WeakMap<HTMLElement, Promise<void>>();
+const reviewWidgetV3Managers = new WeakMap<
+  HTMLElement,
+  ReviewWidgetV3WidgetManager
+>();
+const reviewWidgetV3Disposals = new WeakMap<HTMLElement, number>();
+const reviewWidgetV3PreviewKeys = new WeakMap<HTMLElement, string>();
+const reviewWidgetV3PreviewResponses = new Map<
+  string,
+  { payload: string; references: number }
+>();
+let reviewWidgetV3FetchBridgeInstalled = false;
 
 /** Loads Judge.me's deployment-specific AI Reviews Summary module. */
 export function initializeAiReviewsSummary(
@@ -509,6 +548,30 @@ export function initializeHappyCustomers(
   return initializer;
 }
 
+/** Loads Judge.me's current new Review Widget manager for one SPA root. */
+export function initializeReviewWidgetV3(
+  options: InitializeReviewWidgetV3Options,
+): Promise<void> {
+  if (typeof window !== "undefined") {
+    const pendingDisposal = reviewWidgetV3Disposals.get(options.container);
+    if (pendingDisposal !== undefined) {
+      window.clearTimeout(pendingDisposal);
+      reviewWidgetV3Disposals.delete(options.container);
+    }
+  }
+
+  const existing = reviewWidgetV3Initializers.get(options.container);
+  if (existing) return existing;
+
+  const initializer = initializeReviewWidgetV3Root(options).catch((error) => {
+    releaseReviewWidgetV3PreviewResponse(options.container);
+    reviewWidgetV3Initializers.delete(options.container);
+    throw error;
+  });
+  reviewWidgetV3Initializers.set(options.container, initializer);
+  return initializer;
+}
+
 /** Releases root-local observers and timers after an SPA unmount. */
 export function disposeCardsCarousel(
   container: HTMLElement,
@@ -655,6 +718,29 @@ export function disposeHappyCustomers(container: HTMLElement): void {
   }, 0);
 
   happyCustomersDisposals.set(container, timeoutId);
+}
+
+/** Unmounts the Vue app and preview bridge owned by one v3 Review Widget. */
+export function disposeReviewWidgetV3(container: HTMLElement): void {
+  if (typeof window === "undefined") return;
+
+  const initializer = reviewWidgetV3Initializers.get(container);
+  const timeoutId = window.setTimeout(() => {
+    reviewWidgetV3Disposals.delete(container);
+    const cleanup = () => {
+      const manager = reviewWidgetV3Managers.get(container);
+      manager?.widget?.app?.unmount?.();
+      container.replaceChildren();
+      releaseReviewWidgetV3PreviewResponse(container);
+      reviewWidgetV3Managers.delete(container);
+      reviewWidgetV3Initializers.delete(container);
+    };
+
+    if (initializer) void initializer.then(cleanup, cleanup);
+    else cleanup();
+  }, 0);
+
+  reviewWidgetV3Disposals.set(container, timeoutId);
 }
 
 /** Moves an initialized Cards Carousel without CSP-unsafe inline handlers. */
@@ -878,6 +964,80 @@ async function initializeHappyCustomersRoot({
   container.removeAttribute("data-entry-point");
   runtimeWindow.jdgm?.debugLog?.(
     "[judgeme-react] Happy Customers exact adapter ready",
+  );
+}
+
+async function initializeReviewWidgetV3Root({
+  assetBaseUrl,
+  container,
+  data,
+  publicToken,
+}: InitializeReviewWidgetV3Options): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  if (data.source === "disabled-preview") {
+    registerReviewWidgetV3PreviewResponse(container, data);
+  }
+
+  await ensureJudgeMeCoreRuntime({
+    publicToken,
+    settings: data.settings,
+    shopDomain: data.shopDomain,
+  });
+  const runtimeWindow = configureExactRuntime({
+    assetBaseUrl,
+    settings: data.settings,
+    shopDomain: data.shopDomain,
+    publicToken,
+  });
+  runtimeWindow.jdgmSettings = {
+    ...data.settings,
+    ...runtimeWindow.jdgmSettings,
+    review_widget_revamp_enabled: true,
+  };
+
+  const reviewWidgetData = asRecord(
+    runtimeWindow.jdgm?.data?.reviewWidget,
+  );
+  if (runtimeWindow.jdgm) {
+    runtimeWindow.jdgm.data = {
+      ...runtimeWindow.jdgm.data,
+      reviewWidget: {
+        ...reviewWidgetData,
+        [data.product.id]: data.page.payload,
+      },
+    };
+    runtimeWindow.judgeme = runtimeWindow.jdgm;
+  }
+
+  await loadManifestStyles(assetBaseUrl, REVIEW_WIDGET_V3_ENTRY_KEY);
+  const manifest = await getManifest(assetBaseUrl);
+  const managerFile = getManifestFile(
+    manifest,
+    REVIEW_WIDGET_V3_MANAGER_ENTRY_KEY,
+  );
+  const module = await importExactModule(
+    new URL(managerFile, assetBaseUrl).toString(),
+    "Review Widget v3",
+  );
+  const Manager = module.ReviewWidgetManager;
+  if (typeof Manager !== "function") {
+    throw new Error("Judge.me's Review Widget v3 manager export is missing.");
+  }
+
+  const manager = new (Manager as ReviewWidgetV3WidgetManagerConstructor)(
+    container,
+  );
+  reviewWidgetV3Managers.set(container, manager);
+  await manager.initialize();
+
+  if (!isReviewWidgetV3Ready(container)) {
+    throw new Error("Judge.me did not finish initializing Review Widget v3.");
+  }
+
+  container.removeAttribute("data-entry-point");
+  runtimeWindow.jdgm?.debugLog?.(
+    "[judgeme-react] Review Widget v3 exact adapter ready",
   );
 }
 
@@ -1436,6 +1596,94 @@ function createAiReviewsSummaryBootstrap(
     ai_summary_translations: data.payload.summaryTranslations,
     keywords: data.payload.keywords.map((keyword) => ({ ...keyword })),
   };
+}
+
+function registerReviewWidgetV3PreviewResponse(
+  container: HTMLElement,
+  data: ReviewWidgetV3Data,
+): void {
+  if (reviewWidgetV3PreviewKeys.has(container)) return;
+
+  const key = createReviewWidgetV3PreviewKey(
+    data.shopDomain,
+    data.product.id,
+  );
+  const existing = reviewWidgetV3PreviewResponses.get(key);
+  reviewWidgetV3PreviewResponses.set(key, {
+    payload: JSON.stringify(data.page.payload),
+    references: (existing?.references ?? 0) + 1,
+  });
+  reviewWidgetV3PreviewKeys.set(container, key);
+  installReviewWidgetV3FetchBridge();
+}
+
+function releaseReviewWidgetV3PreviewResponse(container: HTMLElement): void {
+  const key = reviewWidgetV3PreviewKeys.get(container);
+  if (!key) return;
+
+  const response = reviewWidgetV3PreviewResponses.get(key);
+  if (response) {
+    if (response.references <= 1) reviewWidgetV3PreviewResponses.delete(key);
+    else response.references -= 1;
+  }
+  reviewWidgetV3PreviewKeys.delete(container);
+}
+
+function installReviewWidgetV3FetchBridge(): void {
+  if (reviewWidgetV3FetchBridgeInstalled) return;
+
+  const originalFetch = window.fetch.bind(window);
+  const bridgedFetch: typeof window.fetch = async (input, init) => {
+    const method =
+      init?.method ?? (input instanceof Request ? input.method : "GET");
+
+    if (method.toUpperCase() === "GET") {
+      const requestUrl =
+        input instanceof Request
+          ? input.url
+          : input instanceof URL
+            ? input.href
+            : String(input);
+
+      try {
+        const url = new URL(requestUrl, window.location.href);
+        if (
+          url.origin === JUDGE_ME_CDN_API_HOST.slice(0, -1) &&
+          url.pathname === "/reviews/reviews_for_widget"
+        ) {
+          const key = createReviewWidgetV3PreviewKey(
+            url.searchParams.get("shop_domain") ?? "",
+            url.searchParams.get("product_id") ?? "",
+          );
+          const response = reviewWidgetV3PreviewResponses.get(key);
+          if (response) {
+            return new Response(response.payload, {
+              status: 200,
+              headers: {
+                "Cache-Control": "no-store",
+                "Content-Type": "application/json; charset=utf-8",
+                "X-JudgeMe-React-Preview": "true",
+              },
+            });
+          }
+        }
+      } catch {
+        // Non-URL inputs are delegated to the browser's original fetch.
+      }
+    }
+
+    return originalFetch(input, init);
+  };
+
+  window.fetch = bridgedFetch;
+  reviewWidgetV3FetchBridgeInstalled = true;
+}
+
+function createReviewWidgetV3PreviewKey(
+  shopDomain: string,
+  productId: string,
+): string {
+  return `${shopDomain.trim().toLowerCase()}:${productId.trim()}`;
 }
 
 function registerReviewSnippetsResponse(data: ReviewSnippetsData): void {
@@ -2020,6 +2268,13 @@ function isHappyCustomersReady(container: HTMLElement): boolean {
   );
 }
 
+function isReviewWidgetV3Ready(container: HTMLElement): boolean {
+  return (
+    container.classList.contains("jdgm-widget-revamp") &&
+    container.querySelector(".jm-review-widget") !== null
+  );
+}
+
 function getTrustBadgeManager(
   container: HTMLElement,
 ): TrustBadgeWidgetManager | undefined {
@@ -2074,6 +2329,12 @@ function isTestimonialsCarouselReady(
 
 function isManifest(value: unknown): value is ViteManifest {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function getStringArray(value: unknown): string[] {

@@ -27,15 +27,17 @@ The package is intentionally framework-neutral. Hydrogen is a consumer under `ex
 | Review Snippets              | Implemented with the tokenless v2 feed, exact current extension module, arrows/autoplay, and v3 review lightbox               |
 | Questions & Answers          | Implemented with the tokenless question feed, real multipart submission route, dashboard settings, and native React UI        |
 | Legacy Review Widget         | Implemented and tested in the Hydrogen harness                                                                                |
-| New Shopify v3 Review Widget | Not implemented; shared dashboard settings are reused by the legacy adapter, but this is not exact v3 rendering               |
+| New Shopify v3 Review Widget | Implemented with the tokenless structured feed, exact deployment manager/styles, dashboard settings, and review form        |
 
-Every current `JUDGE_ME_WIDGETS` catalog entry now has a data adapter, public component, tests, and a Hydrogen integration. Exact new Review Widget parity remains separate future work.
+Every current `JUDGE_ME_WIDGETS` catalog entry has a data adapter, public component, tests, and a Hydrogen integration. The review-widget entry offers both the platform-independent legacy implementation and the exact current Shopify v3 implementation.
 
 ## Current API boundary
 
 - `JudgeMeProvider` exposes public store configuration and injected runtime adapters.
 - `fetchStarRatingBadge` fetches a standalone product badge, settings, and CSS.
 - `fetchLegacyReviewWidget` fetches Review Widget HTML, dashboard settings, and dashboard CSS from Judge.me's public Widget API.
+- `fetchReviewWidgetV3Page` reads the tokenless structured v3 feed and returns `null` when the store returns legacy HTML; `fetchReviewWidgetV3` adds shared settings and shop aggregates for standalone use.
+- `createReviewWidgetV3Data` combines a v3 page with settings and aggregates already returned by a storefront loader.
 - `fetchLegacyProductWidgets` fetches both product widgets while sharing the settings/CSS requests.
 - `fetchReviewsCarousel` fetches the standalone classic shop-level carousel, settings, and CSS.
 - `fetchAllReviewsCounter` fetches the standalone shop-wide rating/count, settings, and CSS.
@@ -93,7 +95,7 @@ Private Judge.me credentials do not belong in this React package. Server integra
 
 ## Implemented widgets
 
-Fetch the nine legacy widgets plus the v3 grid, Cards, Testimonials, Videos, Popup, Review Snippets, Questions & Answers, Happy Customers, and Trust Badge data in a server loader. The exact-cache legacy batch makes seven requests: `product_review`, `preview_badge`, `featured_carousel`, `reviews_tab`, `verified_badge`, `all_reviews_page`, and one platform-independent cache read containing Medals, UGC, `settings`, and `html_miracle`. If UGC is absent from that response, one tokenless social-post compatibility read is added. The same All Reviews response supplies `AllReviewsWidget`, the aggregate values and histogram for `AllReviewsCounter` and `HappyCustomers`, and the Floating Tab fallback when `reviews_tab` is `null`. Reviews Grid, Cards Carousel, Testimonials Carousel, Videos Carousel, Pop-up Reviews, Review Snippets, Questions & Answers, and Happy Customers each add one public request and reuse the batch's settings, for fifteen Judge.me requests with exact cached UGC or sixteen on the compatibility/empty path. AI Reviews Summary adds no Judge.me data request because its content comes from a Shopify Storefront API metafield. Trust Badge also adds no Judge.me loader read, but it requires one server-only Shopify Admin GraphQL read because its eight shop metafields are not Storefront-visible on the current fixture. The large settings/CSS payload remains shared. Awaiting the data keeps Judge.me-owned DOM outside a streamed Suspense boundary, which prevents its runtime from racing hydration.
+Fetch the nine legacy widgets plus the v3 grid, Cards, Testimonials, Videos, Popup, Review Snippets, Questions & Answers, Happy Customers, the new Review Widget, and Trust Badge data in a server loader. The exact-cache legacy batch makes seven requests: `product_review`, `preview_badge`, `featured_carousel`, `reviews_tab`, `verified_badge`, `all_reviews_page`, and one platform-independent cache read containing Medals, UGC, `settings`, and `html_miracle`. If UGC is absent from that response, one tokenless social-post compatibility read is added. The same All Reviews response supplies `AllReviewsWidget`, the aggregate values and histogram for `AllReviewsCounter` and `HappyCustomers`, and the Floating Tab fallback when `reviews_tab` is `null`. Reviews Grid, Cards Carousel, Testimonials Carousel, Videos Carousel, Pop-up Reviews, Review Snippets, Questions & Answers, Happy Customers, and the enabled new Review Widget each add one public request and reuse the batch's settings. An explicit disabled-widget sample preview adds a second request to Judge.me's sample endpoint. AI Reviews Summary adds no Judge.me data request because its content comes from a Shopify Storefront API metafield. Trust Badge also adds no Judge.me loader read, but it requires one server-only Shopify Admin GraphQL read because its eight shop metafields are not Storefront-visible on the current fixture. The large settings/CSS payload remains shared. Awaiting the data keeps Judge.me-owned DOM outside a streamed Suspense boundary, which prevents its runtime from racing hydration.
 
 ```ts
 import {
@@ -107,6 +109,7 @@ import {
   createPopupReviewsData,
   createQuestionsAndAnswersData,
   createReviewSnippetsData,
+  createReviewWidgetV3Data,
   createReviewsGridData,
   createTestimonialsCarouselData,
   createTrustBadgeData,
@@ -117,6 +120,7 @@ import {
   fetchPopupReviewsPage,
   fetchQuestionsAndAnswersPage,
   fetchReviewSnippetsPage,
+  fetchReviewWidgetV3Page,
   fetchReviewsGridPage,
   fetchTestimonialsCarouselPage,
   fetchTrustBadgeMetafields,
@@ -132,6 +136,7 @@ import {
   ReviewsCarousel,
   ReviewsGrid,
   ReviewSnippets,
+  ReviewWidgetV3,
   StarRatingBadge,
   TestimonialsCarousel,
   TrustBadge,
@@ -274,6 +279,29 @@ const questionsAndAnswers = createQuestionsAndAnswersData({
   shopDomain: env.JUDGEME_SHOP_DOMAIN,
 });
 
+const reviewWidgetV3Page = await fetchReviewWidgetV3Page({
+  shopDomain: env.JUDGEME_SHOP_DOMAIN,
+  productId: getShopifyNumericId(product.id),
+  signal: request.signal,
+});
+
+const reviewWidgetV3 = reviewWidgetV3Page
+  ? createReviewWidgetV3Data({
+      page: reviewWidgetV3Page,
+      productId: getShopifyNumericId(product.id),
+      productTitle: product.title,
+      productHandle: product.handle,
+      settings: widgets.resources.settings,
+      shopAggregate: {
+        count: widgets.allReviewsCounter.count,
+        rating: Number(widgets.allReviewsCounter.rating),
+      },
+      shopDomain: env.JUDGEME_SHOP_DOMAIN,
+      shopReviewsCount: happyCustomersPage.numberOfShopReviews,
+      config: {showStoreReviews: true},
+    })
+  : null;
+
 // Server-only: never return SHOPIFY_ADMIN_ACCESS_TOKEN from the loader.
 const trustBadgeMetafields = await fetchTrustBadgeMetafields({
   adminAccessToken: env.SHOPIFY_ADMIN_ACCESS_TOKEN,
@@ -341,6 +369,7 @@ Render it inside the store-level provider:
   {aiReviewsSummary ? <AiReviewsSummary data={aiReviewsSummary} /> : null}
   <ReviewSnippets data={reviewSnippets} />
   <QuestionsAndAnswers data={questionsAndAnswers} />
+  {reviewWidgetV3 ? <ReviewWidgetV3 data={reviewWidgetV3} /> : null}
   <CardsCarousel data={cardsCarousel} includeStyles={false} />
   <TestimonialsCarousel data={testimonialsCarousel} includeStyles={false} />
   <VideosCarousel data={videosCarousel} includeStyles={false} />
@@ -387,7 +416,9 @@ The host application must allow Judge.me's script, style, API, media, and image 
 
 `FloatingReviewsTab` prefers Judge.me's official markup. Its fallback exists because the official endpoint returns `null` when the Awesome-only tab is unavailable, even though `all_reviews_page` remains readable with the same public token. The fallback uses Judge.me's returned reviews and dashboard settings; it does not invent review content. Its `position` prop mirrors the Shopify app-embed setting because that setting lives in the theme editor rather than the Judge.me API.
 
-`LegacyReviewWidget` intentionally implements Judge.me's public legacy Review Widget contract. When a store has the new Review Widget enabled, the fetch helper preserves its dashboard-generated text, colors, and other shared settings but disables the v3-only `review_widget_revamp_enabled` flag for this legacy runtime. It is not yet the exact Shopify v3 widget.
+`LegacyReviewWidget` intentionally implements Judge.me's public platform-independent Review Widget contract. When a store has the new Review Widget enabled, the fetch helper preserves its dashboard-generated text, colors, and other shared settings but disables the v3-only `review_widget_revamp_enabled` flag for the legacy runtime.
+
+`ReviewWidgetV3` uses the exact current Shopify extension manager and styles. Its initial `reviews_for_widget` read is tokenless and returns structured JSON only when the new widget is enabled; a legacy HTML response becomes `null`. A theme-editor-style harness may set `previewWhenDisabled: true`, but must label the official sample content as a preview. The host supplies the current validated `v3AssetBaseUrl`. Current media CSP can require `vimeo.com` in `connect-src`, `i.vimeocdn.com` in `img-src`, and `player.vimeo.com` in `frame-src`; Judge.me's official sample currently also uses `i.ibb.co` images.
 
 `ReviewsGrid` is an exact v3 client mount. The host must supply the current `https://cdn.shopify.com/extensions/<deployment>/<handle>/assets/` base because Judge.me can change it between extension deployments. Use `fetchReviewsGridPage` beside `fetchLegacyStorefrontWidgets` to add only one request to the product loader, then pass the shared settings and All Reviews aggregate through `createReviewsGridData`. The grid marker is server-rendered, but the review cards are mounted on the client by Judge.me's module.
 

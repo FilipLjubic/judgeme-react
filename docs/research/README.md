@@ -28,6 +28,7 @@
 | `judge-me-ugc-media-grid-spike-2026-07-14`       | notes | Exact cache markup, tokenless social-post fallback, dashboard runtime, CSP, empty state, and Brave lightbox check     |
 | `judge-me-trust-badge-spike-2026-07-14`          | notes | Admin metafields, sanitized public payload, exact v3 badge/modal runtime, lazy verified feed, and disabled preview    |
 | `happy-customers-spike-2026-07-14`               | notes | New All Reviews v2025 manager, tokenless CDN fallback, dashboard mapping, two-tab behavior, CSP, and Brave validation |
+| `review-widget-v3-spike-2026-07-14`               | notes | Exact new Review Widget feed/manager contract, disabled preview, form, tabs, CSP, and Brave validation                |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                             |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                         |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                             |
@@ -87,6 +88,16 @@ Query the first working component report:
 ctx query \
   "How does the free-plan Review Widget component fetch, render, and initialize Judge.me?" \
   --label review-widget-spike-2026-07-13 \
+  --kind notes \
+  --cwd /Users/panda/Code/judgeme-react
+```
+
+Query the exact new Review Widget report:
+
+```sh
+ctx query \
+  "How does the exact new Review Widget fetch, initialize, preview, and clean up in Hydrogen?" \
+  --label review-widget-v3-spike-2026-07-14 \
   --kind notes \
   --cwd /Users/panda/Code/judgeme-react
 ```

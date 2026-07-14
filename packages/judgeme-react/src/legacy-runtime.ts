@@ -163,6 +163,32 @@ export interface InitializeAllReviewsWidgetOptions {
   shopDomain: string;
 }
 
+export interface EnsureJudgeMeCoreRuntimeOptions {
+  publicToken?: string;
+  settings: JudgeMeRuntimeSettings;
+  shopDomain: string;
+}
+
+/** Loads the shared Judge.me core without requiring a legacy widget root. */
+export async function ensureJudgeMeCoreRuntime({
+  publicToken,
+  settings,
+  shopDomain,
+}: EnsureJudgeMeCoreRuntimeOptions): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = configureRuntime({
+    publicToken,
+    settings,
+    shopDomain,
+  });
+  await loadRuntimeScript();
+  await waitFor(
+    () => isSecondaryWidgetLoaderReady(runtimeWindow.jdgm),
+    "Judge.me's core runtime did not become ready.",
+  );
+}
+
 /** Loads Judge.me's public runtime once, then initializes one SSR widget root. */
 export async function initializeLegacyReviewWidget({
   container,
@@ -618,7 +644,7 @@ function configureRuntime({
   settings,
   shopDomain,
 }: {
-  publicToken: string;
+  publicToken?: string;
   settings: JudgeMeRuntimeSettings;
   shopDomain: string;
 }): JudgeMeWindow {

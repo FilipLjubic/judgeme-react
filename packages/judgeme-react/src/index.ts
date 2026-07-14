@@ -69,6 +69,13 @@ export {
   fetchReviewSnippetsPage,
   normalizeReviewSnippetsConfig,
 } from "./review-snippets-api.js";
+export { ReviewWidgetV3 } from "./review-widget-v3.js";
+export {
+  createReviewWidgetV3Data,
+  fetchReviewWidgetV3,
+  fetchReviewWidgetV3Page,
+  normalizeReviewWidgetV3Config,
+} from "./review-widget-v3-api.js";
 export { AUTO_ENGINE_ORDER, resolveJudgeMeEngine } from "./runtime.js";
 export { getShopifyNumericId } from "./shopify.js";
 export { StarRatingBadge } from "./star-rating-badge.js";
@@ -233,6 +240,19 @@ export type {
   SubmitQuestionInput,
 } from "./questions-and-answers-api.js";
 export type { StarRatingBadgeProps } from "./star-rating-badge.js";
+export type { ReviewWidgetV3Props } from "./review-widget-v3.js";
+export type {
+  CreateReviewWidgetV3DataOptions,
+  FetchReviewWidgetV3Options,
+  FetchReviewWidgetV3PageOptions,
+  ReviewWidgetV3Config,
+  ReviewWidgetV3Data,
+  ReviewWidgetV3EmptyState,
+  ReviewWidgetV3PageData,
+  ReviewWidgetV3Pagination,
+  ReviewWidgetV3Review,
+  ReviewWidgetV3Source,
+} from "./review-widget-v3-api.js";
 export type { VerifiedReviewsCounterProps } from "./verified-reviews-counter.js";
 export type { TestimonialsCarouselProps } from "./testimonials-carousel.js";
 export type { TrustBadgeProps } from "./trust-badge.js";

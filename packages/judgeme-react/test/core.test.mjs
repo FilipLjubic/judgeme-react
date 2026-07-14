@@ -6,6 +6,7 @@ import {
   createPopupReviewsData,
   createQuestionsAndAnswersData,
   createReviewSnippetsData,
+  createReviewWidgetV3Data,
   createTrustBadgeData,
   createJudgeMeConfig,
   fetchCardsCarousel,
@@ -22,6 +23,7 @@ import {
   fetchPopupReviewsPage,
   fetchQuestionsAndAnswersPage,
   fetchReviewSnippetsPage,
+  fetchReviewWidgetV3Page,
   fetchReviewsCarousel,
   fetchReviewsGrid,
   fetchStarRatingBadge,
@@ -40,12 +42,14 @@ import {
   normalizePopupReviewsConfig,
   normalizeQuestionsAndAnswersConfig,
   normalizeReviewSnippetsConfig,
+  normalizeReviewWidgetV3Config,
   normalizeVideosCarouselConfig,
   parseAiReviewsSummaryMetafield,
   resolveJudgeMeEngine,
   submitQuestion,
   TrustBadge,
   HappyCustomers,
+  ReviewWidgetV3,
 } from "../dist/index.js";
 
 test("normalizes the permanent Shopify domain", () => {
@@ -2192,6 +2196,119 @@ test("validates Happy Customers settings and public review markup", async () => 
   );
 });
 
+test("fetches the new Review Widget page from Judge.me's tokenless CDN", async () => {
+  assert.equal(typeof ReviewWidgetV3, "function");
+  const data = await fetchReviewWidgetV3Page({
+    shopDomain: "https://STORE.myshopify.com/products/example",
+    productId: "gid://shopify/Product/12345",
+    fetch: async function (input, init) {
+      assert.equal(this, undefined);
+      const url = new URL(input);
+      assert.equal(url.origin, "https://cdn.judge.me");
+      assert.equal(url.pathname, "/reviews/reviews_for_widget");
+      assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+      assert.equal(url.searchParams.get("platform"), "shopify");
+      assert.equal(url.searchParams.get("product_id"), "12345");
+      assert.equal(url.searchParams.get("page"), "1");
+      assert.equal(url.searchParams.has("api_token"), false);
+      assert.deepEqual(init?.headers, { Accept: "application/json" });
+      return Response.json(createReviewWidgetV3Fixture());
+    },
+  });
+
+  assert.equal(data.source, "cdn");
+  assert.equal(data.averageRating, 4.8);
+  assert.equal(data.numberOfReviews, 15);
+  assert.equal(data.reviews.length, 1);
+  assert.deepEqual(data.pagination, {
+    currentPage: 1,
+    perPage: 5,
+    totalPages: 1,
+  });
+});
+
+test("gates the disabled v3 widget and uses Judge.me's explicit sample preview", async () => {
+  const requested = [];
+  const fetch = async (input) => {
+    const url = new URL(input);
+    requested.push(`${url.origin}${url.pathname}`);
+    if (url.origin === "https://cdn.judge.me") {
+      return Response.json({ html: "<div class='jdgm-rev'>Legacy</div>" });
+    }
+
+    assert.equal(url.origin, "https://api.judge.me");
+    assert.equal(url.pathname, "/reviews/sample_review_widget_data");
+    assert.equal(url.searchParams.get("review_type"), "product");
+    return Response.json(createReviewWidgetV3Fixture());
+  };
+  const common = {
+    shopDomain: "store.myshopify.com",
+    productId: "12345",
+    fetch,
+  };
+
+  assert.equal(await fetchReviewWidgetV3Page(common), null);
+  const page = await fetchReviewWidgetV3Page({
+    ...common,
+    previewWhenDisabled: true,
+  });
+  assert.equal(page.source, "disabled-preview");
+  assert.deepEqual(page.payload.reviews[0].video_external_ids, []);
+  assert.deepEqual(page.payload.photo_gallery[0].video_external_ids, []);
+  assert.deepEqual(requested, [
+    "https://cdn.judge.me/reviews/reviews_for_widget",
+    "https://cdn.judge.me/reviews/reviews_for_widget",
+    "https://api.judge.me/reviews/sample_review_widget_data",
+  ]);
+
+  const data = createReviewWidgetV3Data({
+    config: { showStoreReviews: true },
+    page,
+    productHandle: "example",
+    productId: "gid://shopify/Product/12345",
+    productTitle: "Example product",
+    settings: { review_widget_header_theme: "minimal" },
+    shopAggregate: { count: 42, rating: 4.7 },
+    shopDomain: "store.myshopify.com",
+    shopReviewsCount: 3,
+  });
+  assert.equal(data.enabled, false);
+  assert.equal(data.source, "disabled-preview");
+  assert.equal(data.product.id, "12345");
+  assert.equal(data.config.showStoreReviews, true);
+  assert.equal(data.config.maxWidth, 1200);
+});
+
+test("validates Review Widget v3 block controls and review markup", async () => {
+  assert.throws(
+    () => normalizeReviewWidgetV3Config({ maxWidth: 1201 }),
+    /between 200 and 1200/,
+  );
+  assert.throws(
+    () => normalizeReviewWidgetV3Config({ emptyState: "remove" }),
+    /empty state is invalid/,
+  );
+
+  await assert.rejects(
+    fetchReviewWidgetV3Page({
+      shopDomain: "store.myshopify.com",
+      productId: "12345",
+      fetch: async () =>
+        Response.json({
+          ...createReviewWidgetV3Fixture(),
+          reviews: [
+            {
+              uuid: "unsafe-review",
+              rating: 5,
+              body_html: '<img src="x" onerror="alert(1)">',
+            },
+          ],
+        }),
+    }),
+    /executable Review Widget v3 markup/,
+  );
+});
+
 test("rejects executable markup returned by the Widget API", async () => {
   const mockFetch = async (input) => {
     const endpoint = new URL(input).pathname.split("/").pop();
@@ -2283,5 +2400,47 @@ function createHappyCustomersApiFixture() {
     number_of_product_reviews: 9,
     number_of_shop_reviews: 3,
     custom_form_filters_and_averages: null,
+  };
+}
+
+function createReviewWidgetV3Fixture() {
+  return {
+    average_rating: 4.8,
+    number_of_reviews: 15,
+    number_of_questions: 0,
+    sort_key: "created_at",
+    pagination: {
+      current_page: 1,
+      per_page: 5,
+      total_pages: 1,
+    },
+    histogram: [
+      { rating: 5, frequency: 12, percentage: 80 },
+      { rating: 4, frequency: 3, percentage: 20 },
+    ],
+    photo_gallery: [
+      {
+        uuid: "review-1",
+        rating: 5,
+        body_html: "<p>Excellent.</p>",
+        video_external_ids: ["removed-vimeo-fixture"],
+      },
+    ],
+    product_external_id: "12345",
+    product_name: "Example product",
+    product_medals: [],
+    review_keywords: [],
+    custom_form_filters_and_averages: null,
+    reviews: [
+      {
+        uuid: "review-1",
+        rating: 5,
+        reviewer_name: "Ada",
+        title: "Excellent",
+        body_html: "<p>Excellent.</p>",
+        pictures_urls: [],
+        video_external_ids: ["removed-vimeo-fixture"],
+      },
+    ],
   };
 }

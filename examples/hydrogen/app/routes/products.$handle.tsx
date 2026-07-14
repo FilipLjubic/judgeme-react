@@ -23,6 +23,7 @@ import {
   createPopupReviewsData,
   createQuestionsAndAnswersData,
   createReviewSnippetsData,
+  createReviewWidgetV3Data,
   createReviewsGridData,
   createTestimonialsCarouselData,
   createTrustBadgeData,
@@ -33,6 +34,7 @@ import {
   fetchPopupReviewsPage,
   fetchQuestionsAndAnswersPage,
   fetchReviewSnippetsPage,
+  fetchReviewWidgetV3Page,
   fetchReviewsGridPage,
   fetchTestimonialsCarouselPage,
   fetchTrustBadgeMetafields,
@@ -47,6 +49,7 @@ import {
   ReviewsCarousel,
   ReviewsGrid,
   ReviewSnippets,
+  ReviewWidgetV3,
   StarRatingBadge,
   TestimonialsCarousel,
   TrustBadge,
@@ -159,6 +162,10 @@ async function loadJudgeMeWidgets({
       showReviewMedia: true,
     } as const;
     const happyCustomersConfig = {maxWidth: 1100} as const;
+    const reviewWidgetV3Config = {
+      maxWidth: 1200,
+      showStoreReviews: true,
+    } as const;
     // The fixture store has Q&A disabled and no published questions. Judge.me's
     // own read-only sample feed lets the harness exercise the complete renderer
     // without inventing content or posting into the moderation queue.
@@ -177,6 +184,7 @@ async function loadJudgeMeWidgets({
       videosCarouselPage,
       reviewSnippetsPage,
       happyCustomersPage,
+      reviewWidgetV3Page,
       questionsAndAnswersPage,
       trustBadgeMetafields,
     ] = await Promise.all([
@@ -225,6 +233,14 @@ async function loadJudgeMeWidgets({
         ? fetchHappyCustomersPage({
             shopDomain,
             config: happyCustomersConfig,
+            signal,
+          })
+        : Promise.resolve(null),
+      v3AssetBaseUrl
+        ? fetchReviewWidgetV3Page({
+            shopDomain,
+            productId: numericProductId,
+            previewWhenDisabled: true,
             signal,
           })
         : Promise.resolve(null),
@@ -288,6 +304,22 @@ async function loadJudgeMeWidgets({
             productId: numericProductId,
             settings: legacyWidgets.resources.settings,
             shopDomain,
+          })
+        : null,
+      reviewWidgetV3: reviewWidgetV3Page
+        ? createReviewWidgetV3Data({
+            config: reviewWidgetV3Config,
+            page: reviewWidgetV3Page,
+            productHandle,
+            productId: numericProductId,
+            productTitle,
+            settings: legacyWidgets.resources.settings,
+            shopAggregate: {
+              count: legacyWidgets.allReviewsCounter.count,
+              rating: Number(legacyWidgets.allReviewsCounter.rating),
+            },
+            shopDomain,
+            shopReviewsCount: happyCustomersPage?.numberOfShopReviews ?? 0,
           })
         : null,
       happyCustomers: happyCustomersPage
@@ -533,13 +565,24 @@ export default function Product() {
             }}
             includeStyles={false}
           />
-          <LegacyReviewWidget
-            className="product-reviews"
-            data={{
-              ...judgeMeWidgets.reviewWidget,
-              ...judgeMeWidgets.resources,
-            }}
-          />
+          {judgeMeWidgets.reviewWidgetV3 ? (
+            <div className="product-review-widget-v3-preview">
+              {judgeMeWidgets.reviewWidgetV3.source === 'disabled-preview' ? (
+                <p className="judgeme-preview-note">
+                  Review Widget v3 preview — new version disabled in Judge.me
+                </p>
+              ) : null}
+              <ReviewWidgetV3 data={judgeMeWidgets.reviewWidgetV3} />
+            </div>
+          ) : (
+            <LegacyReviewWidget
+              className="product-reviews"
+              data={{
+                ...judgeMeWidgets.reviewWidget,
+                ...judgeMeWidgets.resources,
+              }}
+            />
+          )}
           <AllReviewsWidget
             className="product-all-reviews"
             data={{

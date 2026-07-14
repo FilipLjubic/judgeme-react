@@ -37,6 +37,7 @@ export default async function handleRequest(
       'https://*.judge.me',
       'https://judgeme-public-images.imgix.net',
       'https://cdn.shopify.com',
+      'https://vimeo.com',
     ],
     fontSrc: [
       'data:',
@@ -51,6 +52,8 @@ export default async function handleRequest(
       'https://*.judge.me',
       'https://judgeme.imgix.net',
       'https://judgeme-public-images.imgix.net',
+      'https://i.vimeocdn.com',
+      'https://i.ibb.co',
       'https://s3.amazonaws.com',
       'https://cdn.shopify.com',
       'https://*.cdninstagram.com',
