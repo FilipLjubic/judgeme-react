@@ -19,6 +19,7 @@ import {
   CardsCarousel,
   createAiReviewsSummaryData,
   createCardsCarouselData,
+  createHappyCustomersData,
   createPopupReviewsData,
   createQuestionsAndAnswersData,
   createReviewSnippetsData,
@@ -27,6 +28,7 @@ import {
   createTrustBadgeData,
   createVideosCarouselData,
   fetchCardsCarouselPage,
+  fetchHappyCustomersPage,
   fetchLegacyStorefrontWidgets,
   fetchPopupReviewsPage,
   fetchQuestionsAndAnswersPage,
@@ -37,6 +39,7 @@ import {
   fetchVideosCarouselPage,
   FloatingReviewsTab,
   getShopifyNumericId,
+  HappyCustomers,
   JudgeMeMedals,
   LegacyReviewWidget,
   PopupReviews,
@@ -155,6 +158,7 @@ async function loadJudgeMeWidgets({
       reviewSelection: 'current_product',
       showReviewMedia: true,
     } as const;
+    const happyCustomersConfig = {maxWidth: 1100} as const;
     // The fixture store has Q&A disabled and no published questions. Judge.me's
     // own read-only sample feed lets the harness exercise the complete renderer
     // without inventing content or posting into the moderation queue.
@@ -172,6 +176,7 @@ async function loadJudgeMeWidgets({
       testimonialsCarouselPage,
       videosCarouselPage,
       reviewSnippetsPage,
+      happyCustomersPage,
       questionsAndAnswersPage,
       trustBadgeMetafields,
     ] = await Promise.all([
@@ -213,6 +218,13 @@ async function loadJudgeMeWidgets({
             shopDomain,
             productId: numericProductId,
             config: reviewSnippetsConfig,
+            signal,
+          })
+        : Promise.resolve(null),
+      v3AssetBaseUrl
+        ? fetchHappyCustomersPage({
+            shopDomain,
+            config: happyCustomersConfig,
             signal,
           })
         : Promise.resolve(null),
@@ -274,6 +286,20 @@ async function loadJudgeMeWidgets({
             config: reviewSnippetsConfig,
             page: reviewSnippetsPage,
             productId: numericProductId,
+            settings: legacyWidgets.resources.settings,
+            shopDomain,
+          })
+        : null,
+      happyCustomers: happyCustomersPage
+        ? createHappyCustomersData({
+            aggregate: {
+              count: legacyWidgets.allReviewsCounter.count,
+              rating: Number(legacyWidgets.allReviewsCounter.rating),
+            },
+            config: happyCustomersConfig,
+            legacyHtml: legacyWidgets.allReviewsWidget.html,
+            page: happyCustomersPage,
+            previewWhenDisabled: true,
             settings: legacyWidgets.resources.settings,
             shopDomain,
           })
@@ -452,6 +478,16 @@ export default function Product() {
             }}
             includeStyles={false}
           />
+          {judgeMeWidgets.happyCustomers ? (
+            <div className="product-happy-customers-preview">
+              {judgeMeWidgets.happyCustomers.source === 'disabled-preview' ? (
+                <p className="judgeme-preview-note">
+                  Happy Customers preview — new version disabled in Judge.me
+                </p>
+              ) : null}
+              <HappyCustomers data={judgeMeWidgets.happyCustomers} />
+            </div>
+          ) : null}
           {judgeMeWidgets.aiReviewsSummary ? (
             <AiReviewsSummary
               className="product-ai-reviews-summary"

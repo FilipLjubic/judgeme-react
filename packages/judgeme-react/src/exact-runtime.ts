@@ -15,6 +15,7 @@ import type {
   VideosCarouselData,
 } from "./videos-carousel-api.js";
 import type { TrustBadgeData } from "./trust-badge-api.js";
+import type { HappyCustomersData } from "./happy-customers-api.js";
 
 const JUDGE_ME_API_HOST = "https://api.judge.me";
 const JUDGE_ME_CDN_API_HOST = "https://cdn.judge.me/";
@@ -22,6 +23,9 @@ const AI_REVIEWS_SUMMARY_ENTRY_KEY = "store-summary-widget/main.js";
 const REVIEW_SNIPPETS_ENTRY_KEY = "review-snippet-widget/main.js";
 const REVIEWS_GRID_ENTRY_KEY = "reviews-grid-widget/main.js";
 const TRUST_BADGE_ENTRY_KEY = "trust-badge/main.js";
+const HAPPY_CUSTOMERS_ENTRY_KEY = "all-reviews-widget-v2025/main.js";
+const HAPPY_CUSTOMERS_MANAGER_ENTRY_KEY =
+  "all-reviews-widget-v2025/AllReviewsWidgetV2025Manager.js";
 const REVIEWS_GRID_ENTRY_FILE = "reviews_grid.js";
 const CAROUSEL_LIGHTBOX_ENTRY_KEY = "carousel-lightbox/main.js";
 const CAROUSEL_STYLES_FILE = "carousels.css";
@@ -175,6 +179,25 @@ interface TrustBadgeInitializer {
   widgetManagers?: Map<HTMLElement, TrustBadgeWidgetManager>;
 }
 
+interface HappyCustomersWidget {
+  app?: {
+    unmount?: () => void;
+  };
+}
+
+interface HappyCustomersWidgetManager {
+  initialize: () => Promise<HappyCustomersWidget>;
+  widget?: HappyCustomersWidget;
+}
+
+type HappyCustomersWidgetManagerConstructor = new (
+  container: HTMLElement,
+  options: {
+    fallbackData: Record<string, unknown>;
+    settingsOverrides?: Record<string, unknown>;
+  },
+) => HappyCustomersWidgetManager;
+
 interface ExactJudgeMeWindow extends Window {
   jdgm?: ExactJudgeMeRuntime;
   judgeme?: ExactJudgeMeRuntime;
@@ -250,6 +273,13 @@ export interface InitializeTrustBadgeOptions {
   publicToken?: string;
 }
 
+export interface InitializeHappyCustomersOptions {
+  assetBaseUrl: string;
+  container: HTMLElement;
+  data: HappyCustomersData;
+  publicToken?: string;
+}
+
 let exactRuntimeShopDomain: string | undefined;
 let exactRuntimeAssetBaseUrl: string | undefined;
 let moduleInstance = 0;
@@ -280,6 +310,12 @@ const trustBadgeInitializers = new WeakMap<HTMLElement, Promise<void>>();
 const trustBadgeManagers = new WeakMap<HTMLElement, TrustBadgeWidgetManager>();
 const trustBadgeDisposals = new WeakMap<HTMLElement, number>();
 let trustBadgeScanQueue = Promise.resolve();
+const happyCustomersInitializers = new WeakMap<HTMLElement, Promise<void>>();
+const happyCustomersManagers = new WeakMap<
+  HTMLElement,
+  HappyCustomersWidgetManager
+>();
+const happyCustomersDisposals = new WeakMap<HTMLElement, number>();
 
 /** Loads Judge.me's deployment-specific AI Reviews Summary module. */
 export function initializeAiReviewsSummary(
@@ -450,6 +486,29 @@ export function initializeTrustBadge(
   return guardedInitializer;
 }
 
+/** Loads Judge.me's current Happy Customers manager for one SPA root. */
+export function initializeHappyCustomers(
+  options: InitializeHappyCustomersOptions,
+): Promise<void> {
+  if (typeof window !== "undefined") {
+    const pendingDisposal = happyCustomersDisposals.get(options.container);
+    if (pendingDisposal !== undefined) {
+      window.clearTimeout(pendingDisposal);
+      happyCustomersDisposals.delete(options.container);
+    }
+  }
+
+  const existing = happyCustomersInitializers.get(options.container);
+  if (existing) return existing;
+
+  const initializer = initializeHappyCustomersRoot(options).catch((error) => {
+    happyCustomersInitializers.delete(options.container);
+    throw error;
+  });
+  happyCustomersInitializers.set(options.container, initializer);
+  return initializer;
+}
+
 /** Releases root-local observers and timers after an SPA unmount. */
 export function disposeCardsCarousel(
   container: HTMLElement,
@@ -574,6 +633,28 @@ export function disposeTrustBadge(container: HTMLElement): void {
   }, 0);
 
   trustBadgeDisposals.set(container, timeoutId);
+}
+
+/** Unmounts the Vue app owned by one Happy Customers root. */
+export function disposeHappyCustomers(container: HTMLElement): void {
+  if (typeof window === "undefined") return;
+
+  const initializer = happyCustomersInitializers.get(container);
+  const timeoutId = window.setTimeout(() => {
+    happyCustomersDisposals.delete(container);
+    const cleanup = () => {
+      const manager = happyCustomersManagers.get(container);
+      manager?.widget?.app?.unmount?.();
+      container.replaceChildren();
+      happyCustomersManagers.delete(container);
+      happyCustomersInitializers.delete(container);
+    };
+
+    if (initializer) void initializer.then(cleanup, cleanup);
+    else cleanup();
+  }, 0);
+
+  happyCustomersDisposals.set(container, timeoutId);
 }
 
 /** Moves an initialized Cards Carousel without CSP-unsafe inline handlers. */
@@ -750,6 +831,53 @@ async function initializeTrustBadgeRoot({
   container.removeAttribute("data-entry-point");
   runtimeWindow.jdgm?.debugLog?.(
     "[judgeme-react] Trust Badge exact adapter ready",
+  );
+}
+
+async function initializeHappyCustomersRoot({
+  assetBaseUrl,
+  container,
+  data,
+  publicToken,
+}: InitializeHappyCustomersOptions): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = configureExactRuntime({
+    assetBaseUrl,
+    settings: data.settings,
+    shopDomain: data.shopDomain,
+    publicToken,
+  });
+  await loadManifestStyles(assetBaseUrl, HAPPY_CUSTOMERS_ENTRY_KEY);
+
+  const manifest = await getManifest(assetBaseUrl);
+  const managerFile = getManifestFile(
+    manifest,
+    HAPPY_CUSTOMERS_MANAGER_ENTRY_KEY,
+  );
+  const module = await importExactModule(
+    new URL(managerFile, assetBaseUrl).toString(),
+    "Happy Customers",
+  );
+  const Manager = module.AllReviewsWidgetV2025Manager;
+  if (typeof Manager !== "function") {
+    throw new Error("Judge.me's Happy Customers manager export is missing.");
+  }
+
+  const manager = new (Manager as HappyCustomersWidgetManagerConstructor)(
+    container,
+    { fallbackData: createHappyCustomersBootstrap(data) },
+  );
+  happyCustomersManagers.set(container, manager);
+  await manager.initialize();
+
+  if (!isHappyCustomersReady(container)) {
+    throw new Error("Judge.me did not finish initializing Happy Customers.");
+  }
+
+  container.removeAttribute("data-entry-point");
+  runtimeWindow.jdgm?.debugLog?.(
+    "[judgeme-react] Happy Customers exact adapter ready",
   );
 }
 
@@ -1062,6 +1190,54 @@ function configureExactRuntime({
   runtimeWindow.judgeme = runtime;
 
   return runtimeWindow;
+}
+
+function createHappyCustomersBootstrap(
+  data: HappyCustomersData,
+): Record<string, unknown> {
+  const page = data.page;
+  const prefix =
+    page.reviewType === "all-reviews"
+      ? "all_reviews"
+      : page.reviewType === "shop-reviews"
+        ? "shop_reviews"
+        : "product_reviews";
+  const bootstrap: Record<string, unknown> = {
+    average_rating: data.aggregate.rating,
+    custom_form_filters_and_averages: page.customFormFiltersAndAverages,
+    histogram: data.histogram,
+    multi_language_sorting_enabled:
+      page.reviews.length === 0 &&
+      page.primaryLanguage.length > 0 &&
+      page.primaryLanguageReviews.length + page.otherLanguageReviews.length > 0,
+    number_of_product_reviews: page.numberOfProductReviews,
+    number_of_reviews:
+      page.reviewType === "all-reviews" ? page.pagination.totalCount : 0,
+    number_of_shop_reviews: page.numberOfShopReviews,
+  };
+
+  bootstrap[prefix] = page.reviews;
+  bootstrap[`${prefix}_pagination`] = createHappyCustomersPagination(
+    page.pagination,
+  );
+  bootstrap[`${prefix}_primary_language_reviews`] = page.primaryLanguageReviews;
+  bootstrap[`${prefix}_primary_language_pagination`] =
+    createHappyCustomersPagination(page.primaryLanguagePagination);
+  bootstrap[`${prefix}_other_language_reviews`] = page.otherLanguageReviews;
+  bootstrap[`${prefix}_other_language_pagination`] =
+    createHappyCustomersPagination(page.otherLanguagePagination);
+  return bootstrap;
+}
+
+function createHappyCustomersPagination(
+  pagination: HappyCustomersData["page"]["pagination"],
+): Record<string, number> {
+  return {
+    current_page: pagination.currentPage,
+    per_page: pagination.perPage,
+    total_count: pagination.totalCount,
+    total_pages: pagination.totalPages,
+  };
 }
 
 function createCardsCarouselRuntimeConfig(
@@ -1528,6 +1704,19 @@ function loadModule(url: string, label: string): Promise<void> {
   });
 }
 
+async function importExactModule(
+  url: string,
+  label: string,
+): Promise<Record<string, unknown>> {
+  try {
+    return (await import(/* @vite-ignore */ url)) as Record<string, unknown>;
+  } catch (error) {
+    throw new Error(`Judge.me's ${label} module failed to load.`, {
+      cause: error,
+    });
+  }
+}
+
 function waitForReviewSnippets(container: HTMLElement): Promise<void> {
   if (isReviewSnippetsReady(container)) return Promise.resolve();
 
@@ -1818,6 +2007,13 @@ function isReviewSnippetsReady(container: HTMLElement): boolean {
 }
 
 function isReviewsGridReady(container: HTMLElement): boolean {
+  return (
+    container.classList.contains("jdgm-widget-revamp") &&
+    container.childElementCount > 0
+  );
+}
+
+function isHappyCustomersReady(container: HTMLElement): boolean {
   return (
     container.classList.contains("jdgm-widget-revamp") &&
     container.childElementCount > 0

@@ -4,7 +4,7 @@ Research-stage project for exposing Judge.me widgets through React, with Shopify
 
 ## Current status
 
-The first eighteen components are `StarRatingBadge`, `VerifiedReviewsCounter`, `JudgeMeMedals`, `UgcMediaGrid`, `TrustBadge`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, `FloatingReviewsTab`, `ReviewsGrid`, `CardsCarousel`, `TestimonialsCarousel`, `VideosCarousel`, `PopupReviews`, `AiReviewsSummary`, `ReviewSnippets`, and `QuestionsAndAnswers`. The legacy components share Judge.me's dashboard CSS/settings and browser runtime; exact extension adapters combine current public data or Shopify metafields with the store's deployment scripts; native adapters preserve current data/settings behavior where Judge.me has no standalone entry. The Hydrogen harness exercises them with real review data plus clearly labeled disabled Trust Badge, AI-summary, and Q&A previews, including carousel/snippet implementations, review/question forms, standalone All Reviews streams, the floating tab, medals, grid pagination, timed popup, AI summary accordion, and media lightboxes.
+The first nineteen components are `StarRatingBadge`, `VerifiedReviewsCounter`, `JudgeMeMedals`, `UgcMediaGrid`, `TrustBadge`, `HappyCustomers`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `AllReviewsWidget`, `FloatingReviewsTab`, `ReviewsGrid`, `CardsCarousel`, `TestimonialsCarousel`, `VideosCarousel`, `PopupReviews`, `AiReviewsSummary`, `ReviewSnippets`, and `QuestionsAndAnswers`. The legacy components share Judge.me's dashboard CSS/settings and browser runtime; exact extension adapters combine current public data or Shopify metafields with the store's deployment scripts; native adapters preserve current data/settings behavior where Judge.me has no standalone entry. The Hydrogen harness exercises them with real review data plus clearly labeled disabled Trust Badge, Happy Customers, AI-summary, and Q&A previews, including carousel/snippet implementations, review/question forms, standalone All Reviews streams, the floating tab, medals, grid pagination, timed popup, AI summary accordion, and media lightboxes.
 
 `ReviewsGrid` uses Judge.me's public tokenless grid-data endpoint and the store's current Shopify extension assets. Because Shopify extension deployment URLs change, the consuming app supplies `v3AssetBaseUrl`; the adapter loads the deployment manifest, CSS, and module while preserving the app-block configuration contract.
 
@@ -26,6 +26,8 @@ The first eighteen components are `StarRatingBadge`, `VerifiedReviewsCounter`, `
 
 `TrustBadge` mounts Judge.me's exact current badge and verification modal. A server-only Shopify Admin read obtains the eight `judgeme.trust_badge.*` shop metafields because they are not Storefront-visible on the current fixture; the adapter serializes only public display fields and strips the raw modal's redundant review gallery. Opening the modal lazily uses Judge.me's tokenless verified-review feed. The current store has complete real data but the feature is disabled, so the harness renders an explicitly labeled disabled preview.
 
+`HappyCustomers` mounts Judge.me's new All Reviews v2025 implementation. It combines one tokenless initial CDN page with the existing shared dashboard settings and All Reviews aggregate/histogram, then imports the current deployment's exact manager for the two review tabs, filters, sorting, pagination, media, and Write a review flow. The current store has the feature disabled and no v2025 bootstrap metafield, so the harness renders an explicitly labeled disabled preview through Judge.me's supported manager fallback.
+
 `VerifiedReviewsCounter` renders Judge.me's exact verified-review badge for eligible stores. Its public fetcher returns `null` below Judge.me's 20-verified-review threshold and otherwise preserves the dashboard's branded/classic style, orientation, color, branding, and link. The shared storefront batch adds one `verified_badge` read.
 
 `AllReviewsCounter` renders the store's combined product-and-shop rating/count with the dashboard-selected branded or text treatment. Its standalone fetcher uses the public aggregate endpoints; the full storefront batch derives the same values from the existing All Reviews header, so this component does not add another request to the seven-read exact-cache batch or its eight-read UGC fallback path.
@@ -34,7 +36,7 @@ The first eighteen components are `StarRatingBadge`, `VerifiedReviewsCounter`, `
 
 `FloatingReviewsTab` has two modes. Stores with the official tab enabled receive Judge.me's `reviews_tab` markup unchanged. On the current Free-plan test store that endpoint returns `null`, so the component builds the same floating shell around the public `all_reviews_page` payload. The fallback supports open/close, product and shop subtabs, load-more pagination, rating filters, sorting, and client-side navigation.
 
-Every current entry in `JUDGE_ME_WIDGETS` now has an implementation. Exact Shopify v3 Review Widget parity and newer Judge.me surfaces outside that roadmap, such as Happy Customers, remain future work.
+Every current entry in `JUDGE_ME_WIDGETS` now has an implementation. Exact Shopify v3 Review Widget parity remains future work.
 
 The repository is a Bun workspace:
 
@@ -72,6 +74,7 @@ The workspace pins Bun 1.3.14 and uses `bun.lock` as its only dependency lockfil
 - [Working Judge.me Medals spike](docs/research/judge-me-medals-spike-2026-07-14.md), queryable in ctx as `judge-me-medals-spike-2026-07-14`.
 - [Working UGC Media Grid spike](docs/research/judge-me-ugc-media-grid-spike-2026-07-14.md), queryable in ctx as `judge-me-ugc-media-grid-spike-2026-07-14`.
 - [Working Trust Badge spike](docs/research/trust-badge-spike-2026-07-14.md), queryable in ctx as `judge-me-trust-badge-spike-2026-07-14`.
+- [Working Happy Customers spike](docs/research/happy-customers-spike-2026-07-14.md), queryable in ctx as `happy-customers-spike-2026-07-14`.
 - [Research workflow and resource index](docs/research/README.md)
 - Project documentation sources are pinned in `.ctx/ctx.json`.
 - `ctx` Codex hooks are installed under `.ctx/hooks` and pass `ctx hook doctor`.

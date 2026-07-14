@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createAiReviewsSummaryData,
+  createHappyCustomersData,
   createPopupReviewsData,
   createQuestionsAndAnswersData,
   createReviewSnippetsData,
@@ -17,6 +18,7 @@ import {
   fetchLegacyReviewWidget,
   fetchLegacyStorefrontWidgets,
   fetchAiReviewsSummaryStatus,
+  fetchHappyCustomersPage,
   fetchPopupReviewsPage,
   fetchQuestionsAndAnswersPage,
   fetchReviewSnippetsPage,
@@ -34,6 +36,7 @@ import {
   normalizeTestimonialsCarouselConfig,
   normalizeTrustBadgeConfig,
   normalizeAiReviewsSummaryConfig,
+  normalizeHappyCustomersConfig,
   normalizePopupReviewsConfig,
   normalizeQuestionsAndAnswersConfig,
   normalizeReviewSnippetsConfig,
@@ -42,6 +45,7 @@ import {
   resolveJudgeMeEngine,
   submitQuestion,
   TrustBadge,
+  HappyCustomers,
 } from "../dist/index.js";
 
 test("normalizes the permanent Shopify domain", () => {
@@ -2086,6 +2090,108 @@ test("validates Trust Badge theme controls and eligibility", () => {
   );
 });
 
+test("fetches the Happy Customers initial page from the tokenless CDN", async () => {
+  assert.equal(typeof HappyCustomers, "function");
+  const data = await fetchHappyCustomersPage({
+    shopDomain: "https://STORE.myshopify.com/products/example",
+    fetch: async function (input, init) {
+      assert.equal(this, undefined);
+      const url = new URL(input);
+      assert.equal(url.origin, "https://cdn.judge.me");
+      assert.equal(url.pathname, "/reviews/all_reviews_js_based");
+      assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+      assert.equal(url.searchParams.get("platform"), "shopify");
+      assert.equal(
+        url.searchParams.get("widget_type"),
+        "all-reviews-widget-v2025",
+      );
+      assert.equal(url.searchParams.get("page"), "1");
+      assert.equal(url.searchParams.has("review_type"), false);
+      assert.equal(url.searchParams.has("api_token"), false);
+      assert.deepEqual(init?.headers, { Accept: "application/json" });
+      return Response.json(createHappyCustomersApiFixture());
+    },
+  });
+
+  assert.equal(data.reviewType, "product-reviews");
+  assert.equal(data.reviews.length, 0);
+  assert.equal(data.primaryLanguageReviews.length, 1);
+  assert.equal(data.primaryLanguage, "en");
+  assert.equal(data.pagination.totalCount, 12);
+  assert.equal(data.numberOfProductReviews, 9);
+  assert.equal(data.numberOfShopReviews, 3);
+});
+
+test("builds Happy Customers fallback data and gates its disabled preview", async () => {
+  const page = await fetchHappyCustomersPage({
+    config: { showFirst: "store" },
+    shopDomain: "store.myshopify.com",
+    fetch: async (input) => {
+      const url = new URL(input);
+      assert.equal(url.searchParams.get("review_type"), "shop-reviews");
+      return Response.json(createHappyCustomersApiFixture());
+    },
+  });
+  const legacyHtml = [
+    "<div class='jdgm-all-reviews__header' data-number-of-reviews='12' data-average-rating='4.75'></div>",
+    "<div class='jdgm-histogram__row' data-rating='5' data-frequency='9' data-percentage='75'></div>",
+    "<div class='jdgm-histogram__row' data-rating='4' data-frequency='3'></div>",
+  ].join("");
+  const common = {
+    aggregate: { count: 12, rating: 4.75 },
+    config: { showFirst: "store" },
+    legacyHtml,
+    page,
+    settings: { all_reviews_widget_v2025_enabled: false },
+    shopDomain: "store.myshopify.com",
+  };
+
+  assert.equal(createHappyCustomersData(common), null);
+  const data = createHappyCustomersData({
+    ...common,
+    previewWhenDisabled: true,
+  });
+  assert.equal(data.enabled, false);
+  assert.equal(data.source, "disabled-preview");
+  assert.equal(data.config.maxWidth, 1200);
+  assert.deepEqual(data.histogram, [
+    { frequency: 9, percentage: 75, rating: 5 },
+    { frequency: 3, percentage: 25, rating: 4 },
+    { frequency: 0, percentage: 0, rating: 3 },
+    { frequency: 0, percentage: 0, rating: 2 },
+    { frequency: 0, percentage: 0, rating: 1 },
+  ]);
+});
+
+test("validates Happy Customers settings and public review markup", async () => {
+  assert.throws(
+    () => normalizeHappyCustomersConfig({ maxWidth: 1201 }),
+    /between 200 and 1200/,
+  );
+  assert.throws(
+    () => normalizeHappyCustomersConfig({ reviewSource: "collection" }),
+    /review source is invalid/,
+  );
+
+  await assert.rejects(
+    fetchHappyCustomersPage({
+      shopDomain: "store.myshopify.com",
+      fetch: async () =>
+        Response.json({
+          ...createHappyCustomersApiFixture(),
+          primary_language_reviews: [
+            {
+              uuid: "unsafe-review",
+              rating: 5,
+              body_html: '<img src="x" onerror="alert(1)">',
+            },
+          ],
+        }),
+    }),
+    /executable Happy Customers markup/,
+  );
+});
+
 test("rejects executable markup returned by the Widget API", async () => {
   const mockFetch = async (input) => {
     const endpoint = new URL(input).pathname.split("/").pop();
@@ -2140,5 +2246,42 @@ function createTrustBadgeModalFixture() {
     shop_name: "Fixture Store",
     total_reviews_count: 45,
     verified_reviews_count: 42,
+  };
+}
+
+function createHappyCustomersApiFixture() {
+  return {
+    reviews: [],
+    pagination: {
+      current_page: 1,
+      per_page: 10,
+      total_count: 12,
+      total_pages: 2,
+    },
+    primary_language: "en",
+    primary_language_reviews: [
+      {
+        uuid: "review-1",
+        rating: 5,
+        reviewer_name: "Ada",
+        body_html: "<p>Excellent.</p>",
+      },
+    ],
+    primary_language_pagination: {
+      current_page: 1,
+      per_page: 10,
+      total_count: 9,
+      total_pages: 1,
+    },
+    other_language_reviews: [],
+    other_language_pagination: {
+      current_page: 1,
+      per_page: 3,
+      total_count: 3,
+      total_pages: 1,
+    },
+    number_of_product_reviews: 9,
+    number_of_shop_reviews: 3,
+    custom_form_filters_and_averages: null,
   };
 }

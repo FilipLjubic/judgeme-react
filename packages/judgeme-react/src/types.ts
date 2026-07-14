@@ -17,6 +17,7 @@ export const JUDGE_ME_WIDGETS = [
   "questions-and-answers",
   "reviews-grid",
   "trust-badge",
+  "happy-customers",
 ] as const;
 
 export type JudgeMeWidget = (typeof JUDGE_ME_WIDGETS)[number];

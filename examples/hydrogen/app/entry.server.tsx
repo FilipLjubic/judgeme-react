@@ -49,6 +49,7 @@ export default async function handleRequest(
       'data:',
       'https://judge.me',
       'https://*.judge.me',
+      'https://judgeme.imgix.net',
       'https://judgeme-public-images.imgix.net',
       'https://s3.amazonaws.com',
       'https://cdn.shopify.com',

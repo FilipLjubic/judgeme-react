@@ -29,6 +29,13 @@ export {
   fetchVerifiedReviewsCounter,
 } from "./legacy-api.js";
 export { FloatingReviewsTab } from "./floating-reviews-tab.js";
+export { HappyCustomers } from "./happy-customers.js";
+export {
+  createHappyCustomersData,
+  fetchHappyCustomers,
+  fetchHappyCustomersPage,
+  normalizeHappyCustomersConfig,
+} from "./happy-customers-api.js";
 export { JudgeMeMedals } from "./judge-me-medals.js";
 export { LegacyReviewWidget } from "./legacy-review-widget.js";
 export { JudgeMeProvider, useJudgeMe } from "./provider.js";
@@ -178,6 +185,23 @@ export type {
   FetchCardsCarouselPageOptions,
 } from "./cards-carousel-api.js";
 export type { FloatingReviewsTabProps } from "./floating-reviews-tab.js";
+export type { HappyCustomersProps } from "./happy-customers.js";
+export type {
+  CreateHappyCustomersDataOptions,
+  FetchHappyCustomersOptions,
+  FetchHappyCustomersPageOptions,
+  HappyCustomersConfig,
+  HappyCustomersData,
+  HappyCustomersEmptyState,
+  HappyCustomersHistogramRow,
+  HappyCustomersPageData,
+  HappyCustomersPagination,
+  HappyCustomersReview,
+  HappyCustomersReviewSource,
+  HappyCustomersReviewType,
+  HappyCustomersShowFirst,
+  HappyCustomersSource,
+} from "./happy-customers-api.js";
 export type { LegacyReviewWidgetProps } from "./legacy-review-widget.js";
 export type { PopupReviewsProps } from "./popup-reviews.js";
 export type {
