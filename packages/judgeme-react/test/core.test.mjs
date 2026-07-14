@@ -59,6 +59,20 @@ import {
   ReviewWidgetV3,
 } from "../dist/index.js";
 
+test("publishes separate React and server entry points", async () => {
+  const [reactEntry, serverEntry] = await Promise.all([
+    import("../dist/react.js"),
+    import("../dist/server.js"),
+  ]);
+
+  assert.equal(typeof reactEntry.JudgeMeProvider, "function");
+  assert.equal(typeof reactEntry.StarRatingBadge, "function");
+  assert.equal("fetchLegacyProductWidgets" in reactEntry, false);
+  assert.equal(typeof serverEntry.fetchLegacyProductWidgets, "function");
+  assert.equal(typeof serverEntry.resolveJudgeMeV3AssetDeployment, "function");
+  assert.equal("JudgeMeProvider" in serverEntry, false);
+});
+
 test("renders the batched Judge.me dashboard styles through an explicit mount", () => {
   const element = JudgeMeWidgetStyles({
     data: {

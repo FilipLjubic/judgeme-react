@@ -501,9 +501,9 @@
       "kind": "notes",
       "url": "file:///Users/panda/Code/judgeme-react/docs/research/review-widget-v3-spike-2026-07-14.md",
       "reason": null,
-      "current": "20260714T090507Z-3ec1b387c999",
-      "created_at": "2026-07-14T09:03:27Z",
-      "updated_at": "2026-07-14T09:05:07Z"
+      "current": "20260714T131228Z-7a9df546ec85",
+      "created_at": "2026-07-14T09:05:07Z",
+      "updated_at": "2026-07-14T13:12:28Z"
     },
     {
       "id": "ace56703348693a3",
@@ -574,6 +574,16 @@
       "current": "20260714T121935Z-90312000a856",
       "created_at": "2026-07-14T12:19:34Z",
       "updated_at": "2026-07-14T12:19:34Z"
+    },
+    {
+      "id": "e057b064c451ca6e",
+      "label": "npm-package-and-example-release-2026-07-14",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/npm-package-and-example-release-2026-07-14.md",
+      "reason": null,
+      "current": "20260714T125411Z-5bc3b01ba884",
+      "created_at": "2026-07-14T12:48:06Z",
+      "updated_at": "2026-07-14T12:54:11Z"
     }
   ]
 }

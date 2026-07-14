@@ -1,7 +1,7 @@
 import {
   resolveJudgeMeV3AssetDeployment,
   type JudgeMeV3AssetDeployment,
-} from '@judgeme-react/core';
+} from '@judgeme-react/core/server';
 
 let reportedDiscoveryFailure = false;
 

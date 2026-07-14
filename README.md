@@ -2,6 +2,19 @@
 
 Alpha-stage project for exposing Judge.me widgets through React, with Shopify Hydrogen as the first integration and compatibility target.
 
+## Package and example
+
+- `packages/judgeme-react` builds the ESM-only `@judgeme-react/core` npm package. New integrations should import loaders from `@judgeme-react/core/server` and components from `@judgeme-react/core/react`.
+- `examples/hydrogen` is the copyable reference storefront. It is pinned to the package's exact alpha version and contains the complete provider, CSP, loader, graceful-degradation, and widget composition example.
+- `packages/judgeme-react/SETUP_PROMPT.md` is a prompt users can paste into a coding agent to add the first widgets to an existing Hydrogen app.
+- `docs/PUBLISHING.md` is the release checklist. npm scope ownership, the public repository URL, and the software license are explicit owner decisions before the first publish.
+
+```sh
+bun run release:check
+```
+
+The release check runs tests, workspace lint/type checks, the Hydrogen production build, a package dry-run, and package metadata validation.
+
 ## Current status
 
 The first twenty components are `StarRatingBadge`, `VerifiedReviewsCounter`, `JudgeMeMedals`, `UgcMediaGrid`, `TrustBadge`, `HappyCustomers`, `AllReviewsCounter`, `ReviewsCarousel`, `LegacyReviewWidget`, `ReviewWidgetV3`, `AllReviewsWidget`, `FloatingReviewsTab`, `ReviewsGrid`, `CardsCarousel`, `TestimonialsCarousel`, `VideosCarousel`, `PopupReviews`, `AiReviewsSummary`, `ReviewSnippets`, and `QuestionsAndAnswers`. The legacy components share Judge.me's dashboard CSS/settings and browser runtime; exact extension adapters combine current public data or Shopify metafields with the store's deployment scripts; native adapters preserve current data/settings behavior where Judge.me has no standalone entry. The Hydrogen harness now exercises real enabled Trust Badge, Happy Customers, multilingual Review Widget v3, AI-summary, exact Floating Tab, carousel/snippet implementations, review forms, standalone All Reviews streams, medals, grid pagination, timed popup, and media lightboxes. Disabled Q&A and unconfigured UGC remain unmounted instead of showing sample content.

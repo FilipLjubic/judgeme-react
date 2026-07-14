@@ -34,6 +34,8 @@
 | `widget-activation-audit-2026-07-14`             | notes | Live merchant activation audit, current data availability, Hydrogen failures, and next fixes                          |
 | `widget-activation-hardening-2026-07-14`         | notes | Post-fix activation result, live widget state, runtime fixes, and remaining fixture gaps                              |
 | `graceful-degradation-hardening-2026-07-14`      | notes | Per-widget legacy isolation, tolerant collection parsing, strict security boundaries, and regression coverage         |
+| `widget-style-layout-hardening-2026-07-14`       | notes | Shared dashboard stylesheet ownership, v3 star font, and classic-carousel sizing compatibility                         |
+| `npm-package-and-example-release-2026-07-14`     | notes | npm entry points, example portability, setup prompt, release checks, and first-publish owner blockers                  |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                             |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                         |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                             |

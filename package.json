@@ -16,6 +16,7 @@
     "build:library": "bun run --filter @judgeme-react/core build",
     "dev": "bun run build:library && bunx shopify hydrogen dev --codegen --port 3001 --path examples/hydrogen",
     "lint": "bun run --workspaces --sequential lint",
+    "release:check": "bun run test && bun run lint && bun run typecheck && bun run build && bun run --filter @judgeme-react/core pack:check && bun run --filter @judgeme-react/core publint",
     "test": "bun run --filter @judgeme-react/core test",
     "typecheck": "bun run --workspaces --sequential typecheck"
   }

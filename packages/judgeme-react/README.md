@@ -16,6 +16,86 @@ bun add @judgeme-react/core
 
 Server loaders fetch and validate public Judge.me data. React components receive those serializable payloads and progressively initialize the matching browser runtime. Never pass a Judge.me private token or Shopify Admin token to `JudgeMeProvider`.
 
+## Get your Judge.me credentials
+
+This package needs the store's permanent `*.myshopify.com` domain and its **Public API Token**:
+
+1. Open the [Judge.me admin](https://judge.me/).
+2. Go to **Settings > Integrations**.
+3. Click **View API tokens** in the top-right corner.
+4. Copy the **Public API Token** and the shop domain shown on that page.
+5. Store them in server environment variables such as `JUDGEME_PUBLIC_TOKEN` and `JUDGEME_SHOP_DOMAIN`.
+
+The public token is designed for public Widget API GET requests and is available without the Awesome plan. It may be serialized to `JudgeMeProvider`, although keeping the environment variable on the server still avoids accidental logging and configuration drift. See Judge.me's official [API credential guide](https://judge.me/help/en/articles/8409180-using-judge-me-api).
+
+Do not use the **Private API Token** for this package. The current adapters do not need it, and it must never enter loader data, browser JavaScript, React props/context, logs, fixtures, or committed files.
+
+Shopify Headless, Storefront API, Customer Account API, and optional Shopify Admin credentials belong to the consuming application rather than this framework-neutral package. The repository's `examples/hydrogen` README explains where to obtain and how to map them for Hydrogen.
+
+The package has three public entry points:
+
+- `@judgeme-react/core/server` contains fetchers, normalizers, data combiners, Shopify ID helpers, and v3 asset discovery. Import it only from server loaders or server modules.
+- `@judgeme-react/core/react` is the client boundary for providers, components, and component prop types.
+- `@judgeme-react/core` remains the all-in-one compatibility entry point for Hydrogen and other bundlers without React Server Components.
+
+## Quick start
+
+Fetch Judge.me data in the product loader. The public token is valid for these public Widget API reads; the private Judge.me token is not used.
+
+```ts
+import {
+  fetchLegacyProductWidgets,
+  getShopifyNumericId,
+} from "@judgeme-react/core/server";
+
+const judgeMe = await fetchLegacyProductWidgets({
+  productId: getShopifyNumericId(product.id),
+  publicToken: context.env.JUDGEME_PUBLIC_TOKEN,
+  shopDomain:
+    context.env.JUDGEME_SHOP_DOMAIN ?? context.env.PUBLIC_STORE_DOMAIN,
+  signal: request.signal,
+});
+
+return {product, judgeMe};
+```
+
+Mount the provider once near the application root, then render each nullable widget independently. Batched legacy widgets should share one `JudgeMeWidgetStyles` mount.
+
+```tsx
+import {
+  JudgeMeProvider,
+  JudgeMeWidgetStyles,
+  LegacyReviewWidget,
+  StarRatingBadge,
+} from "@judgeme-react/core/react";
+
+<JudgeMeProvider
+  config={{
+    shopDomain: judgeMeShopDomain,
+    publicToken: publicJudgeMeToken,
+    v3AssetBaseUrl,
+  }}
+>
+  <JudgeMeWidgetStyles data={judgeMe.resources} />
+
+  {judgeMe.starRatingBadge ? (
+    <StarRatingBadge
+      data={{...judgeMe.starRatingBadge, ...judgeMe.resources}}
+      includeStyles={false}
+    />
+  ) : null}
+
+  {judgeMe.reviewWidget ? (
+    <LegacyReviewWidget
+      data={{...judgeMe.reviewWidget, ...judgeMe.resources}}
+      includeStyles={false}
+    />
+  ) : null}
+</JudgeMeProvider>;
+```
+
+The repository's `examples/hydrogen` app demonstrates the complete provider, CSP, asset discovery, shared loader, graceful per-widget degradation, and all implemented widgets. If you want an AI coding agent to integrate the package into an existing storefront, copy [the setup prompt](./SETUP_PROMPT.md) into that project.
+
 ## Support status
 
 | Surface                      | Status                                                                                                                        |

@@ -86,9 +86,16 @@ After a clean reload in the user's Hydrogen Brave window:
 - switching to Store reviews loaded the authorized store's published store reviews and selected the tab;
 - the console remained at `0 messages` after the CSP/sample-video fix.
 
+### Submission follow-up
+
+A later clean run against the user's current authorized store exercised the complete live form rather than stopping after open/close. The browser advanced through rating, required review content and title, required reviewer name and email, and the optional media step. The final **Next step** control on the media page is the submission action; Judge.me accepted the request and rendered its processing state with an email-confirmation requirement.
+
+The test used an unmistakable test title/body and a reserved `example.com` address. That address cannot complete the confirmation step, so this verifies the Hydrogen browser-to-Judge.me submission path and Judge.me's accepted response, but not email delivery, moderation, verification, or eventual publication.
+
 ## Known limits
 
-- The authorized store does not currently have v3 enabled, so its first render is the explicitly labeled official sample preview rather than real v3 product JSON.
-- Live v3 product pagination/filter requests and a real review submission still need an enabled fixture. The form was opened but no review was submitted.
+- The store used for the original observation did not have v3 enabled, so that first render used the explicitly labeled official sample preview. The later authorized-store run returned the live current widget and real review data.
+- Live submission acceptance is verified. Email confirmation, moderation, verification, and eventual publication remain unverified because the test intentionally used a non-receivable reserved address.
+- Live v3 product pagination and filter requests still need a focused interaction trace.
 - Real v3 video playback still needs a published video-review fixture. The official sample's current Vimeo item is unusable because the upstream fixture is gone.
 - The deployment asset base is intentionally host-supplied and validated. Shopify extension deployment URLs must not be hardcoded as permanent library constants.
