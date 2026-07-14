@@ -16,7 +16,7 @@ This split is an API organization and tooling boundary, not a security sandbox. 
 
 ## Example portability
 
-The example dependency now names exact version `1.0.2` instead of `*`. Bun satisfies that version from the workspace during development, while the same manifest resolves from npm when `examples/hydrogen` is copied elsewhere. There are no workspace-relative source imports in the app.
+The example dependency now names exact version `1.0.3` instead of `*`. Bun satisfies that version from the workspace during development, while the same manifest resolves from npm when `examples/hydrogen` is copied elsewhere. There are no workspace-relative source imports in the app.
 
 The example uses split subpath imports, generic placeholder environment values, one provider, automatic deployment discovery, the tested CSP, nullable per-widget composition, and one shared stylesheet mount. Its README maps the four most important integration files and documents how to run it inside or outside the monorepo.
 
@@ -47,6 +47,8 @@ On 2026-07-14, the initial unauthenticated registry lookup returned HTTP 404 for
 The documentation overhaul was subsequently released as `judgeme-react@1.0.1` under `latest`. Registry metadata and the published README were verified directly, the corrected Reviews Grid image on GitHub matched the local SHA-256, and a copied Hydrogen example with no workspace lockfile or environment secrets installed the registry package before passing TypeScript and production build.
 
 The carousel-localization and Review Widget v3 overlay lifecycle fixes were released as `judgeme-react@1.0.2` under `latest` on 2026-07-14. The release commit is `59c0afd` with annotated tag `v1.0.2`. The complete release gate passed with 65 tests, workspace lint/typecheck/build, a 192-file package dry-run, and `publint`. npm registry metadata reported `latest: 1.0.2` with the same integrity hash produced by the local publish. A clean out-of-workspace Hydrogen copy excluded environment files, installed `judgeme-react@1.0.2` from the registry, and completed typecheck and production build.
+
+The Review Snippets public-data fallback was released as `judgeme-react@1.0.3` under `latest` on 2026-07-14. The release commit is `12f26a2` with annotated tag `v1.0.3`. The complete release gate passed with 68 tests, workspace lint/typecheck/build, a 192-file package archive, and `publint`. npm registry metadata reported `latest: 1.0.3`; its `5e9e278e52cb8a3ef8df99bcbd4e9fa1ca5b03a2` shasum matched the locally published archive. A clean out-of-workspace Hydrogen copy excluded environment files, installed `judgeme-react@1.0.3` from the registry, and completed typecheck and production build.
 
 The owner subsequently finalized:
 

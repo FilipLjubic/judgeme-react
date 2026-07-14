@@ -67,6 +67,8 @@ Version `1.0.1` was published under `latest` on 2026-07-14 as a documentation pa
 
 Version `1.0.2` was published under `latest` on 2026-07-14 as a runtime hardening patch. It makes carousel language comparisons case-insensitive and owns the shared body-level Write a review overlay through v3 close and unmount. npm reported `latest: 1.0.2`; the 65-test release gate, package dry-run, and `publint` passed, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.2` before passing typecheck and production build.
 
+Version `1.0.3` was published under `latest` on 2026-07-14 as a Review Snippets compatibility patch. It falls back from Judge.me's unavailable dedicated snippet endpoint to the tokenless Cards Carousel feed, normalizes the public review fields, and keeps the exact runtime interception URL separate from the source URL. npm reported `latest: 1.0.3`; the 68-test release gate, 192-file package archive, and `publint` passed, the registry shasum matched the published archive, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.3` before passing typecheck and production build.
+
 ## Future releases
 
 For every release:
