@@ -42,7 +42,7 @@ After finalizing the `judgeme-react` name, MIT license, and stable `1.0.0` versi
 
 ## Registry status and finalized owner decisions
 
-On 2026-07-14, an unauthenticated registry lookup returned HTTP 404 for `judgeme-react`, so no public package currently occupies that exact name. This is not proof of ownership until the first publish succeeds. `npm whoami` returned `ENEEDAUTH`. The public source repository was subsequently created at `https://github.com/FilipLjubic/judgeme-react` and configured as `origin`.
+On 2026-07-14, the initial unauthenticated registry lookup returned HTTP 404 for `judgeme-react` and `npm whoami` returned `ENEEDAUTH`. The public source repository was created at `https://github.com/FilipLjubic/judgeme-react`, npm browser authentication completed as `pandazaar`, and the first public publish succeeded as `judgeme-react@1.0.0`.
 
 The owner subsequently finalized:
 
@@ -51,7 +51,7 @@ The owner subsequently finalized:
 3. public source, issue tracker and homepage under `https://github.com/FilipLjubic/judgeme-react`;
 4. the Hydrogen example remains in the public monorepo as the reference consumer.
 
-`docs/PUBLISHING.md` records the exact first-publish procedure. The owner selected stable version `1.0.0` under the `latest` dist-tag. The remaining external action is npm authentication and the first reviewed publish, which establishes ownership of the currently unclaimed name.
+`docs/PUBLISHING.md` records the exact first-publish procedure and result. npm registry metadata verified `latest: 1.0.0`, MIT, ESM metadata, the root compatibility export, and the split React/server exports. A clean external Bun project installed `1.0.0`, passed strict TypeScript compilation against both subpaths, and loaded their runtime exports without a workspace link.
 
 ## Reusable rules
 

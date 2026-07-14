@@ -2,13 +2,13 @@
 
 - Date observed: 2026-07-14
 - Scope: `judgeme-react` and the public monorepo
-- Status: identity and license decisions complete; npm authentication remains
+- Status: `judgeme-react@1.0.0` published to npm under `latest`
 
 This is an engineering release audit, not legal advice. The software license and trademark permission determine third-party rights, so the owner should make those decisions explicitly and obtain qualified advice when needed.
 
 ## Current repository state
 
-The package is technically packable and its owner-controlled metadata is ready for a stable 1.0 release:
+The package was published as a stable 1.0 release with its owner-controlled metadata intact:
 
 - identical MIT `LICENSE` files exist at the workspace and package roots;
 - `packages/judgeme-react/package.json` declares `license: MIT` and `author: Filip Ljubic`;
@@ -72,6 +72,6 @@ Sources:
 - [Creating and publishing unscoped public packages](https://docs.npmjs.com/creating-and-publishing-unscoped-public-packages/)
 - [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/)
 
-## Remaining owner action
+## Publication result
 
-Authenticate the intended npm account with two-factor authentication, run the complete release check, inspect the archive, and publish `judgeme-react@1.0.0` with the `latest` dist-tag. The first successful unscoped publish establishes package-name ownership.
+The `pandazaar` npm account authenticated with two-factor security and published `judgeme-react@1.0.0` with the `latest` dist-tag on 2026-07-14. npm registry reads confirmed the MIT license, ESM entry metadata, repository, and split React/server exports. A clean external Bun install passed strict TypeScript and runtime import checks, establishing both package-name ownership and registry usability.
