@@ -11,6 +11,7 @@ import {
   moveVideosCarousel,
 } from "./exact-runtime.js";
 import { useJudgeMe } from "./provider.js";
+import { startJudgeMeRuntime } from "./runtime-lifecycle.js";
 import type {
   VideosCarouselConfig,
   VideosCarouselData,
@@ -39,7 +40,7 @@ export function VideosCarousel({
   const containerRef = useRef<HTMLElement>(null);
   const reactId = useId();
   const blockId = `judgeme-react-videos-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
-  const { meta } = useJudgeMe();
+  const { actions, meta } = useJudgeMe();
   const config = data.config;
   const textSize = getTextSize(config);
   const starsSize = getStarsSize(config);
@@ -82,42 +83,30 @@ export function VideosCarousel({
   useEffect(() => {
     const container = containerRef.current;
     const assetBaseUrl = meta.config.v3AssetBaseUrl;
-    let active = true;
+    if (!container) return;
 
-    if (!container || !assetBaseUrl) {
-      if (container) {
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error(
-          "Judge.me Videos Carousel requires config.v3AssetBaseUrl from the current Shopify extension deployment.",
-        );
-      }
-      return;
-    }
-
-    container.dataset.judgemeReactRuntimeStatus = "loading";
-
-    initializeVideosCarousel({
+    return startJudgeMeRuntime({
       assetBaseUrl,
-      blockId,
       container,
-      data,
-      publicToken: meta.config.publicToken,
-    })
-      .then(() => {
-        if (active) container.dataset.judgemeReactRuntimeStatus = "ready";
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error("Judge.me Videos Carousel runtime error", error);
-      });
-
-    return () => {
-      active = false;
-      disposeVideosCarousel(container, blockId);
-    };
-  }, [blockId, data, meta.config.publicToken, meta.config.v3AssetBaseUrl]);
+      dispose: () => disposeVideosCarousel(container, blockId),
+      initialize: () =>
+        initializeVideosCarousel({
+          assetBaseUrl: assetBaseUrl!,
+          blockId,
+          container,
+          data,
+          publicToken: meta.config.publicToken,
+        }),
+      reportStatus: actions.reportRuntimeStatus,
+      widget: "videos-carousel",
+    });
+  }, [
+    actions.reportRuntimeStatus,
+    blockId,
+    data,
+    meta.config.publicToken,
+    meta.config.v3AssetBaseUrl,
+  ]);
 
   const previousButton = (
     <CarouselArrow

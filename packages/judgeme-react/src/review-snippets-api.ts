@@ -5,6 +5,10 @@ import {
   type JudgeMeRuntimeSettings,
 } from "./legacy-api.js";
 import { getShopifyNumericId } from "./shopify.js";
+import {
+  EMPTY_JUDGE_ME_SETTINGS,
+  settleOptionalJudgeMeValue,
+} from "./resilient-data.js";
 
 const JUDGE_ME_API = "https://api.judge.me";
 const REVIEW_SNIPPETS_PATH = "/reviews/reviews_for_review_snippet_widget";
@@ -168,19 +172,23 @@ export async function fetchReviewSnippets({
       signal,
       fetch: fetchImplementation,
     }),
-    fetchAllReviewsCounter({
-      shopDomain,
-      publicToken,
+    settleOptionalJudgeMeValue(
+      () =>
+        fetchAllReviewsCounter({
+          shopDomain,
+          publicToken,
+          signal,
+          fetch: fetchImplementation,
+        }),
       signal,
-      fetch: fetchImplementation,
-    }),
+    ),
   ]);
 
   return createReviewSnippetsData({
     config,
     page,
     productId,
-    settings: counter.settings,
+    settings: counter?.settings ?? EMPTY_JUDGE_ME_SETTINGS,
     shopDomain,
   });
 }
@@ -330,11 +338,8 @@ function normalizeReviewSnippetsPage(
   requestUrl: URL,
   maxReviews: number,
 ): ReviewSnippetsPageData {
-  if (!Array.isArray(payload.reviews) || !isJsonObject(payload.settings)) {
-    throw new Error("Judge.me returned invalid Review Snippets data.");
-  }
-
-  const reviews = payload.reviews.slice(0, maxReviews).map((review) => {
+  const reviews = (Array.isArray(payload.reviews) ? payload.reviews : [])
+    .flatMap((review) => {
     if (
       !isJsonObject(review) ||
       typeof review.uuid !== "string" ||
@@ -342,22 +347,21 @@ function normalizeReviewSnippetsPage(
       typeof review.public_reviewer_name !== "string" ||
       typeof review.body_html !== "string"
     ) {
-      throw new Error("Judge.me returned an invalid Review Snippets review.");
+      return [];
     }
 
     const rating = Number(review.rating);
-    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-      throw new Error("Judge.me returned an invalid Review Snippets rating.");
-    }
+    if (!Number.isFinite(rating) || rating < 1 || rating > 5) return [];
     assertSafeReviewBody(review.body_html);
 
-    return review;
-  });
+      return [review];
+    })
+    .slice(0, maxReviews);
 
   return {
     requestUrl: requestUrl.toString(),
     reviews,
-    settings: payload.settings,
+    settings: isJsonObject(payload.settings) ? payload.settings : {},
   };
 }
 

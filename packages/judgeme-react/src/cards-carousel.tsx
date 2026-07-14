@@ -15,6 +15,7 @@ import {
   moveCardsCarousel,
 } from "./exact-runtime.js";
 import { useJudgeMe } from "./provider.js";
+import { startJudgeMeRuntime } from "./runtime-lifecycle.js";
 
 type CardsCarouselStyle = CSSProperties &
   Record<`--${string}`, string | number>;
@@ -39,7 +40,7 @@ export function CardsCarousel({
   const containerRef = useRef<HTMLElement>(null);
   const reactId = useId();
   const blockId = `judgeme-react-cards-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
-  const { meta } = useJudgeMe();
+  const { actions, meta } = useJudgeMe();
   const config = data.config;
   const carouselStyle = {
     "--max-width": `${config.maxWidth}px`,
@@ -61,42 +62,30 @@ export function CardsCarousel({
   useEffect(() => {
     const container = containerRef.current;
     const assetBaseUrl = meta.config.v3AssetBaseUrl;
-    let active = true;
+    if (!container) return;
 
-    if (!container || !assetBaseUrl) {
-      if (container) {
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error(
-          "Judge.me Cards Carousel requires config.v3AssetBaseUrl from the current Shopify extension deployment.",
-        );
-      }
-      return;
-    }
-
-    container.dataset.judgemeReactRuntimeStatus = "loading";
-
-    initializeCardsCarousel({
+    return startJudgeMeRuntime({
       assetBaseUrl,
-      blockId,
       container,
-      data,
-      publicToken: meta.config.publicToken,
-    })
-      .then(() => {
-        if (active) container.dataset.judgemeReactRuntimeStatus = "ready";
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error("Judge.me Cards Carousel runtime error", error);
-      });
-
-    return () => {
-      active = false;
-      disposeCardsCarousel(container, blockId);
-    };
-  }, [blockId, data, meta.config.publicToken, meta.config.v3AssetBaseUrl]);
+      dispose: () => disposeCardsCarousel(container, blockId),
+      initialize: () =>
+        initializeCardsCarousel({
+          assetBaseUrl: assetBaseUrl!,
+          blockId,
+          container,
+          data,
+          publicToken: meta.config.publicToken,
+        }),
+      reportStatus: actions.reportRuntimeStatus,
+      widget: "cards-carousel",
+    });
+  }, [
+    actions.reportRuntimeStatus,
+    blockId,
+    data,
+    meta.config.publicToken,
+    meta.config.v3AssetBaseUrl,
+  ]);
 
   const previousButton = (
     <CarouselArrow

@@ -2,6 +2,7 @@ import { useEffect, useRef, type ComponentPropsWithoutRef } from "react";
 import type { AiReviewsSummaryData } from "./ai-reviews-summary-api.js";
 import { initializeAiReviewsSummary } from "./exact-runtime.js";
 import { useJudgeMe } from "./provider.js";
+import { startJudgeMeRuntime } from "./runtime-lifecycle.js";
 
 export interface AiReviewsSummaryProps extends Omit<
   ComponentPropsWithoutRef<"section">,
@@ -17,46 +18,33 @@ export function AiReviewsSummary({
   ...sectionProps
 }: AiReviewsSummaryProps) {
   const containerRef = useRef<HTMLElement>(null);
-  const { meta } = useJudgeMe();
+  const { actions, meta } = useJudgeMe();
   const config = data.config;
 
   useEffect(() => {
     const container = containerRef.current;
     const assetBaseUrl = meta.config.v3AssetBaseUrl;
-    let active = true;
+    if (!container) return;
 
-    if (!container || !assetBaseUrl) {
-      if (container) {
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error(
-          "Judge.me AI Reviews Summary requires config.v3AssetBaseUrl from the current Shopify extension deployment.",
-        );
-      }
-      return;
-    }
-
-    container.dataset.judgemeReactRuntimeStatus = "loading";
-
-    initializeAiReviewsSummary({
+    return startJudgeMeRuntime({
       assetBaseUrl,
       container,
-      data,
-      publicToken: meta.config.publicToken,
-    })
-      .then(() => {
-        if (active) container.dataset.judgemeReactRuntimeStatus = "ready";
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error("Judge.me AI Reviews Summary runtime error", error);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [data, meta.config.publicToken, meta.config.v3AssetBaseUrl]);
+      initialize: () =>
+        initializeAiReviewsSummary({
+          assetBaseUrl: assetBaseUrl!,
+          container,
+          data,
+          publicToken: meta.config.publicToken,
+        }),
+      reportStatus: actions.reportRuntimeStatus,
+      widget: "ai-reviews-summary",
+    });
+  }, [
+    actions.reportRuntimeStatus,
+    data,
+    meta.config.publicToken,
+    meta.config.v3AssetBaseUrl,
+  ]);
 
   return (
     <section

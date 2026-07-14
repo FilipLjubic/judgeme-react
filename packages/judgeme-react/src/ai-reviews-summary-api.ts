@@ -2,6 +2,18 @@ import { normalizeShopDomain } from "./config.js";
 import type { JudgeMeRuntimeSettings } from "./legacy-api.js";
 
 const JUDGE_ME_API = "https://api.judge.me";
+const AI_REVIEWS_SUMMARY_ADMIN_QUERY = `#graphql
+  query JudgeMeAiReviewsSummaryMetafield {
+    shop {
+      summary: metafield(
+        namespace: "judgeme"
+        key: "store_summary_widget_data"
+      ) {
+        value
+      }
+    }
+  }
+`;
 
 export type AiReviewsSummaryTheme = "accordion" | "button" | "expanded";
 export type AiReviewsSummaryVisibility = "hidden" | "shown" | "when_click";
@@ -73,6 +85,16 @@ export interface FetchAiReviewsSummaryStatusOptions {
   shopDomain: string;
   signal?: AbortSignal;
   fetch?: typeof globalThis.fetch;
+}
+
+export interface FetchAiReviewsSummaryMetafieldOptions {
+  /** Shopify Admin API token. This option is server-only and must never be serialized. */
+  adminAccessToken: string;
+  /** Stable Shopify Admin API version, for example `2026-04`. */
+  apiVersion: string;
+  fetch?: typeof globalThis.fetch;
+  shopDomain: string;
+  signal?: AbortSignal;
 }
 
 const DEFAULT_AI_REVIEWS_SUMMARY_CONFIG: AiReviewsSummaryConfig = {
@@ -152,7 +174,7 @@ export function parseAiReviewsSummaryMetafield(
   };
 }
 
-/** Combines a Storefront metafield value with block and dashboard settings. */
+/** Combines a generated metafield value with block and dashboard settings. */
 export function createAiReviewsSummaryData({
   config,
   metafieldValue,
@@ -170,6 +192,92 @@ export function createAiReviewsSummaryData({
     shopDomain: normalizeShopDomain(shopDomain),
     source,
   };
+}
+
+/**
+ * Reads Judge.me's summary metafield through Shopify Admin GraphQL when the
+ * metafield definition is not Storefront-visible. The private token remains in
+ * the request header and the helper returns only the public JSON value.
+ */
+export async function fetchAiReviewsSummaryMetafield({
+  adminAccessToken,
+  apiVersion,
+  fetch: fetchImplementation = globalThis.fetch,
+  shopDomain,
+  signal,
+}: FetchAiReviewsSummaryMetafieldOptions): Promise<string | null> {
+  const normalizedShopDomain = normalizeShopDomain(shopDomain);
+  const normalizedAccessToken = adminAccessToken.trim();
+  const normalizedApiVersion = apiVersion.trim();
+
+  if (!normalizedAccessToken) {
+    throw new Error(
+      "Shopify Admin access is required for AI Reviews Summary data.",
+    );
+  }
+  if (!/^\d{4}-(?:01|04|07|10)$/.test(normalizedApiVersion)) {
+    throw new Error(
+      "AI Reviews Summary requires a stable Shopify Admin API version.",
+    );
+  }
+
+  const response = await fetchImplementation(
+    new URL(
+      `/admin/api/${normalizedApiVersion}/graphql.json`,
+      `https://${normalizedShopDomain}`,
+    ),
+    {
+      body: JSON.stringify({ query: AI_REVIEWS_SUMMARY_ADMIN_QUERY }),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": normalizedAccessToken,
+      },
+      method: "POST",
+      signal,
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Shopify AI Reviews Summary metafield request failed with HTTP ${response.status}.`,
+    );
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error(
+      "Shopify returned invalid AI Reviews Summary metafield JSON.",
+    );
+  }
+
+  if (!isRecord(payload)) {
+    throw new Error(
+      "Shopify returned invalid AI Reviews Summary metafield data.",
+    );
+  }
+  if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+    throw new Error("Shopify could not read the AI Reviews Summary metafield.");
+  }
+
+  const data = isRecord(payload.data) ? payload.data : null;
+  const shop = data && isRecord(data.shop) ? data.shop : null;
+  if (!shop) {
+    throw new Error(
+      "Shopify returned incomplete AI Reviews Summary metafield data.",
+    );
+  }
+
+  if (shop.summary === null || shop.summary === undefined) return null;
+  if (!isRecord(shop.summary) || typeof shop.summary.value !== "string") {
+    throw new Error(
+      "Shopify returned invalid AI Reviews Summary metafield data.",
+    );
+  }
+
+  return shop.summary.value;
 }
 
 /** Normalizes the settings emitted as `data-*` attributes by the app block. */
@@ -255,16 +363,10 @@ export async function fetchAiReviewsSummaryStatus({
 
 function normalizeKeywords(value: unknown): AiReviewsSummaryKeyword[] {
   if (value === undefined || value === null) return [];
-  if (!Array.isArray(value)) {
-    throw new Error("Judge.me returned invalid AI Reviews Summary keywords.");
-  }
+  if (!Array.isArray(value)) return [];
 
-  return value.map((item) => {
-    if (!isRecord(item)) {
-      throw new Error(
-        "Judge.me returned an invalid AI Reviews Summary keyword.",
-      );
-    }
+  return value.flatMap((item) => {
+    if (!isRecord(item)) return [];
 
     const keyword = readNonEmptyString(item.keyword);
     const sentiment = item.sentiment;
@@ -274,22 +376,16 @@ function normalizeKeywords(value: unknown): AiReviewsSummaryKeyword[] {
         sentiment !== "neutral" &&
         sentiment !== "negative")
     ) {
-      throw new Error(
-        "Judge.me returned an invalid AI Reviews Summary keyword.",
-      );
+      return [];
     }
 
-    return { keyword, sentiment };
+    return [{ keyword, sentiment }];
   });
 }
 
 function normalizeTranslations(value: unknown): Record<string, string> {
   if (value === undefined || value === null) return {};
-  if (!isRecord(value)) {
-    throw new Error(
-      "Judge.me returned invalid AI Reviews Summary translations.",
-    );
-  }
+  if (!isRecord(value)) return {};
 
   const translations: Record<string, string> = {};
   for (const [locale, translation] of Object.entries(value)) {

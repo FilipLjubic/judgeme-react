@@ -15,6 +15,7 @@ import {
   moveTestimonialsCarousel,
 } from "./exact-runtime.js";
 import { useJudgeMe } from "./provider.js";
+import { startJudgeMeRuntime } from "./runtime-lifecycle.js";
 
 type TestimonialsCarouselStyle = CSSProperties &
   Record<`--${string}`, string | number>;
@@ -39,7 +40,7 @@ export function TestimonialsCarousel({
   const containerRef = useRef<HTMLElement>(null);
   const reactId = useId();
   const blockId = `judgeme-react-testimonials-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
-  const { meta } = useJudgeMe();
+  const { actions, meta } = useJudgeMe();
   const config = data.config;
   const clamp = getCardClamp(config);
   const carouselStyle = {
@@ -70,42 +71,30 @@ export function TestimonialsCarousel({
   useEffect(() => {
     const container = containerRef.current;
     const assetBaseUrl = meta.config.v3AssetBaseUrl;
-    let active = true;
+    if (!container) return;
 
-    if (!container || !assetBaseUrl) {
-      if (container) {
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error(
-          "Judge.me Testimonials Carousel requires config.v3AssetBaseUrl from the current Shopify extension deployment.",
-        );
-      }
-      return;
-    }
-
-    container.dataset.judgemeReactRuntimeStatus = "loading";
-
-    initializeTestimonialsCarousel({
+    return startJudgeMeRuntime({
       assetBaseUrl,
-      blockId,
       container,
-      data,
-      publicToken: meta.config.publicToken,
-    })
-      .then(() => {
-        if (active) container.dataset.judgemeReactRuntimeStatus = "ready";
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error("Judge.me Testimonials Carousel runtime error", error);
-      });
-
-    return () => {
-      active = false;
-      disposeTestimonialsCarousel(container, blockId);
-    };
-  }, [blockId, data, meta.config.publicToken, meta.config.v3AssetBaseUrl]);
+      dispose: () => disposeTestimonialsCarousel(container, blockId),
+      initialize: () =>
+        initializeTestimonialsCarousel({
+          assetBaseUrl: assetBaseUrl!,
+          blockId,
+          container,
+          data,
+          publicToken: meta.config.publicToken,
+        }),
+      reportStatus: actions.reportRuntimeStatus,
+      widget: "testimonials-carousel",
+    });
+  }, [
+    actions.reportRuntimeStatus,
+    blockId,
+    data,
+    meta.config.publicToken,
+    meta.config.v3AssetBaseUrl,
+  ]);
 
   const previousButton = (
     <CarouselArrow

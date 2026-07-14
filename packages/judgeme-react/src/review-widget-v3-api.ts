@@ -6,6 +6,10 @@ import {
   type JudgeMeRuntimeSettings,
 } from "./legacy-api.js";
 import { getShopifyNumericId } from "./shopify.js";
+import {
+  EMPTY_JUDGE_ME_SETTINGS,
+  settleOptionalJudgeMeValue,
+} from "./resilient-data.js";
 
 const JUDGE_ME_CDN_API = "https://cdn.judge.me";
 const JUDGE_ME_API = "https://api.judge.me";
@@ -13,9 +17,7 @@ const REVIEW_WIDGET_PATH = "/reviews/reviews_for_widget";
 const SAMPLE_REVIEW_WIDGET_PATH = "/reviews/sample_review_widget_data";
 
 export type ReviewWidgetV3EmptyState =
-  | "empty_widget"
-  | "hide_widget"
-  | "other_products_reviews";
+  "empty_widget" | "hide_widget" | "other_products_reviews";
 export type ReviewWidgetV3Source = "cdn" | "disabled-preview";
 
 export interface ReviewWidgetV3Config {
@@ -27,9 +29,7 @@ export interface ReviewWidgetV3Config {
   emptyState: ReviewWidgetV3EmptyState;
 }
 
-export type ReviewWidgetV3Review = Readonly<
-  Record<string, JudgeMeJsonValue>
->;
+export type ReviewWidgetV3Review = Readonly<Record<string, JudgeMeJsonValue>>;
 
 export interface ReviewWidgetV3Pagination {
   currentPage: number;
@@ -41,8 +41,13 @@ export interface ReviewWidgetV3PageData {
   averageRating: number;
   numberOfQuestions: number;
   numberOfReviews: number;
+  otherLanguagePagination: ReviewWidgetV3Pagination;
+  otherLanguageReviews: readonly ReviewWidgetV3Review[];
   pagination: ReviewWidgetV3Pagination;
-  /** Validated, lossless JSON consumed by Judge.me's current manager. */
+  primaryLanguage: string;
+  primaryLanguagePagination: ReviewWidgetV3Pagination;
+  primaryLanguageReviews: readonly ReviewWidgetV3Review[];
+  /** Validated JSON consumed by Judge.me's current manager. Invalid rows are removed. */
   payload: Readonly<Record<string, JudgeMeJsonValue>>;
   requestUrl: string;
   reviews: readonly ReviewWidgetV3Review[];
@@ -77,8 +82,7 @@ export interface FetchReviewWidgetV3PageOptions {
   signal?: AbortSignal;
 }
 
-export interface FetchReviewWidgetV3Options
-  extends FetchReviewWidgetV3PageOptions {
+export interface FetchReviewWidgetV3Options extends FetchReviewWidgetV3PageOptions {
   config?: Partial<ReviewWidgetV3Config>;
   productHandle: string;
   productTitle: string;
@@ -158,20 +162,32 @@ export async function fetchReviewWidgetV3({
       shopDomain,
       signal,
     }),
-    fetchAllReviewsCounter({
-      fetch: fetchImplementation,
-      publicToken,
-      shopDomain,
+    settleOptionalJudgeMeValue(
+      () =>
+        fetchAllReviewsCounter({
+          fetch: fetchImplementation,
+          publicToken,
+          shopDomain,
+          signal,
+        }),
       signal,
-    }),
-    fetchHappyCustomersPage({
-      fetch: fetchImplementation,
-      shopDomain,
+    ),
+    settleOptionalJudgeMeValue(
+      () =>
+        fetchHappyCustomersPage({
+          fetch: fetchImplementation,
+          shopDomain,
+          signal,
+        }),
       signal,
-    }),
+    ),
   ]);
 
   if (!page) return null;
+  const fallbackAggregate = {
+    count: page.numberOfReviews,
+    rating: page.averageRating,
+  };
 
   return createReviewWidgetV3Data({
     config,
@@ -179,13 +195,12 @@ export async function fetchReviewWidgetV3({
     productHandle,
     productId,
     productTitle,
-    settings: counter.settings,
-    shopAggregate: {
-      count: counter.count,
-      rating: Number(counter.rating),
-    },
+    settings: counter?.settings ?? EMPTY_JUDGE_ME_SETTINGS,
+    shopAggregate: counter
+      ? { count: counter.count, rating: Number(counter.rating) }
+      : fallbackAggregate,
     shopDomain,
-    shopReviewsCount: allReviewsPage.numberOfShopReviews,
+    shopReviewsCount: allReviewsPage?.numberOfShopReviews ?? 0,
   });
 }
 
@@ -241,14 +256,16 @@ export function normalizeReviewWidgetV3Config(
   const normalized = { ...DEFAULT_REVIEW_WIDGET_V3_CONFIG, ...config };
 
   if (
-    !(["empty_widget", "hide_widget", "other_products_reviews"] as const).includes(
-      normalized.emptyState,
-    )
+    !(
+      ["empty_widget", "hide_widget", "other_products_reviews"] as const
+    ).includes(normalized.emptyState)
   ) {
     throw new Error("Judge.me Review Widget v3 empty state is invalid.");
   }
   if (typeof normalized.showStoreReviews !== "boolean") {
-    throw new Error("Judge.me Review Widget v3 store-review setting is invalid.");
+    throw new Error(
+      "Judge.me Review Widget v3 store-review setting is invalid.",
+    );
   }
   if (
     !Number.isSafeInteger(normalized.maxWidth) ||
@@ -322,22 +339,81 @@ function normalizeReviewWidgetPage(
     throw new Error("Judge.me returned invalid Review Widget v3 data.");
   }
 
-  const payload =
+  const rawPayload =
     source === "disabled-preview" ? removeBrokenSampleVideos(value) : value;
-  const reviews = normalizeReviews(payload.reviews);
-  const pagination = normalizePagination(payload.pagination);
+  const defaultReviews = normalizeReviews(rawPayload.reviews);
+  const primaryLanguageReviews = normalizeReviews(
+    rawPayload.primary_language_reviews,
+  );
+  const otherLanguageReviews = normalizeReviews(
+    rawPayload.other_language_reviews,
+  );
+  const photoGallery = normalizeReviews(rawPayload.photo_gallery);
+  const reviews =
+    defaultReviews.length > 0
+      ? defaultReviews
+      : [...primaryLanguageReviews, ...otherLanguageReviews];
+  const fallbackPagination: ReviewWidgetV3Pagination = {
+    currentPage: 1,
+    perPage: Math.max(1, reviews.length),
+    totalPages: reviews.length > 0 ? 1 : 0,
+  };
+  const pagination = normalizePagination(
+    rawPayload.pagination ??
+      rawPayload.primary_language_pagination ??
+      rawPayload.other_language_pagination,
+    fallbackPagination,
+  );
+  const primaryLanguagePagination = normalizePagination(
+    rawPayload.primary_language_pagination ?? rawPayload.pagination,
+    pagination,
+  );
+  const otherLanguagePagination = normalizePagination(
+    rawPayload.other_language_pagination ?? rawPayload.pagination,
+    pagination,
+  );
+  const averageRating = readRating(
+    rawPayload.average_rating,
+    calculateAverageReviewRating(reviews),
+  );
+  const numberOfQuestions = readNonNegativeInteger(
+    rawPayload.number_of_questions,
+    0,
+  );
+  const numberOfReviews = readNonNegativeInteger(
+    rawPayload.number_of_reviews,
+    reviews.length,
+  );
+  const payload: Record<string, JudgeMeJsonValue> = {
+    ...rawPayload,
+    average_rating: averageRating,
+    number_of_questions: numberOfQuestions,
+    number_of_reviews: numberOfReviews,
+    other_language_pagination: serializePagination(otherLanguagePagination),
+    other_language_reviews: [...otherLanguageReviews],
+    pagination: serializePagination(pagination),
+    photo_gallery: [...photoGallery],
+    primary_language_pagination: serializePagination(
+      primaryLanguagePagination,
+    ),
+    primary_language_reviews: [...primaryLanguageReviews],
+    reviews: [...defaultReviews],
+  };
+
   return {
-    averageRating: normalizeRating(payload.average_rating, "product rating"),
-    numberOfQuestions: normalizeNonNegativeInteger(
-      payload.number_of_questions,
-      "question count",
-    ),
-    numberOfReviews: normalizeNonNegativeInteger(
-      payload.number_of_reviews,
-      "product review count",
-    ),
+    averageRating,
+    numberOfQuestions,
+    numberOfReviews,
+    otherLanguagePagination,
+    otherLanguageReviews,
     pagination,
     payload,
+    primaryLanguage:
+      typeof rawPayload.primary_language === "string"
+        ? rawPayload.primary_language.trim()
+        : "",
+    primaryLanguagePagination,
+    primaryLanguageReviews,
     requestUrl: requestUrl.toString(),
     reviews,
     source,
@@ -352,60 +428,79 @@ function removeBrokenSampleVideos(
     // Judge.me's current sample points at a removed Vimeo fixture (HTTP 404).
     // Real CDN payloads are left untouched, including working video reviews.
     ...stripVideoIdsFromReviewList(payload, "reviews"),
+    ...stripVideoIdsFromReviewList(payload, "primary_language_reviews"),
+    ...stripVideoIdsFromReviewList(payload, "other_language_reviews"),
     ...stripVideoIdsFromReviewList(payload, "photo_gallery"),
   };
 }
 
 function stripVideoIdsFromReviewList(
   payload: Record<string, JudgeMeJsonValue>,
-  key: "photo_gallery" | "reviews",
+  key:
+    | "other_language_reviews"
+    | "photo_gallery"
+    | "primary_language_reviews"
+    | "reviews",
 ): Record<string, JudgeMeJsonValue> {
   const value = payload[key];
   if (!Array.isArray(value)) return {};
 
   return {
     [key]: value.map((review) =>
-      isJsonObject(review)
-        ? { ...review, video_external_ids: [] }
-        : review,
+      isJsonObject(review) ? { ...review, video_external_ids: [] } : review,
     ),
   };
 }
 
 function normalizeReviews(value: JudgeMeJsonValue | undefined) {
-  if (!Array.isArray(value)) {
-    throw new Error("Judge.me returned an invalid Review Widget v3 review list.");
-  }
+  if (!Array.isArray(value)) return [];
 
-  return value.map((review) => {
+  return value.flatMap((review) => {
     if (
       !isJsonObject(review) ||
       typeof review.uuid !== "string" ||
       !review.uuid.trim() ||
       typeof review.body_html !== "string"
     ) {
-      throw new Error("Judge.me returned an invalid Review Widget v3 review.");
+      return [];
     }
     const rating = Number(review.rating);
-    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-      throw new Error("Judge.me returned an invalid Review Widget v3 rating.");
-    }
+    if (!Number.isFinite(rating) || rating < 1 || rating > 5) return [];
     assertSafeReviewBody(review.body_html);
-    return review;
+    return [review];
   });
 }
 
 function normalizePagination(
   value: JudgeMeJsonValue | undefined,
+  fallback: ReviewWidgetV3Pagination,
 ): ReviewWidgetV3Pagination {
-  if (!isJsonObject(value)) {
-    throw new Error("Judge.me returned invalid Review Widget v3 pagination.");
-  }
+  if (!isJsonObject(value)) return fallback;
   return {
-    currentPage: normalizePositiveInteger(value.current_page, "page"),
-    perPage: normalizePositiveInteger(value.per_page, "page size"),
-    totalPages: normalizeNonNegativeInteger(value.total_pages, "total pages"),
+    currentPage: readPositiveInteger(value.current_page, fallback.currentPage),
+    perPage: readPositiveInteger(value.per_page, fallback.perPage),
+    totalPages: readNonNegativeInteger(value.total_pages, fallback.totalPages),
   };
+}
+
+function serializePagination(
+  pagination: ReviewWidgetV3Pagination,
+): Record<string, JudgeMeJsonValue> {
+  return {
+    current_page: pagination.currentPage,
+    per_page: pagination.perPage,
+    total_pages: pagination.totalPages,
+  };
+}
+
+function calculateAverageReviewRating(
+  reviews: readonly ReviewWidgetV3Review[],
+): number {
+  if (reviews.length === 0) return 0;
+  return (
+    reviews.reduce((total, review) => total + Number(review.rating), 0) /
+    reviews.length
+  );
 }
 
 function assertSafeReviewBody(html: string): void {
@@ -426,12 +521,25 @@ function normalizeRating(value: unknown, label: string): number {
   return normalized;
 }
 
-function normalizePositiveInteger(value: unknown, label: string): number {
+function readRating(value: unknown, fallback: number): number {
   const normalized = Number(value);
-  if (!Number.isSafeInteger(normalized) || normalized < 1) {
-    throw new Error(`Judge.me returned invalid Review Widget v3 ${label}.`);
-  }
-  return normalized;
+  return Number.isFinite(normalized) && normalized >= 0 && normalized <= 5
+    ? normalized
+    : fallback;
+}
+
+function readPositiveInteger(value: unknown, fallback: number): number {
+  const normalized = Number(value);
+  return Number.isSafeInteger(normalized) && normalized >= 1
+    ? normalized
+    : fallback;
+}
+
+function readNonNegativeInteger(value: unknown, fallback: number): number {
+  const normalized = Number(value);
+  return Number.isSafeInteger(normalized) && normalized >= 0
+    ? normalized
+    : fallback;
 }
 
 function normalizeNonNegativeInteger(value: unknown, label: string): number {

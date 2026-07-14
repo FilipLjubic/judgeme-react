@@ -5,6 +5,12 @@ import {
   type JudgeMeRuntimeSettings,
 } from "./legacy-api.js";
 import { getShopifyNumericId } from "./shopify.js";
+import {
+  assertSafePublicHtml,
+  EMPTY_JUDGE_ME_SETTINGS,
+  settleOptionalJudgeMeValue,
+  summarizeRatedRecords,
+} from "./resilient-data.js";
 
 const JUDGE_ME_CDN_API = "https://cdn.judge.me";
 
@@ -213,20 +219,30 @@ export async function fetchReviewsGrid({
       signal,
       fetch: fetchImplementation,
     }),
-    fetchAllReviewsCounter({
-      shopDomain,
-      publicToken,
+    settleOptionalJudgeMeValue(
+      () =>
+        fetchAllReviewsCounter({
+          shopDomain,
+          publicToken,
+          signal,
+          fetch: fetchImplementation,
+        }),
       signal,
-      fetch: fetchImplementation,
-    }),
+    ),
   ]);
+  const fallbackAggregate = summarizeRatedRecords(
+    page.reviews,
+    page.totalCount,
+  );
 
   return createReviewsGridData({
-    aggregate: { count: counter.count, rating: Number(counter.rating) },
+    aggregate: counter
+      ? { count: counter.count, rating: Number(counter.rating) }
+      : fallbackAggregate,
     config,
     page,
     productId,
-    settings: counter.settings,
+    settings: counter?.settings ?? EMPTY_JUDGE_ME_SETTINGS,
     shopDomain,
   });
 }
@@ -337,31 +353,31 @@ function normalizeReviewsGridPage(
   payload: ReviewsGridApiResponse,
   expectedSelection: ReviewsGridSelection,
 ): ReviewsGridPageData {
-  if (!Array.isArray(payload.reviews)) {
-    throw new Error("Judge.me returned an invalid Reviews Grid review list.");
-  }
+  const reviews = (Array.isArray(payload.reviews) ? payload.reviews : []).flatMap(
+    (review) => {
+      if (
+        !isJsonObject(review) ||
+        typeof review.uuid !== "string" ||
+        !review.uuid.trim()
+      ) {
+        return [];
+      }
 
-  const reviews = payload.reviews.map((review) => {
-    if (!isJsonObject(review) || typeof review.uuid !== "string") {
-      throw new Error("Judge.me returned an invalid Reviews Grid review.");
-    }
+      const rating = Number(review.rating);
+      if (!Number.isFinite(rating) || rating < 1 || rating > 5) return [];
+      if (typeof review.body_html === "string") {
+        assertSafePublicHtml(review.body_html, "Reviews Grid");
+      }
 
-    const rating = Number(review.rating);
-    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-      throw new Error("Judge.me returned an invalid Reviews Grid rating.");
-    }
-
-    return review;
-  });
-  const currentPage = normalizePositiveInteger(payload.current_page, "page");
-  const perPage = normalizePositiveInteger(payload.per_page, "page size");
-  const totalCount = normalizeNonNegativeInteger(
-    payload.total_count,
-    "total count",
+      return [review];
+    },
   );
-  const totalPages = normalizeNonNegativeInteger(
+  const currentPage = readPositiveInteger(payload.current_page, 1);
+  const perPage = readPositiveInteger(payload.per_page, Math.max(1, reviews.length));
+  const totalCount = readNonNegativeInteger(payload.total_count, reviews.length);
+  const totalPages = readNonNegativeInteger(
     payload.total_pages,
-    "total pages",
+    reviews.length > 0 ? 1 : 0,
   );
   const responseSelection = String(payload.review_selection ?? "");
 
@@ -385,24 +401,18 @@ function isJsonObject(
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function normalizePositiveInteger(value: unknown, label: string): number {
+function readPositiveInteger(value: unknown, fallback: number): number {
   const normalized = Number(value);
-
-  if (!Number.isSafeInteger(normalized) || normalized < 1) {
-    throw new Error(`Judge.me returned an invalid Reviews Grid ${label}.`);
-  }
-
-  return normalized;
+  return Number.isSafeInteger(normalized) && normalized >= 1
+    ? normalized
+    : fallback;
 }
 
-function normalizeNonNegativeInteger(value: unknown, label: string): number {
+function readNonNegativeInteger(value: unknown, fallback: number): number {
   const normalized = Number(value);
-
-  if (!Number.isSafeInteger(normalized) || normalized < 0) {
-    throw new Error(`Judge.me returned an invalid Reviews Grid ${label}.`);
-  }
-
-  return normalized;
+  return Number.isSafeInteger(normalized) && normalized >= 0
+    ? normalized
+    : fallback;
 }
 
 function assertIntegerInRange(

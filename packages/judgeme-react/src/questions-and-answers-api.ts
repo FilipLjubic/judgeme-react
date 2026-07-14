@@ -5,6 +5,10 @@ import {
   type JudgeMeRuntimeSettings,
 } from "./legacy-api.js";
 import { getShopifyNumericId } from "./shopify.js";
+import {
+  EMPTY_JUDGE_ME_SETTINGS,
+  settleOptionalJudgeMeValue,
+} from "./resilient-data.js";
 
 const JUDGE_ME_API = "https://api.judge.me";
 const QUESTIONS_PATH = "/api/questions/questions_for_widget";
@@ -241,12 +245,16 @@ export async function fetchQuestionsAndAnswers({
       signal,
       fetch: fetchImplementation,
     }),
-    fetchAllReviewsCounter({
-      shopDomain,
-      publicToken,
+    settleOptionalJudgeMeValue(
+      () =>
+        fetchAllReviewsCounter({
+          shopDomain,
+          publicToken,
+          signal,
+          fetch: fetchImplementation,
+        }),
       signal,
-      fetch: fetchImplementation,
-    }),
+    ),
   ]);
 
   return createQuestionsAndAnswersData({
@@ -254,7 +262,7 @@ export async function fetchQuestionsAndAnswers({
     productId,
     productTitle,
     productHandle,
-    settings: resources.settings,
+    settings: resources?.settings ?? EMPTY_JUDGE_ME_SETTINGS,
     shopDomain,
   });
 }
@@ -505,16 +513,20 @@ function normalizeQuestionsPage(
   productId: string,
   previewMode?: QuestionsAndAnswersPreviewMode,
 ): QuestionsAndAnswersPageData {
-  const currentPage = readPositiveInteger(payload.current_page, "current page");
-  const totalPages = readPositiveInteger(payload.total_pages, "total pages");
-  const perPage = readPositiveInteger(payload.per_page, "questions per page");
-
-  if (currentPage > totalPages) {
-    throw new Error("Judge.me returned an invalid Questions & Answers page.");
-  }
-  if (!Array.isArray(payload.questions)) {
-    throw new Error("Judge.me returned invalid Questions & Answers questions.");
-  }
+  const questions = (Array.isArray(payload.questions) ? payload.questions : [])
+    .map(normalizeQuestion)
+    .filter(
+      (question): question is QuestionsAndAnswersQuestion => question !== null,
+    );
+  const currentPage = readPositiveInteger(payload.current_page, 1);
+  const totalPages = Math.max(
+    currentPage,
+    readPositiveInteger(payload.total_pages, currentPage),
+  );
+  const perPage = readPositiveInteger(
+    payload.per_page,
+    Math.max(1, questions.length),
+  );
 
   return {
     currentPage,
@@ -522,69 +534,77 @@ function normalizeQuestionsPage(
     perPage,
     previewMode,
     productId,
-    questions: payload.questions.map(normalizeQuestion),
+    questions,
   };
 }
 
 function normalizeQuestion(
   value: unknown,
   index: number,
-): QuestionsAndAnswersQuestion {
-  if (!isRecord(value)) {
-    throw new Error(`Judge.me returned an invalid question at index ${index}.`);
-  }
-  if (!Array.isArray(value.answers)) {
-    throw new Error(`Judge.me returned invalid answers for question ${index}.`);
-  }
+): QuestionsAndAnswersQuestion | null {
+  if (!isRecord(value)) return null;
 
-  return {
-    uuid: readRequiredString(value.uuid, `question ${index} UUID`),
-    content: htmlToPlainText(
-      readRequiredString(value.content_html, `question ${index} content`),
-    ),
-    createdAt: readIsoDate(value.created_at, `question ${index} date`),
-    shopAsAsker: readBoolean(value.shop_as_asker, false),
-    askerName: readRequiredString(value.asker_name, `question ${index} asker`),
-    askerInitial: readInitial(value.asker_initial, value.asker_name),
-    answers: value.answers.map((answer, answerIndex) =>
-      normalizeAnswer(answer, index, answerIndex),
-    ),
-  };
+  try {
+    const answers = (Array.isArray(value.answers) ? value.answers : [])
+      .map((answer, answerIndex) =>
+        normalizeAnswer(answer, index, answerIndex),
+      )
+      .filter(
+        (answer): answer is QuestionsAndAnswersAnswer => answer !== null,
+      );
+
+    return {
+      uuid: readRequiredString(value.uuid, `question ${index} UUID`),
+      content: htmlToPlainText(
+        readRequiredString(value.content_html, `question ${index} content`),
+      ),
+      createdAt: readIsoDate(value.created_at, `question ${index} date`),
+      shopAsAsker: readBoolean(value.shop_as_asker, false),
+      askerName: readRequiredString(
+        value.asker_name,
+        `question ${index} asker`,
+      ),
+      askerInitial: readInitial(value.asker_initial, value.asker_name),
+      answers,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function normalizeAnswer(
   value: unknown,
   questionIndex: number,
   answerIndex: number,
-): QuestionsAndAnswersAnswer {
-  if (!isRecord(value)) {
-    throw new Error(
-      `Judge.me returned an invalid answer at ${questionIndex}:${answerIndex}.`,
-    );
-  }
+): QuestionsAndAnswersAnswer | null {
+  if (!isRecord(value)) return null;
 
-  return {
-    uuid: readRequiredString(
-      value.uuid,
-      `answer ${questionIndex}:${answerIndex} UUID`,
-    ),
-    content: htmlToPlainText(
-      readRequiredString(
-        value.content_html,
-        `answer ${questionIndex}:${answerIndex} content`,
+  try {
+    return {
+      uuid: readRequiredString(
+        value.uuid,
+        `answer ${questionIndex}:${answerIndex} UUID`,
       ),
-    ),
-    createdAt: readIsoDate(
-      value.created_at,
-      `answer ${questionIndex}:${answerIndex} date`,
-    ),
-    shopAsAnswerer: readBoolean(value.shop_as_answerer, false),
-    answererName: readRequiredString(
-      value.answerer_name,
-      `answer ${questionIndex}:${answerIndex} answerer`,
-    ),
-    answererInitial: readInitial(value.answerer_initial, value.answerer_name),
-  };
+      content: htmlToPlainText(
+        readRequiredString(
+          value.content_html,
+          `answer ${questionIndex}:${answerIndex} content`,
+        ),
+      ),
+      createdAt: readIsoDate(
+        value.created_at,
+        `answer ${questionIndex}:${answerIndex} date`,
+      ),
+      shopAsAnswerer: readBoolean(value.shop_as_answerer, false),
+      answererName: readRequiredString(
+        value.answerer_name,
+        `answer ${questionIndex}:${answerIndex} answerer`,
+      ),
+      answererInitial: readInitial(value.answerer_initial, value.answerer_name),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function normalizeTheme(value: JudgeMeJsonValue | undefined) {
@@ -651,16 +671,13 @@ function readBoolean(value: unknown, fallback: boolean) {
   return typeof value === "boolean" ? value : fallback;
 }
 
-function readPositiveInteger(value: unknown, label: string): number {
+function readPositiveInteger(value: unknown, fallback: number): number {
   const normalized = typeof value === "string" ? Number(value) : value;
-  if (
-    typeof normalized !== "number" ||
-    !Number.isSafeInteger(normalized) ||
-    normalized < 1
-  ) {
-    throw new Error(`Judge.me returned an invalid ${label}.`);
-  }
-  return normalized;
+  return typeof normalized === "number" &&
+    Number.isSafeInteger(normalized) &&
+    normalized >= 1
+    ? normalized
+    : fallback;
 }
 
 function assertPositiveInteger(value: number, label: string): void {

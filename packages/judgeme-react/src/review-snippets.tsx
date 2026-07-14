@@ -5,6 +5,7 @@ import {
 } from "./exact-runtime.js";
 import type { ReviewSnippetsData } from "./review-snippets-api.js";
 import { useJudgeMe } from "./provider.js";
+import { startJudgeMeRuntime } from "./runtime-lifecycle.js";
 
 export interface ReviewSnippetsProps extends Omit<
   ComponentPropsWithoutRef<"section">,
@@ -20,46 +21,34 @@ export function ReviewSnippets({
   ...sectionProps
 }: ReviewSnippetsProps) {
   const containerRef = useRef<HTMLElement>(null);
-  const { meta } = useJudgeMe();
+  const { actions, meta } = useJudgeMe();
   const config = data.config;
 
   useEffect(() => {
     const container = containerRef.current;
     const assetBaseUrl = meta.config.v3AssetBaseUrl;
-    let active = true;
+    if (!container) return;
 
-    if (!container || !assetBaseUrl) {
-      if (container) {
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error(
-          "Judge.me Review Snippets requires config.v3AssetBaseUrl from the current Shopify extension deployment.",
-        );
-      }
-      return;
-    }
-
-    container.dataset.judgemeReactRuntimeStatus = "loading";
-    initializeReviewSnippets({
+    return startJudgeMeRuntime({
       assetBaseUrl,
       container,
-      data,
-      publicToken: meta.config.publicToken,
-    })
-      .then(() => {
-        if (active) container.dataset.judgemeReactRuntimeStatus = "ready";
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error("Judge.me Review Snippets runtime error", error);
-      });
-
-    return () => {
-      active = false;
-      releaseReviewSnippetsResponse(data);
-    };
-  }, [data, meta.config.publicToken, meta.config.v3AssetBaseUrl]);
+      dispose: () => releaseReviewSnippetsResponse(data),
+      initialize: () =>
+        initializeReviewSnippets({
+          assetBaseUrl: assetBaseUrl!,
+          container,
+          data,
+          publicToken: meta.config.publicToken,
+        }),
+      reportStatus: actions.reportRuntimeStatus,
+      widget: "review-snippets",
+    });
+  }, [
+    actions.reportRuntimeStatus,
+    data,
+    meta.config.publicToken,
+    meta.config.v3AssetBaseUrl,
+  ]);
 
   return (
     <section

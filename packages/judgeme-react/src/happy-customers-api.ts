@@ -4,6 +4,10 @@ import {
   type JudgeMeJsonValue,
   type JudgeMeRuntimeSettings,
 } from "./legacy-api.js";
+import {
+  settleOptionalJudgeMeValue,
+  summarizeRatedRecords,
+} from "./resilient-data.js";
 
 const JUDGE_ME_CDN_API = "https://cdn.judge.me";
 const HAPPY_CUSTOMERS_PATH = "/reviews/all_reviews_js_based";
@@ -158,22 +162,44 @@ export async function fetchHappyCustomers({
       shopDomain,
       signal,
     }),
-    fetchAllReviewsWidget({
-      fetch: fetchImplementation,
-      publicToken,
-      shopDomain,
+    settleOptionalJudgeMeValue(
+      () =>
+        fetchAllReviewsWidget({
+          fetch: fetchImplementation,
+          publicToken,
+          shopDomain,
+          signal,
+        }),
       signal,
-    }),
+    ),
   ]);
-  const aggregate = readLegacyAggregate(legacyWidget.html);
+  const pageReviews = [
+    ...page.reviews,
+    ...page.primaryLanguageReviews,
+    ...page.otherLanguageReviews,
+  ];
+  let aggregate = summarizeRatedRecords(
+    pageReviews,
+    page.numberOfProductReviews + page.numberOfShopReviews,
+  );
+  if (legacyWidget) {
+    try {
+      aggregate = readLegacyAggregate(legacyWidget.html);
+    } catch {
+      // The CDN page still contains enough data to mount the widget.
+    }
+  }
+  const settings =
+    legacyWidget?.settings ??
+    ({ all_reviews_widget_v2025_enabled: true } as const);
 
   return createHappyCustomersData({
     aggregate,
     config,
-    legacyHtml: legacyWidget.html,
+    legacyHtml: legacyWidget?.html ?? "",
     page,
     previewWhenDisabled,
-    settings: legacyWidget.settings,
+    settings,
     shopDomain,
   });
 }
@@ -280,30 +306,40 @@ function normalizeHappyCustomersPage(
   requestUrl: URL,
   reviewType: HappyCustomersReviewType,
 ): HappyCustomersPageData {
-  const pagination = normalizePagination(payload.pagination, "pagination");
+  const reviews = normalizeReviews(payload.reviews);
+  const primaryLanguageReviews = normalizeReviews(
+    payload.primary_language_reviews,
+  );
+  const otherLanguageReviews = normalizeReviews(payload.other_language_reviews);
+  const fallbackReviewCount = Math.max(
+    reviews.length,
+    primaryLanguageReviews.length + otherLanguageReviews.length,
+  );
+  const fallbackPagination: HappyCustomersPagination = {
+    currentPage: 1,
+    perPage: Math.max(1, fallbackReviewCount),
+    totalCount: fallbackReviewCount,
+    totalPages: fallbackReviewCount > 0 ? 1 : 0,
+  };
+  const pagination = normalizePagination(payload.pagination, fallbackPagination);
 
   return {
     customFormFiltersAndAverages: normalizeJsonValue(
       payload.custom_form_filters_and_averages,
-      "custom form filters",
     ),
-    numberOfProductReviews: normalizeNonNegativeInteger(
+    numberOfProductReviews: readNonNegativeInteger(
       payload.number_of_product_reviews,
-      "product review count",
+      reviewType === "product-reviews" ? pagination.totalCount : 0,
     ),
-    numberOfShopReviews: normalizeNonNegativeInteger(
+    numberOfShopReviews: readNonNegativeInteger(
       payload.number_of_shop_reviews,
-      "shop review count",
+      reviewType === "shop-reviews" ? pagination.totalCount : 0,
     ),
     otherLanguagePagination: normalizePagination(
       payload.other_language_pagination,
-      "other-language pagination",
       pagination,
     ),
-    otherLanguageReviews: normalizeReviews(
-      payload.other_language_reviews ?? [],
-      "other-language",
-    ),
+    otherLanguageReviews,
     pagination,
     primaryLanguage:
       typeof payload.primary_language === "string"
@@ -311,72 +347,48 @@ function normalizeHappyCustomersPage(
         : "",
     primaryLanguagePagination: normalizePagination(
       payload.primary_language_pagination,
-      "primary-language pagination",
       pagination,
     ),
-    primaryLanguageReviews: normalizeReviews(
-      payload.primary_language_reviews ?? [],
-      "primary-language",
-    ),
+    primaryLanguageReviews,
     requestUrl: requestUrl.toString(),
     reviewType,
-    reviews: normalizeReviews(payload.reviews, "default"),
+    reviews,
   };
 }
 
-function normalizeReviews(
-  value: unknown,
-  label: string,
-): readonly HappyCustomersReview[] {
-  if (!Array.isArray(value)) {
-    throw new Error(
-      `Judge.me returned an invalid Happy Customers ${label} review list.`,
-    );
-  }
+function normalizeReviews(value: unknown): readonly HappyCustomersReview[] {
+  if (!Array.isArray(value)) return [];
 
-  return value.map((review) => {
+  return value.flatMap((review) => {
     if (
       !isJsonObject(review) ||
       typeof review.uuid !== "string" ||
       !review.uuid.trim() ||
       typeof review.body_html !== "string"
     ) {
-      throw new Error("Judge.me returned an invalid Happy Customers review.");
+      return [];
     }
 
     const rating = Number(review.rating);
     if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-      throw new Error("Judge.me returned an invalid Happy Customers rating.");
+      return [];
     }
     assertSafeReviewBody(review.body_html);
-    return review;
+    return [review];
   });
 }
 
 function normalizePagination(
   value: unknown,
-  label: string,
-  fallback?: HappyCustomersPagination,
+  fallback: HappyCustomersPagination,
 ): HappyCustomersPagination {
-  if (value === undefined || value === null) {
-    if (fallback) return fallback;
-    throw new Error(`Judge.me returned invalid Happy Customers ${label}.`);
-  }
-  if (!isJsonObject(value)) {
-    throw new Error(`Judge.me returned invalid Happy Customers ${label}.`);
-  }
+  if (!isJsonObject(value)) return fallback;
 
   return {
-    currentPage: normalizePositiveInteger(value.current_page, `${label} page`),
-    perPage: normalizePositiveInteger(value.per_page, `${label} page size`),
-    totalCount: normalizeNonNegativeInteger(
-      value.total_count,
-      `${label} total count`,
-    ),
-    totalPages: normalizeNonNegativeInteger(
-      value.total_pages,
-      `${label} total pages`,
-    ),
+    currentPage: readPositiveInteger(value.current_page, fallback.currentPage),
+    perPage: readPositiveInteger(value.per_page, fallback.perPage),
+    totalCount: readNonNegativeInteger(value.total_count, fallback.totalCount),
+    totalPages: readNonNegativeInteger(value.total_pages, fallback.totalPages),
   };
 }
 
@@ -457,12 +469,9 @@ function assertSafeReviewBody(html: string): void {
   }
 }
 
-function normalizeJsonValue(value: unknown, label: string): JudgeMeJsonValue {
+function normalizeJsonValue(value: unknown): JudgeMeJsonValue {
   if (value === undefined) return null;
-  if (!isJsonValue(value)) {
-    throw new Error(`Judge.me returned invalid Happy Customers ${label}.`);
-  }
-  return value;
+  return isJsonValue(value) ? value : null;
 }
 
 function isJsonValue(value: unknown): value is JudgeMeJsonValue {
@@ -485,12 +494,18 @@ function isJsonObject(
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function normalizePositiveInteger(value: unknown, label: string): number {
+function readPositiveInteger(value: unknown, fallback: number): number {
   const normalized = Number(value);
-  if (!Number.isSafeInteger(normalized) || normalized < 1) {
-    throw new Error(`Judge.me returned invalid Happy Customers ${label}.`);
-  }
-  return normalized;
+  return Number.isSafeInteger(normalized) && normalized >= 1
+    ? normalized
+    : fallback;
+}
+
+function readNonNegativeInteger(value: unknown, fallback: number): number {
+  const normalized = Number(value);
+  return Number.isSafeInteger(normalized) && normalized >= 0
+    ? normalized
+    : fallback;
 }
 
 function normalizeNonNegativeInteger(value: unknown, label: string): number {

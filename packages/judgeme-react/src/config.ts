@@ -40,12 +40,12 @@ export function createJudgeMeConfig(
   return {
     shopDomain: normalizeShopDomain(config.shopDomain),
     publicToken: publicToken || undefined,
-    v3AssetBaseUrl: normalizeV3AssetBaseUrl(config.v3AssetBaseUrl),
+    v3AssetBaseUrl: normalizeJudgeMeV3AssetBaseUrl(config.v3AssetBaseUrl),
     defaultEngine: config.defaultEngine ?? "auto",
   };
 }
 
-function normalizeV3AssetBaseUrl(
+export function normalizeJudgeMeV3AssetBaseUrl(
   value: string | undefined,
 ): string | undefined {
   const candidate = value?.trim();

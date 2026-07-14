@@ -29,10 +29,7 @@ interface JudgeMeRuntime {
       open?: (...args: unknown[]) => void;
     };
   };
-  _transformJsonData?: (
-    root: JudgeMeRuntimeCollection,
-    page?: unknown,
-  ) => void;
+  _transformJsonData?: (root: JudgeMeRuntimeCollection, page?: unknown) => void;
   _customizeReviewWidget?: (root: unknown) => void;
   _renderAndSetupReviewForm?: (root: unknown) => void;
   _setupFormsSubmit?: (root: unknown) => void;
@@ -186,6 +183,10 @@ export async function ensureJudgeMeCoreRuntime({
   await waitFor(
     () => isSecondaryWidgetLoaderReady(runtimeWindow.jdgm),
     "Judge.me's core runtime did not become ready.",
+  );
+  await waitFor(
+    () => Boolean(runtimeWindow.jdgm?.caches?.$revWidgets),
+    "Judge.me's core widget cache did not become ready.",
   );
 }
 
@@ -474,9 +475,7 @@ export async function initializeUgcMediaGrid({
   if (isCurrent && !isCurrent()) return;
 
   restorePendingUgcMediaGridClasses(container);
-  const root = container.querySelector<HTMLElement>(
-    ".jdgm-ugc-media-wrapper",
-  );
+  const root = container.querySelector<HTMLElement>(".jdgm-ugc-media-wrapper");
   const grid = root?.querySelector<HTMLElement>(".jdgm-ugc-media");
   const runtime = runtimeWindow.jdgm;
 
@@ -910,10 +909,7 @@ function restorePendingUgcMediaGridClasses(container: HTMLElement): void {
     );
   container
     .querySelector<HTMLElement>(".jdgm-react-ugc-media-pending")
-    ?.classList.replace(
-      "jdgm-react-ugc-media-pending",
-      "jdgm-ugc-media",
-    );
+    ?.classList.replace("jdgm-react-ugc-media-pending", "jdgm-ugc-media");
 }
 
 function isUgcMediaGridPrepared(root: HTMLElement): boolean {
@@ -952,9 +948,7 @@ function prepareJudgeMeMedalsMarkup(
   disposeJudgeMeMedals(container);
 
   const medals = root.querySelector<HTMLElement>(".jdgm-medals");
-  const ratingStars = root.querySelector<HTMLElement>(
-    ".jdgm-rating__stars",
-  );
+  const ratingStars = root.querySelector<HTMLElement>(".jdgm-rating__stars");
   const medalImages = Array.from(
     root.querySelectorAll<HTMLElement>(".jdgm-medal__image"),
   );
@@ -963,8 +957,7 @@ function prepareJudgeMeMedalsMarkup(
     throw new Error("Judge.me returned incomplete Medals markup.");
   }
 
-  const monochrome =
-    settings.medals_widget_use_monochromatic_version === true;
+  const monochrome = settings.medals_widget_use_monochromatic_version === true;
   const rebranded = runtime.WIDGET_REBRANDING_ENABLED === true;
   const publicImageHost = normalizeRuntimeAssetHost(
     runtime.JM_PUBLIC_IMAGE_URL,
@@ -1165,14 +1158,10 @@ function prepareVerifiedReviewsCounterMarkup(
   }
 
   const style =
-    settings.verified_count_badge_style === "vintage"
-      ? "vintage"
-      : "branded";
+    settings.verified_count_badge_style === "vintage" ? "vintage" : "branded";
   root.classList.add(`jdgm-verified-badge--style-${style}`);
 
-  const image = root.querySelector<HTMLElement>(
-    ".jdgm-verified-badge__image",
-  );
+  const image = root.querySelector<HTMLElement>(".jdgm-verified-badge__image");
   if (!image) {
     throw new Error(
       "Judge.me returned incomplete Verified Reviews Counter markup.",
@@ -1212,12 +1201,7 @@ function prepareVerifiedReviewsCounterMarkup(
     const badgeAsset = rebranded
       ? "https://judgeme-public-images.imgix.net/judgeme/verified-badge-v2/verified-badge-2025.svg?auto=format"
       : "https://judgeme-public-images.imgix.net/judgeme/verified-badge-v2/verified-badge.svg?auto=format";
-    runtime._loadSvg(
-      runtime.$(image),
-      badgeAsset,
-      badgeAsset,
-      monochrome,
-    );
+    runtime._loadSvg(runtime.$(image), badgeAsset, badgeAsset, monochrome);
 
     const showBranding = rebranded
       ? true
@@ -1264,9 +1248,7 @@ function prepareVerifiedReviewsCounterMarkup(
         settings.verified_count_badge_orientation === "vertical"
           ? "vertical"
           : "horizontal";
-      root.classList.add(
-        `jdgm-verified-badge--style-branded-${orientation}`,
-      );
+      root.classList.add(`jdgm-verified-badge--style-branded-${orientation}`);
     }
     root.style.display = "flex";
   }

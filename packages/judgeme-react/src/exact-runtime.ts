@@ -984,6 +984,12 @@ async function initializeReviewWidgetV3Root({
     settings: data.settings,
     shopDomain: data.shopDomain,
   });
+
+  // The legacy core snapshots `.jdgm-review-widget` roots during startup and
+  // later hands each one to its old modal-form setup. Add the official class
+  // only after that snapshot so this directly managed v3 root is not mistaken
+  // for a legacy product widget when Happy Customers preloads its modal.
+  container.classList.add("jdgm-widget", "jdgm-review-widget");
   const runtimeWindow = configureExactRuntime({
     assetBaseUrl,
     settings: data.settings,
@@ -996,9 +1002,7 @@ async function initializeReviewWidgetV3Root({
     review_widget_revamp_enabled: true,
   };
 
-  const reviewWidgetData = asRecord(
-    runtimeWindow.jdgm?.data?.reviewWidget,
-  );
+  const reviewWidgetData = asRecord(runtimeWindow.jdgm?.data?.reviewWidget);
   if (runtimeWindow.jdgm) {
     runtimeWindow.jdgm.data = {
       ...runtimeWindow.jdgm.data,
@@ -1604,10 +1608,7 @@ function registerReviewWidgetV3PreviewResponse(
 ): void {
   if (reviewWidgetV3PreviewKeys.has(container)) return;
 
-  const key = createReviewWidgetV3PreviewKey(
-    data.shopDomain,
-    data.product.id,
-  );
+  const key = createReviewWidgetV3PreviewKey(data.shopDomain, data.product.id);
   const existing = reviewWidgetV3PreviewResponses.get(key);
   reviewWidgetV3PreviewResponses.set(key, {
     payload: JSON.stringify(data.page.payload),

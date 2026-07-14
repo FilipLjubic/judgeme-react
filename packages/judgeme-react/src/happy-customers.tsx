@@ -5,6 +5,7 @@ import {
   initializeHappyCustomers,
 } from "./exact-runtime.js";
 import { useJudgeMe } from "./provider.js";
+import { startJudgeMeRuntime } from "./runtime-lifecycle.js";
 
 export interface HappyCustomersProps extends Omit<
   ComponentPropsWithoutRef<"section">,
@@ -21,46 +22,34 @@ export function HappyCustomers({
   ...sectionProps
 }: HappyCustomersProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { meta } = useJudgeMe();
+  const { actions, meta } = useJudgeMe();
   const config = data.config;
 
   useEffect(() => {
     const container = containerRef.current;
     const assetBaseUrl = meta.config.v3AssetBaseUrl;
-    let active = true;
+    if (!container) return;
 
-    if (!container || !assetBaseUrl) {
-      if (container) {
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error(
-          "Judge.me Happy Customers requires config.v3AssetBaseUrl from the current Shopify extension deployment.",
-        );
-      }
-      return;
-    }
-
-    container.dataset.judgemeReactRuntimeStatus = "loading";
-    initializeHappyCustomers({
+    return startJudgeMeRuntime({
       assetBaseUrl,
       container,
-      data,
-      publicToken: meta.config.publicToken,
-    })
-      .then(() => {
-        if (active) container.dataset.judgemeReactRuntimeStatus = "ready";
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error("Judge.me Happy Customers runtime error", error);
-      });
-
-    return () => {
-      active = false;
-      disposeHappyCustomers(container);
-    };
-  }, [data, meta.config.publicToken, meta.config.v3AssetBaseUrl]);
+      dispose: () => disposeHappyCustomers(container),
+      initialize: () =>
+        initializeHappyCustomers({
+          assetBaseUrl: assetBaseUrl!,
+          container,
+          data,
+          publicToken: meta.config.publicToken,
+        }),
+      reportStatus: actions.reportRuntimeStatus,
+      widget: "happy-customers",
+    });
+  }, [
+    actions.reportRuntimeStatus,
+    data,
+    meta.config.publicToken,
+    meta.config.v3AssetBaseUrl,
+  ]);
 
   return (
     <section

@@ -1,9 +1,11 @@
 {
   "name": "@judgeme-react/core",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0-alpha.0",
   "description": "React adapters for Judge.me widgets across Shopify headless storefronts.",
   "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "sideEffects": false,
   "files": [
     "dist",
@@ -12,12 +14,29 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": "^22 || ^24"
+  },
+  "keywords": [
+    "judge.me",
+    "shopify",
+    "hydrogen",
+    "react",
+    "reviews",
+    "widgets"
+  ],
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "lint": "tsc --project tsconfig.build.json --noEmit",
+    "pack:check": "bun pm pack --dry-run",
+    "prepack": "bun run build",
     "test": "bun run build && node --test",
     "typecheck": "tsc --project tsconfig.build.json --noEmit"
   },

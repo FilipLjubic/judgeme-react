@@ -5,6 +5,12 @@ import {
   type JudgeMeRuntimeSettings,
 } from "./legacy-api.js";
 import { getShopifyNumericId } from "./shopify.js";
+import {
+  assertSafePublicHtml,
+  EMPTY_JUDGE_ME_SETTINGS,
+  settleOptionalJudgeMeValue,
+  summarizeRatedRecords,
+} from "./resilient-data.js";
 
 const JUDGE_ME_CDN_API = "https://cdn.judge.me";
 
@@ -266,22 +272,29 @@ export async function fetchTestimonialsCarousel({
       signal,
       fetch: fetchImplementation,
     }),
-    fetchAllReviewsCounter({
-      shopDomain,
-      publicToken,
+    settleOptionalJudgeMeValue(
+      () =>
+        fetchAllReviewsCounter({
+          shopDomain,
+          publicToken,
+          signal,
+          fetch: fetchImplementation,
+        }),
       signal,
-      fetch: fetchImplementation,
-    }),
+    ),
   ]);
+  const fallbackAggregate = summarizeRatedRecords(page.reviews);
 
   return createTestimonialsCarouselData({
-    aggregate: { count: counter.count, rating: Number(counter.rating) },
+    aggregate: counter
+      ? { count: counter.count, rating: Number(counter.rating) }
+      : fallbackAggregate,
     config,
     page,
     productId,
-    settings: counter.settings,
+    settings: counter?.settings ?? EMPTY_JUDGE_ME_SETTINGS,
     shopDomain,
-    styles: counter.styles,
+    styles: counter?.styles ?? "",
   });
 }
 
@@ -389,24 +402,25 @@ function normalizeTestimonialsCarouselPage(
   payload: TestimonialsCarouselApiResponse,
   reviewSelection: TestimonialsCarouselSelection,
 ): TestimonialsCarouselPageData {
-  if (!Array.isArray(payload.reviews)) {
-    throw new Error(
-      "Judge.me returned an invalid Testimonials Carousel review list.",
-    );
-  }
+  const reviews = (Array.isArray(payload.reviews) ? payload.reviews : []).flatMap(
+    (review) => {
+      if (
+        !isJsonObject(review) ||
+        typeof review.uuid !== "string" ||
+        !review.uuid.trim()
+      ) {
+        return [];
+      }
 
-  const reviews = payload.reviews.map((review) => {
-    if (!isJsonObject(review) || typeof review.uuid !== "string") {
-      throw new Error("Judge.me returned an invalid Testimonials Carousel review.");
-    }
+      const rating = Number(review.rating);
+      if (!Number.isFinite(rating) || rating < 1 || rating > 5) return [];
+      if (typeof review.body_html === "string") {
+        assertSafePublicHtml(review.body_html, "Testimonials Carousel");
+      }
 
-    const rating = Number(review.rating);
-    if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-      throw new Error("Judge.me returned an invalid Testimonials Carousel rating.");
-    }
-
-    return review;
-  });
+      return [review];
+    },
+  );
 
   return { reviewSelection, reviews };
 }

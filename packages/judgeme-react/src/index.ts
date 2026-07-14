@@ -1,7 +1,12 @@
-export { createJudgeMeConfig, normalizeShopDomain } from "./config.js";
+export {
+  createJudgeMeConfig,
+  normalizeJudgeMeV3AssetBaseUrl,
+  normalizeShopDomain,
+} from "./config.js";
 export { AiReviewsSummary } from "./ai-reviews-summary.js";
 export {
   createAiReviewsSummaryData,
+  fetchAiReviewsSummaryMetafield,
   fetchAiReviewsSummaryStatus,
   normalizeAiReviewsSummaryConfig,
   parseAiReviewsSummaryMetafield,
@@ -78,6 +83,12 @@ export {
 } from "./review-widget-v3-api.js";
 export { AUTO_ENGINE_ORDER, resolveJudgeMeEngine } from "./runtime.js";
 export { getShopifyNumericId } from "./shopify.js";
+export {
+  clearJudgeMeV3AssetDiscoveryCache,
+  JUDGE_ME_V3_MANIFEST_SENTINELS,
+  JudgeMeV3AssetDiscoveryError,
+  resolveJudgeMeV3AssetDeployment,
+} from "./v3-assets.js";
 export { StarRatingBadge } from "./star-rating-badge.js";
 export { TestimonialsCarousel } from "./testimonials-carousel.js";
 export { TrustBadge } from "./trust-badge.js";
@@ -110,10 +121,15 @@ export type {
   JudgeMeEngine,
   JudgeMePublicConfig,
   JudgeMeRuntimeAdapter,
+  JudgeMeRuntimeErrorEvent,
+  JudgeMeRuntimePhase,
+  JudgeMeRuntimeStatus,
+  JudgeMeRuntimeStatusEvent,
   JudgeMeWidget,
   NormalizedJudgeMePublicConfig,
   ResolvedJudgeMeEngine,
 } from "./types.js";
+export type { JudgeMeProviderProps } from "./provider.js";
 export type {
   AllReviewsCounterData,
   AllReviewsCounterMarkup,
@@ -170,6 +186,7 @@ export type {
   AiReviewsSummaryVisibility,
   CreateAiReviewsSummaryDataOptions,
   FetchAiReviewsSummaryStatusOptions,
+  FetchAiReviewsSummaryMetafieldOptions,
 } from "./ai-reviews-summary-api.js";
 export type { AllReviewsWidgetProps } from "./all-reviews-widget.js";
 export type { CardsCarouselProps } from "./cards-carousel.js";
@@ -313,6 +330,12 @@ export type {
   VideosCarouselStyle,
   VideosCarouselTextSize,
 } from "./videos-carousel-api.js";
+export type {
+  JudgeMeV3AssetDeployment,
+  JudgeMeV3AssetDeploymentSource,
+  JudgeMeV3AssetDiscoveryErrorCode,
+  ResolveJudgeMeV3AssetDeploymentOptions,
+} from "./v3-assets.js";
 export type { ReviewsCarouselProps } from "./reviews-carousel.js";
 export type { ReviewsGridProps } from "./reviews-grid.js";
 export type {

@@ -12,6 +12,7 @@ import {ProductPrice} from '~/components/ProductPrice';
 import {ProductImage} from '~/components/ProductImage';
 import {ProductForm} from '~/components/ProductForm';
 import {redirectIfHandleIsLocalized} from '~/lib/redirect';
+import {resolveJudgeMeAssets} from '~/lib/judgeme.server';
 import {
   AiReviewsSummary,
   AllReviewsCounter,
@@ -28,6 +29,7 @@ import {
   createTestimonialsCarouselData,
   createTrustBadgeData,
   createVideosCarouselData,
+  fetchAiReviewsSummaryMetafield,
   fetchCardsCarouselPage,
   fetchHappyCustomersPage,
   fetchLegacyStorefrontWidgets,
@@ -44,6 +46,7 @@ import {
   HappyCustomers,
   JudgeMeMedals,
   LegacyReviewWidget,
+  normalizeQuestionsAndAnswersConfig,
   PopupReviews,
   QuestionsAndAnswers,
   ReviewsCarousel,
@@ -72,6 +75,12 @@ export async function loader(args: Route.LoaderArgs) {
   // Await the critical data required to render initial state of the page
   const criticalData = await loadCriticalData(args);
   const {env} = args.context;
+  const shopDomain = env.JUDGEME_SHOP_DOMAIN ?? env.PUBLIC_STORE_DOMAIN;
+  const judgeMeAssets = await resolveJudgeMeAssets({
+    fallbackAssetBaseUrl: env.JUDGEME_V3_ASSET_BASE_URL,
+    shopDomain,
+    storefrontUrl: env.JUDGEME_STOREFRONT_URL,
+  });
   const judgeMeWidgets = await loadJudgeMeWidgets({
     aiReviewsSummaryMetafieldValue: criticalData.aiReviewsSummaryMetafieldValue,
     productId: criticalData.product.id,
@@ -80,8 +89,8 @@ export async function loader(args: Route.LoaderArgs) {
     shopifyAdminAccessToken: env.SHOPIFY_ADMIN_ACCESS_TOKEN,
     shopifyAdminApiVersion: env.SHOPIFY_ADMIN_API_VERSION ?? '2026-04',
     publicToken: env.JUDGEME_PUBLIC_TOKEN,
-    shopDomain: env.JUDGEME_SHOP_DOMAIN ?? env.PUBLIC_STORE_DOMAIN,
-    v3AssetBaseUrl: env.JUDGEME_V3_ASSET_BASE_URL,
+    shopDomain,
+    v3AssetBaseUrl: judgeMeAssets?.assetBaseUrl,
     signal: args.request.signal,
   });
 
@@ -146,262 +155,373 @@ async function loadJudgeMeWidgets({
 }) {
   if (!publicToken) return null;
 
-  try {
-    const numericProductId = getShopifyNumericId(productId);
-    const reviewsGridConfig = {
-      numberOfColumnsDesktop: 5,
-      numberOfRowsDesktop: 1,
-      numberOfColumnsMobile: 2,
-      numberOfRowsMobile: 2,
-    } as const;
-    const cardsCarouselConfig = {} as const;
-    const testimonialsCarouselConfig = {} as const;
-    const videosCarouselConfig = {reviewType: 'photos-and-videos'} as const;
-    const reviewSnippetsConfig = {
-      reviewSelection: 'current_product',
-      showReviewMedia: true,
-    } as const;
-    const happyCustomersConfig = {maxWidth: 1100} as const;
-    const reviewWidgetV3Config = {
-      maxWidth: 1200,
-      showStoreReviews: true,
-    } as const;
-    // The fixture store has Q&A disabled and no published questions. Judge.me's
-    // own read-only sample feed lets the harness exercise the complete renderer
-    // without inventing content or posting into the moderation queue.
-    const questionsAndAnswersPreviewMode = 'sample_data' as const;
-    const legacyWidgetsPromise = fetchLegacyStorefrontWidgets({
-      productId: numericProductId,
-      publicToken,
-      shopDomain,
-      signal,
-    });
-    const [
-      legacyWidgets,
-      reviewsGridPage,
-      cardsCarouselPage,
-      testimonialsCarouselPage,
-      videosCarouselPage,
-      reviewSnippetsPage,
-      happyCustomersPage,
-      reviewWidgetV3Page,
-      questionsAndAnswersPage,
-      trustBadgeMetafields,
-    ] = await Promise.all([
-      legacyWidgetsPromise,
-      v3AssetBaseUrl
-        ? fetchReviewsGridPage({
-            shopDomain,
-            productId: numericProductId,
-            config: reviewsGridConfig,
-            signal,
-          })
-        : Promise.resolve(null),
-      v3AssetBaseUrl
-        ? fetchCardsCarouselPage({
-            shopDomain,
-            productId: numericProductId,
-            config: cardsCarouselConfig,
-            signal,
-          })
-        : Promise.resolve(null),
-      v3AssetBaseUrl
-        ? fetchTestimonialsCarouselPage({
-            shopDomain,
-            productId: numericProductId,
-            config: testimonialsCarouselConfig,
-            signal,
-          })
-        : Promise.resolve(null),
-      v3AssetBaseUrl
-        ? fetchVideosCarouselPage({
-            shopDomain,
-            productId: numericProductId,
-            config: videosCarouselConfig,
-            signal,
-          })
-        : Promise.resolve(null),
-      v3AssetBaseUrl
-        ? fetchReviewSnippetsPage({
-            shopDomain,
-            productId: numericProductId,
-            config: reviewSnippetsConfig,
-            signal,
-          })
-        : Promise.resolve(null),
-      v3AssetBaseUrl
-        ? fetchHappyCustomersPage({
-            shopDomain,
-            config: happyCustomersConfig,
-            signal,
-          })
-        : Promise.resolve(null),
-      v3AssetBaseUrl
-        ? fetchReviewWidgetV3Page({
-            shopDomain,
-            productId: numericProductId,
-            previewWhenDisabled: true,
-            signal,
-          })
-        : Promise.resolve(null),
-      fetchQuestionsAndAnswersPage({
-        shopDomain,
+  const numericProductId = getShopifyNumericId(productId);
+  const reviewsGridConfig = {
+    numberOfColumnsDesktop: 5,
+    numberOfRowsDesktop: 1,
+    numberOfColumnsMobile: 2,
+    numberOfRowsMobile: 2,
+  } as const;
+  const cardsCarouselConfig = {} as const;
+  const testimonialsCarouselConfig = {} as const;
+  const videosCarouselConfig = {reviewType: 'photos-and-videos'} as const;
+  const reviewSnippetsConfig = {
+    reviewSelection: 'current_product',
+    showReviewMedia: true,
+  } as const;
+  const happyCustomersConfig = {maxWidth: 1100} as const;
+  const reviewWidgetV3Config = {
+    maxWidth: 1200,
+    showStoreReviews: true,
+  } as const;
+  const legacyWidgets = await loadOptionalJudgeMeData(
+    'legacy storefront batch',
+    () =>
+      fetchLegacyStorefrontWidgets({
         productId: numericProductId,
-        previewMode: questionsAndAnswersPreviewMode,
+        publicToken,
+        shopDomain,
         signal,
       }),
-      shopifyAdminAccessToken && v3AssetBaseUrl
-        ? fetchTrustBadgeMetafields({
-            adminAccessToken: shopifyAdminAccessToken,
-            apiVersion: shopifyAdminApiVersion,
-            shopDomain,
-            signal,
-          })
-        : Promise.resolve(null),
-    ]);
-    const popupReviewsPage = await fetchPopupReviewsPage({
-      shopDomain,
-      settings: legacyWidgets.resources.settings,
-      signal,
-    });
-    const aiReviewsSummary = createAiReviewsSummaryData({
-      config: {
-        theme: 'accordion',
-        keywordsVisibility: 'when_click',
-        showButton: false,
-      },
-      metafieldValue:
-        aiReviewsSummaryMetafieldValue ??
-        createAiReviewsSummaryHarnessFixture({
-          count: legacyWidgets.allReviewsCounter.count,
-          rating: Number(legacyWidgets.allReviewsCounter.rating),
-        }),
-      settings: legacyWidgets.resources.settings,
-      shopDomain,
-      source: aiReviewsSummaryMetafieldValue ? 'metafield' : 'fixture',
-    });
+    signal,
+  );
+  if (!legacyWidgets) return null;
 
-    return {
-      ...legacyWidgets,
-      aiReviewsSummary,
-      popupReviews: createPopupReviewsData({
-        page: popupReviewsPage,
-        settings: legacyWidgets.resources.settings,
-        shopDomain,
-      }),
-      questionsAndAnswers: createQuestionsAndAnswersData({
-        page: questionsAndAnswersPage,
-        productId: numericProductId,
-        productHandle,
-        productTitle,
-        settings: legacyWidgets.resources.settings,
-        shopDomain,
-      }),
-      reviewSnippets: reviewSnippetsPage
-        ? createReviewSnippetsData({
+  const qnaEnabled = normalizeQuestionsAndAnswersConfig(
+    legacyWidgets.resources.settings,
+  ).dashboardEnabled;
+  const [
+    reviewsGridPage,
+    cardsCarouselPage,
+    testimonialsCarouselPage,
+    videosCarouselPage,
+    reviewSnippetsPage,
+    happyCustomersPage,
+    reviewWidgetV3Page,
+    questionsAndAnswersPage,
+    popupReviewsPage,
+    trustBadgeMetafields,
+    adminAiReviewsSummaryMetafieldValue,
+  ] = await Promise.all([
+    loadOptionalJudgeMeData(
+      'Reviews Grid',
+      v3AssetBaseUrl
+        ? () =>
+            fetchReviewsGridPage({
+              shopDomain,
+              productId: numericProductId,
+              config: reviewsGridConfig,
+              signal,
+            })
+        : null,
+      signal,
+    ),
+    loadOptionalJudgeMeData(
+      'Cards Carousel',
+      v3AssetBaseUrl
+        ? () =>
+            fetchCardsCarouselPage({
+              shopDomain,
+              productId: numericProductId,
+              config: cardsCarouselConfig,
+              signal,
+            })
+        : null,
+      signal,
+    ),
+    loadOptionalJudgeMeData(
+      'Testimonials Carousel',
+      v3AssetBaseUrl
+        ? () =>
+            fetchTestimonialsCarouselPage({
+              shopDomain,
+              productId: numericProductId,
+              config: testimonialsCarouselConfig,
+              signal,
+            })
+        : null,
+      signal,
+    ),
+    loadOptionalJudgeMeData(
+      'Videos Carousel',
+      v3AssetBaseUrl
+        ? () =>
+            fetchVideosCarouselPage({
+              shopDomain,
+              productId: numericProductId,
+              config: videosCarouselConfig,
+              signal,
+            })
+        : null,
+      signal,
+    ),
+    loadOptionalJudgeMeData(
+      'Review Snippets',
+      v3AssetBaseUrl
+        ? () =>
+            fetchReviewSnippetsPage({
+              shopDomain,
+              productId: numericProductId,
+              config: reviewSnippetsConfig,
+              signal,
+            })
+        : null,
+      signal,
+    ),
+    loadOptionalJudgeMeData(
+      'Happy Customers',
+      v3AssetBaseUrl
+        ? () =>
+            fetchHappyCustomersPage({
+              shopDomain,
+              config: happyCustomersConfig,
+              signal,
+            })
+        : null,
+      signal,
+    ),
+    loadOptionalJudgeMeData(
+      'Review Widget v3',
+      v3AssetBaseUrl
+        ? () =>
+            fetchReviewWidgetV3Page({
+              shopDomain,
+              productId: numericProductId,
+              previewWhenDisabled: true,
+              signal,
+            })
+        : null,
+      signal,
+    ),
+    loadOptionalJudgeMeData(
+      'Questions & Answers',
+      qnaEnabled
+        ? () =>
+            fetchQuestionsAndAnswersPage({
+              shopDomain,
+              productId: numericProductId,
+              signal,
+            })
+        : null,
+      signal,
+    ),
+    loadOptionalJudgeMeData(
+      'Pop-up Reviews',
+      () =>
+        fetchPopupReviewsPage({
+          shopDomain,
+          settings: legacyWidgets.resources.settings,
+          signal,
+        }),
+      signal,
+    ),
+    loadOptionalJudgeMeData(
+      'Trust Badge metafields',
+      shopifyAdminAccessToken && v3AssetBaseUrl
+        ? () =>
+            fetchTrustBadgeMetafields({
+              adminAccessToken: shopifyAdminAccessToken,
+              apiVersion: shopifyAdminApiVersion,
+              shopDomain,
+              signal,
+            })
+        : null,
+      signal,
+    ),
+    loadOptionalJudgeMeData(
+      'AI Reviews Summary metafield',
+      !aiReviewsSummaryMetafieldValue &&
+        shopifyAdminAccessToken &&
+        v3AssetBaseUrl
+        ? () =>
+            fetchAiReviewsSummaryMetafield({
+              adminAccessToken: shopifyAdminAccessToken,
+              apiVersion: shopifyAdminApiVersion,
+              shopDomain,
+              signal,
+            })
+        : null,
+      signal,
+    ),
+  ]);
+  const aggregate = legacyWidgets.allReviewsCounter
+    ? {
+        count: legacyWidgets.allReviewsCounter.count,
+        rating: Number(legacyWidgets.allReviewsCounter.rating),
+      }
+    : null;
+  const legacyAllReviewsWidget = legacyWidgets.allReviewsWidget;
+  const resolvedAiReviewsSummaryMetafieldValue =
+    aiReviewsSummaryMetafieldValue ?? adminAiReviewsSummaryMetafieldValue;
+
+  return {
+    ...legacyWidgets,
+    aiReviewsSummary:
+      v3AssetBaseUrl && resolvedAiReviewsSummaryMetafieldValue
+        ? createOptionalJudgeMeData('AI Reviews Summary', () =>
+            createAiReviewsSummaryData({
+              config: {
+                theme: 'accordion',
+                keywordsVisibility: 'when_click',
+                showButton: false,
+              },
+              metafieldValue: resolvedAiReviewsSummaryMetafieldValue,
+              settings: legacyWidgets.resources.settings,
+              shopDomain,
+              source: 'metafield',
+            }),
+          )
+        : null,
+    popupReviews: popupReviewsPage
+      ? createOptionalJudgeMeData('Pop-up Reviews', () =>
+          createPopupReviewsData({
+            page: popupReviewsPage,
+            settings: legacyWidgets.resources.settings,
+            shopDomain,
+          }),
+        )
+      : null,
+    questionsAndAnswers: questionsAndAnswersPage
+      ? createOptionalJudgeMeData('Questions & Answers', () =>
+          createQuestionsAndAnswersData({
+            page: questionsAndAnswersPage,
+            productId: numericProductId,
+            productHandle,
+            productTitle,
+            settings: legacyWidgets.resources.settings,
+            shopDomain,
+          }),
+        )
+      : null,
+    reviewSnippets: reviewSnippetsPage
+      ? createOptionalJudgeMeData('Review Snippets', () =>
+          createReviewSnippetsData({
             config: reviewSnippetsConfig,
             page: reviewSnippetsPage,
             productId: numericProductId,
             settings: legacyWidgets.resources.settings,
             shopDomain,
-          })
-        : null,
-      reviewWidgetV3: reviewWidgetV3Page
-        ? createReviewWidgetV3Data({
+          }),
+        )
+      : null,
+    reviewWidgetV3: reviewWidgetV3Page && aggregate
+      ? createOptionalJudgeMeData('Review Widget v3', () =>
+          createReviewWidgetV3Data({
             config: reviewWidgetV3Config,
             page: reviewWidgetV3Page,
             productHandle,
             productId: numericProductId,
             productTitle,
             settings: legacyWidgets.resources.settings,
-            shopAggregate: {
-              count: legacyWidgets.allReviewsCounter.count,
-              rating: Number(legacyWidgets.allReviewsCounter.rating),
-            },
+            shopAggregate: aggregate,
             shopDomain,
             shopReviewsCount: happyCustomersPage?.numberOfShopReviews ?? 0,
-          })
-        : null,
-      happyCustomers: happyCustomersPage
-        ? createHappyCustomersData({
-            aggregate: {
-              count: legacyWidgets.allReviewsCounter.count,
-              rating: Number(legacyWidgets.allReviewsCounter.rating),
-            },
+          }),
+        )
+      : null,
+    happyCustomers:
+      happyCustomersPage && aggregate && legacyAllReviewsWidget
+      ? createOptionalJudgeMeData('Happy Customers', () =>
+          createHappyCustomersData({
+            aggregate,
             config: happyCustomersConfig,
-            legacyHtml: legacyWidgets.allReviewsWidget.html,
+            legacyHtml: legacyAllReviewsWidget.html,
             page: happyCustomersPage,
             previewWhenDisabled: true,
             settings: legacyWidgets.resources.settings,
             shopDomain,
-          })
-        : null,
-      reviewsGrid: reviewsGridPage
-        ? createReviewsGridData({
-            aggregate: {
-              count: legacyWidgets.allReviewsCounter.count,
-              rating: Number(legacyWidgets.allReviewsCounter.rating),
-            },
+          }),
+        )
+      : null,
+    reviewsGrid: reviewsGridPage && aggregate
+      ? createOptionalJudgeMeData('Reviews Grid', () =>
+          createReviewsGridData({
+            aggregate,
             config: reviewsGridConfig,
             page: reviewsGridPage,
             productId: numericProductId,
             settings: legacyWidgets.resources.settings,
             shopDomain,
-          })
-        : null,
-      cardsCarousel: cardsCarouselPage
-        ? createCardsCarouselData({
-            aggregate: {
-              count: legacyWidgets.allReviewsCounter.count,
-              rating: Number(legacyWidgets.allReviewsCounter.rating),
-            },
+          }),
+        )
+      : null,
+    cardsCarousel: cardsCarouselPage && aggregate
+      ? createOptionalJudgeMeData('Cards Carousel', () =>
+          createCardsCarouselData({
+            aggregate,
             config: cardsCarouselConfig,
             page: cardsCarouselPage,
             productId: numericProductId,
             settings: legacyWidgets.resources.settings,
             shopDomain,
             styles: legacyWidgets.resources.styles,
-          })
-        : null,
-      testimonialsCarousel: testimonialsCarouselPage
-        ? createTestimonialsCarouselData({
-            aggregate: {
-              count: legacyWidgets.allReviewsCounter.count,
-              rating: Number(legacyWidgets.allReviewsCounter.rating),
-            },
+          }),
+        )
+      : null,
+    testimonialsCarousel: testimonialsCarouselPage && aggregate
+      ? createOptionalJudgeMeData('Testimonials Carousel', () =>
+          createTestimonialsCarouselData({
+            aggregate,
             config: testimonialsCarouselConfig,
             page: testimonialsCarouselPage,
             productId: numericProductId,
             settings: legacyWidgets.resources.settings,
             shopDomain,
             styles: legacyWidgets.resources.styles,
-          })
-        : null,
-      trustBadge: trustBadgeMetafields
-        ? createTrustBadgeData({
+          }),
+        )
+      : null,
+    trustBadge: trustBadgeMetafields
+      ? createOptionalJudgeMeData('Trust Badge', () =>
+          createTrustBadgeData({
             metafields: trustBadgeMetafields,
             previewWhenDisabled: true,
             settings: legacyWidgets.resources.settings,
             shopDomain,
-          })
-        : null,
-      videosCarousel: videosCarouselPage
-        ? createVideosCarouselData({
-            aggregate: {
-              count: legacyWidgets.allReviewsCounter.count,
-              rating: Number(legacyWidgets.allReviewsCounter.rating),
-            },
+          }),
+        )
+      : null,
+    videosCarousel: videosCarouselPage && aggregate
+      ? createOptionalJudgeMeData('Videos Carousel', () =>
+          createVideosCarouselData({
+            aggregate,
             config: videosCarouselConfig,
             page: videosCarouselPage,
             productId: numericProductId,
             settings: legacyWidgets.resources.settings,
             shopDomain,
             styles: legacyWidgets.resources.styles,
-          })
-        : null,
-    };
+          }),
+        )
+      : null,
+  };
+}
+
+async function loadOptionalJudgeMeData<T>(
+  label: string,
+  load: (() => Promise<T>) | null,
+  signal: AbortSignal,
+): Promise<T | null> {
+  if (!load) return null;
+
+  try {
+    return await load();
   } catch (error) {
-    console.error('Unable to load the Judge.me product widgets', error);
+    if (!signal.aborted) {
+      console.error(`Unable to load Judge.me ${label}`, error);
+    }
+    return null;
+  }
+}
+
+function createOptionalJudgeMeData<T>(
+  label: string,
+  create: () => T,
+): T | null {
+  try {
+    return create();
+  } catch (error) {
+    console.error(`Unable to create Judge.me ${label}`, error);
     return null;
   }
 }
@@ -432,7 +552,7 @@ export default function Product() {
       <ProductImage image={selectedVariant?.image} />
       <div className="product-main">
         <h1>{title}</h1>
-        {judgeMeWidgets ? (
+        {judgeMeWidgets?.starRatingBadge ? (
           <StarRatingBadge
             className="product-rating"
             data={{
@@ -502,14 +622,16 @@ export default function Product() {
               includeStyles={false}
             />
           ) : null}
-          <AllReviewsCounter
-            className="product-reviews-counter"
-            data={{
-              ...judgeMeWidgets.allReviewsCounter,
-              ...judgeMeWidgets.resources,
-            }}
-            includeStyles={false}
-          />
+          {judgeMeWidgets.allReviewsCounter ? (
+            <AllReviewsCounter
+              className="product-reviews-counter"
+              data={{
+                ...judgeMeWidgets.allReviewsCounter,
+                ...judgeMeWidgets.resources,
+              }}
+              includeStyles={false}
+            />
+          ) : null}
           {judgeMeWidgets.happyCustomers ? (
             <div className="product-happy-customers-preview">
               {judgeMeWidgets.happyCustomers.source === 'disabled-preview' ? (
@@ -532,10 +654,12 @@ export default function Product() {
               data={judgeMeWidgets.reviewSnippets}
             />
           ) : null}
-          <QuestionsAndAnswers
-            className="product-questions-and-answers"
-            data={judgeMeWidgets.questionsAndAnswers}
-          />
+          {judgeMeWidgets.questionsAndAnswers ? (
+            <QuestionsAndAnswers
+              className="product-questions-and-answers"
+              data={judgeMeWidgets.questionsAndAnswers}
+            />
+          ) : null}
           {judgeMeWidgets.cardsCarousel ? (
             <CardsCarousel
               className="product-cards-carousel"
@@ -557,14 +681,16 @@ export default function Product() {
               includeStyles={false}
             />
           ) : null}
-          <ReviewsCarousel
-            className="product-reviews-carousel"
-            data={{
-              ...judgeMeWidgets.reviewsCarousel,
-              ...judgeMeWidgets.resources,
-            }}
-            includeStyles={false}
-          />
+          {judgeMeWidgets.reviewsCarousel ? (
+            <ReviewsCarousel
+              className="product-reviews-carousel"
+              data={{
+                ...judgeMeWidgets.reviewsCarousel,
+                ...judgeMeWidgets.resources,
+              }}
+              includeStyles={false}
+            />
+          ) : null}
           {judgeMeWidgets.reviewWidgetV3 ? (
             <div className="product-review-widget-v3-preview">
               {judgeMeWidgets.reviewWidgetV3.source === 'disabled-preview' ? (
@@ -574,7 +700,7 @@ export default function Product() {
               ) : null}
               <ReviewWidgetV3 data={judgeMeWidgets.reviewWidgetV3} />
             </div>
-          ) : (
+          ) : judgeMeWidgets.reviewWidget ? (
             <LegacyReviewWidget
               className="product-reviews"
               data={{
@@ -582,15 +708,17 @@ export default function Product() {
                 ...judgeMeWidgets.resources,
               }}
             />
-          )}
-          <AllReviewsWidget
-            className="product-all-reviews"
-            data={{
-              ...judgeMeWidgets.allReviewsWidget,
-              ...judgeMeWidgets.resources,
-            }}
-            includeStyles={false}
-          />
+          ) : null}
+          {judgeMeWidgets.allReviewsWidget ? (
+            <AllReviewsWidget
+              className="product-all-reviews"
+              data={{
+                ...judgeMeWidgets.allReviewsWidget,
+                ...judgeMeWidgets.resources,
+              }}
+              includeStyles={false}
+            />
+          ) : null}
           {judgeMeWidgets.reviewsGrid ? (
             <ReviewsGrid
               className="product-reviews-grid"
@@ -599,7 +727,7 @@ export default function Product() {
           ) : null}
         </div>
       ) : null}
-      {judgeMeWidgets ? (
+      {judgeMeWidgets?.floatingReviewsTab ? (
         <FloatingReviewsTab
           data={{
             ...judgeMeWidgets.floatingReviewsTab,
@@ -609,7 +737,7 @@ export default function Product() {
           position="right"
         />
       ) : null}
-      {judgeMeWidgets ? (
+      {judgeMeWidgets?.popupReviews ? (
         <PopupReviews data={judgeMeWidgets.popupReviews} pageType="product" />
       ) : null}
       <Analytics.ProductView
@@ -730,24 +858,3 @@ const PRODUCT_QUERY = `#graphql
   }
   ${PRODUCT_FRAGMENT}
 ` as const;
-
-function createAiReviewsSummaryHarnessFixture({
-  count,
-  rating,
-}: {
-  count: number;
-  rating: number;
-}) {
-  return {
-    average_rating: rating,
-    number_of_reviews: count,
-    ai_summary_text:
-      '(Local harness fixture — no paid Judge.me summary is enabled.) Shoppers frequently praise the print quality, thoughtful gift experience, quick delivery, and responsive support.',
-    keywords: [
-      {keyword: 'Print quality', sentiment: 'positive'},
-      {keyword: 'Gifts', sentiment: 'positive'},
-      {keyword: 'Delivery', sentiment: 'positive'},
-      {keyword: 'Support', sentiment: 'positive'},
-    ],
-  };
-}

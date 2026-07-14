@@ -19,6 +19,7 @@ Populate `.env` with the Shopify Headless channel values and these Judge.me valu
 ```dotenv
 JUDGEME_SHOP_DOMAIN=store.myshopify.com
 JUDGEME_PUBLIC_TOKEN=your-public-widget-api-token
+JUDGEME_STOREFRONT_URL=https://store.myshopify.com/products/published-product
 JUDGEME_V3_ASSET_BASE_URL=https://cdn.shopify.com/extensions/current-deployment/judgeme-handle/assets/
 SHOPIFY_ADMIN_ACCESS_TOKEN=your-server-only-admin-api-token
 SHOPIFY_ADMIN_API_VERSION=2026-04
@@ -26,15 +27,17 @@ SHOPIFY_ADMIN_API_VERSION=2026-04
 
 `JUDGEME_PRIVATE_TOKEN` is reserved for future server-only Judge.me adapters. The current product widgets do not use it, and it must never be sent through route data or React context.
 
-`SHOPIFY_ADMIN_ACCESS_TOKEN` is used only by the server loader to read Judge.me's Trust Badge shop metafields. Never return it from a loader, log it, or expose it through `JudgeMeProvider`. `SHOPIFY_ADMIN_API_VERSION` defaults to the stable `2026-04` version in the harness.
+`SHOPIFY_ADMIN_ACCESS_TOKEN` is used only by the server loader to read Judge.me's Trust Badge shop metafields and to fall back to the AI Reviews Summary metafield when Shopify does not expose it through the Storefront API. Never return it from a loader, log it, or expose it through `JudgeMeProvider`. `SHOPIFY_ADMIN_API_VERSION` defaults to the stable `2026-04` version in the harness.
 
-Open a published product at `/products/<handle>`. The route fetches the product badge, Verified Reviews Counter, Medals, UGC Media Grid, Trust Badge, shop-wide aggregate counter, classic carousel, legacy Review Widget, All Reviews Widget, Floating Reviews Tab, v3 Reviews Grid, Cards Carousel, Testimonials Carousel, Videos Carousel, Pop-up Reviews, Review Snippets, and Questions & Answers before returning loader data. It also requests `shop.metafields.judgeme.store_summary_widget_data` in the existing Shopify product query for AI Reviews Summary. The legacy components share one settings/CSS payload; the grid, three carousels, native popup, snippets, and Q&A reuse those resources while each adds one tokenless public request. AI Reviews Summary adds no Judge.me data request. Trust Badge adds one Shopify Admin read but no Judge.me loader request; its modal fetches verified reviews only when opened. The All Reviews response supplies the aggregate-counter values and is also reused for the floating tab when Judge.me returns no official tab markup. The home page independently fetches the store-level Verified Reviews Counter so it remains testable without product data.
+Open a published product at `/products/<handle>`. The route fetches the product badge, Verified Reviews Counter, Medals, UGC Media Grid, Trust Badge, shop-wide aggregate counter, classic carousel, legacy Review Widget, All Reviews Widget, Floating Reviews Tab, v3 Reviews Grid, Cards Carousel, Testimonials Carousel, Videos Carousel, Pop-up Reviews, Review Snippets, Happy Customers, and the new Review Widget before returning loader data. Questions & Answers is fetched only when the current dashboard setting enables it. The legacy components share one settings/CSS payload, but each returned widget is nullable and rendered independently. Malformed collection rows are discarded, optional metadata gets a safe fallback, and one deployment or response-shape failure no longer blanks the page. Unsafe markup and product/selection mismatches still fail closed. The All Reviews response supplies aggregate values and the floating-tab fallback when Judge.me returns no official tab markup. The home page independently fetches the store-level Verified Reviews Counter so it remains testable without product data.
+
+The existing Shopify product query first requests `shop.metafields.judgeme.store_summary_widget_data` through Storefront GraphQL. If Shopify returns `null`, the server-only `fetchAiReviewsSummaryMetafield` helper retries that one public-display metafield through Admin GraphQL. The browser receives only the metafield string, never the Admin token. AI Reviews Summary adds no Judge.me data request; Trust Badge and the summary fallback can each add one Shopify Admin read.
 
 Review Snippets is placed directly below the AI summary in the vertical widget stack. Its loader call uses the public v2 snippet endpoint; a narrowly scoped preload bridge gives the exact current Judge.me module that response when it initializes, so the browser does not repeat the request. The current Free-plan fixture returns five product reviews even though Judge.me officially presents the theme block as an Awesome-plan widget.
 
-Judge.me only creates the store-summary metafield for an enabled AI Reviews Summary. The current Free-plan test store returns `null`, so this harness substitutes a conspicuously labeled local fixture for lifecycle testing; production library consumers receive `null` when no real metafield is present and should omit the component.
+Judge.me only creates the store-summary metafield for an enabled AI Reviews Summary. The harness does not synthesize summary or Q&A content: a missing summary remains unmounted, and a disabled Q&A setting skips both its read and component. Theme-editor sample data is not treated as production storefront data.
 
-`JUDGEME_V3_ASSET_BASE_URL` is the current Judge.me Shopify extension `assets/` directory visible in the theme's app-embed loader. It is deployment-specific and should be refreshed when Judge.me publishes a new extension build.
+`JUDGEME_STOREFRONT_URL` points to a public Online Store page where the Judge.me app embed is enabled. The server inspects that page, validates candidate extension manifests, and automatically supplies the current deployment to React. `JUDGEME_V3_ASSET_BASE_URL` is now an optional last-known-good fallback for password-protected, rate-limited, or temporarily unavailable theme pages; it should still be refreshed by a compatibility job after Judge.me deployments.
 
 ## CSP
 

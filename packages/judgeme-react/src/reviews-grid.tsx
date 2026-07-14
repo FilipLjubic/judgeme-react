@@ -2,6 +2,7 @@ import { useEffect, useRef, type ComponentPropsWithoutRef } from "react";
 import { initializeReviewsGrid } from "./exact-runtime.js";
 import type { ReviewsGridData } from "./reviews-grid-api.js";
 import { useJudgeMe } from "./provider.js";
+import { startJudgeMeRuntime } from "./runtime-lifecycle.js";
 
 export interface ReviewsGridProps extends Omit<
   ComponentPropsWithoutRef<"section">,
@@ -20,46 +21,33 @@ export function ReviewsGrid({
   ...sectionProps
 }: ReviewsGridProps) {
   const containerRef = useRef<HTMLElement>(null);
-  const { meta } = useJudgeMe();
+  const { actions, meta } = useJudgeMe();
   const config = data.config;
 
   useEffect(() => {
     const container = containerRef.current;
     const assetBaseUrl = meta.config.v3AssetBaseUrl;
-    let active = true;
+    if (!container) return;
 
-    if (!container || !assetBaseUrl) {
-      if (container) {
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error(
-          "Judge.me Reviews Grid requires config.v3AssetBaseUrl from the current Shopify extension deployment.",
-        );
-      }
-      return;
-    }
-
-    container.dataset.judgemeReactRuntimeStatus = "loading";
-
-    initializeReviewsGrid({
+    return startJudgeMeRuntime({
       assetBaseUrl,
       container,
-      data,
-      publicToken: meta.config.publicToken,
-    })
-      .then(() => {
-        if (active) container.dataset.judgemeReactRuntimeStatus = "ready";
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error("Judge.me Reviews Grid runtime error", error);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [data, meta.config.publicToken, meta.config.v3AssetBaseUrl]);
+      initialize: () =>
+        initializeReviewsGrid({
+          assetBaseUrl: assetBaseUrl!,
+          container,
+          data,
+          publicToken: meta.config.publicToken,
+        }),
+      reportStatus: actions.reportRuntimeStatus,
+      widget: "reviews-grid",
+    });
+  }, [
+    actions.reportRuntimeStatus,
+    data,
+    meta.config.publicToken,
+    meta.config.v3AssetBaseUrl,
+  ]);
 
   return (
     <section

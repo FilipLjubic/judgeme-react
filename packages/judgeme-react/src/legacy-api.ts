@@ -111,18 +111,20 @@ export interface FloatingReviewsTabData
 /** A request-efficient payload for rendering both product widgets together. */
 export interface LegacyProductWidgetsData {
   resources: LegacyWidgetResources;
-  reviewWidget: LegacyProductWidgetMarkup;
-  starRatingBadge: LegacyProductWidgetMarkup;
+  /** `null` when only this endpoint or its markup is invalid. */
+  reviewWidget: LegacyProductWidgetMarkup | null;
+  /** `null` when only this endpoint or its markup is invalid. */
+  starRatingBadge: LegacyProductWidgetMarkup | null;
 }
 
 /** A request-efficient payload for the implemented product and shop widgets. */
 export interface LegacyStorefrontWidgetsData extends LegacyProductWidgetsData {
-  allReviewsCounter: AllReviewsCounterMarkup;
-  allReviewsWidget: AllReviewsWidgetMarkup;
-  floatingReviewsTab: FloatingReviewsTabMarkup;
+  allReviewsCounter: AllReviewsCounterMarkup | null;
+  allReviewsWidget: AllReviewsWidgetMarkup | null;
+  floatingReviewsTab: FloatingReviewsTabMarkup | null;
   /** `null` until the store has earned Judge.me Medals. */
   medals: JudgeMeMedalsMarkup | null;
-  reviewsCarousel: LegacyShopWidgetMarkup;
+  reviewsCarousel: LegacyShopWidgetMarkup | null;
   /** `null` until the store has at least one published Instagram post. */
   ugcMediaGrid: UgcMediaGridMarkup | null;
   /** `null` until the store meets Judge.me's verified-review eligibility. */
@@ -528,9 +530,9 @@ export async function fetchLegacyProductWidgets({
   });
 
   const [reviewWidget, starRatingBadge, resources] = await Promise.all([
-    fetchReviewWidgetMarkup(context),
-    fetchStarRatingBadgeMarkup(context),
-    fetchLegacyWidgetResources(context),
+    settleLegacyValue(fetchReviewWidgetMarkup(context), context.signal),
+    settleLegacyValue(fetchStarRatingBadgeMarkup(context), context.signal),
+    resolveLegacyWidgetResources(context),
   ]);
 
   return { resources, reviewWidget, starRatingBadge };
@@ -538,7 +540,8 @@ export async function fetchLegacyProductWidgets({
 
 /**
  * Fetches every currently implemented legacy storefront widget with one shared
- * settings/CSS payload. Prefer this on routes that render all nine.
+ * settings/CSS payload. Each widget is isolated: an invalid or unavailable
+ * endpoint becomes `null` without rejecting the rest of the batch.
  */
 export async function fetchLegacyStorefrontWidgets({
   shopDomain,
@@ -558,19 +561,43 @@ export async function fetchLegacyStorefrontWidgets({
   // Judge.me's own platform-independent preloader returns Medals, UGC Media
   // Grid, settings, and html_miracle together. Reuse that exact response
   // instead of fetching settings and CSS again through separate Widget reads.
-  const storefrontCachePromise = fetchStorefrontCacheData(context, {
-    medals: true,
-    ugcMediaGrid: true,
-  });
-  const resourcesPromise = storefrontCachePromise.then(
-    ({ resources }) => resources,
+  const storefrontCacheResponsePromise = settleLegacyValue(
+    fetchStorefrontCacheResponse(context, {
+      medals: true,
+      ugcMediaGrid: true,
+    }),
+    context.signal,
   );
-  const ugcMediaGridPromise = storefrontCachePromise.then(
-    ({ ugcMediaGrid }) =>
-      ugcMediaGrid ?? fetchUgcMediaGridFallback(context, 9),
+  const resourcesPromise = storefrontCacheResponsePromise.then((response) =>
+    resolveLegacyWidgetResources(context, response),
+  );
+  const medalsPromise = storefrontCacheResponsePromise.then((response) =>
+    response
+      ? settleLegacyFactory(
+          () => normalizeJudgeMeMedalsMarkup(response.medals),
+          context.signal,
+        )
+      : null,
+  );
+  const ugcMediaGridPromise = storefrontCacheResponsePromise.then(
+    async (response) => {
+      const cached = response
+        ? settleLegacyFactory(
+            () => normalizeUgcMediaGridMarkup(response.ugc_media_grid, "cache"),
+            context.signal,
+          )
+        : null;
+      return (
+        cached ??
+        settleLegacyValue(fetchUgcMediaGridFallback(context, 9), context.signal)
+      );
+    },
   );
   const allReviewsPagePromise = resourcesPromise.then(({ settings }) =>
-    fetchAllReviewsPageMarkup(context, getInitialAllReviewsType(settings)),
+    settleLegacyValue(
+      fetchAllReviewsPageMarkup(context, getInitialAllReviewsType(settings)),
+      context.signal,
+    ),
   );
   const [
     reviewWidget,
@@ -578,40 +605,64 @@ export async function fetchLegacyStorefrontWidgets({
     reviewsCarousel,
     reviewsTab,
     verifiedReviewsCounter,
-    storefrontCache,
+    resources,
+    medals,
     allReviewsPage,
     ugcMediaGrid,
   ] = await Promise.all([
-    fetchReviewWidgetMarkup(context),
-    fetchStarRatingBadgeMarkup(context),
-    fetchReviewsCarouselMarkup(context),
-    fetchReviewsTabResponse(context),
-    fetchVerifiedReviewsCounterMarkup(context),
-    storefrontCachePromise,
+    settleLegacyValue(fetchReviewWidgetMarkup(context), context.signal),
+    settleLegacyValue(fetchStarRatingBadgeMarkup(context), context.signal),
+    settleLegacyValue(fetchReviewsCarouselMarkup(context), context.signal),
+    settleLegacyValue(fetchReviewsTabResponse(context), context.signal),
+    settleLegacyValue(
+      fetchVerifiedReviewsCounterMarkup(context),
+      context.signal,
+    ),
+    resourcesPromise,
+    medalsPromise,
     allReviewsPagePromise,
     ugcMediaGridPromise,
   ]);
-  const { medals, resources } = storefrontCache;
-  const floatingReviewsTab = await resolveFloatingReviewsTabMarkup(
-    context,
-    reviewsTab,
-    resources.settings,
-    allReviewsPage,
-  );
-  const allReviewsStats = readAllReviewsStats(allReviewsPage.headerHtml);
+  let floatingReviewsTab = reviewsTab
+    ? await settleLegacyValue(
+        resolveFloatingReviewsTabMarkup(
+          context,
+          reviewsTab,
+          resources.settings,
+          allReviewsPage ?? undefined,
+        ),
+        context.signal,
+      )
+    : null;
+  if (!floatingReviewsTab && allReviewsPage) {
+    floatingReviewsTab = settleLegacyFactory(
+      () =>
+        createFloatingReviewsTabFallbackMarkup(
+          allReviewsPage,
+          resources.settings,
+        ),
+      context.signal,
+    );
+  }
+  const allReviewsCounter = allReviewsPage
+    ? settleLegacyFactory(
+        () => createAllReviewsCounterFromPage(allReviewsPage, resources.settings),
+        context.signal,
+      )
+    : await settleLegacyValue(
+        fetchAllReviewsCounterMarkup(context, resources.settings),
+        context.signal,
+      );
+  const allReviewsWidget = allReviewsPage
+    ? settleLegacyFactory(
+        () => createAllReviewsWidgetMarkup(allReviewsPage, resources.settings),
+        context.signal,
+      )
+    : null;
 
   return {
-    allReviewsCounter: createAllReviewsCounterMarkup(
-      {
-        count: normalizeAllReviewsCount(allReviewsStats.allReviews),
-        rating: normalizeAllReviewsRating(allReviewsStats.averageRating),
-      },
-      resources.settings,
-    ),
-    allReviewsWidget: createAllReviewsWidgetMarkup(
-      allReviewsPage,
-      resources.settings,
-    ),
+    allReviewsCounter,
+    allReviewsWidget,
     floatingReviewsTab,
     medals,
     resources,
@@ -621,6 +672,47 @@ export async function fetchLegacyStorefrontWidgets({
     ugcMediaGrid,
     verifiedReviewsCounter,
   };
+}
+
+function createAllReviewsCounterFromPage(
+  page: AllReviewsPageMarkup,
+  settings: JudgeMeRuntimeSettings,
+): AllReviewsCounterMarkup {
+  const stats = readAllReviewsStats(page.headerHtml);
+  return createAllReviewsCounterMarkup(
+    {
+      count: normalizeAllReviewsCount(stats.allReviews),
+      rating: normalizeAllReviewsRating(stats.averageRating),
+    },
+    settings,
+  );
+}
+
+async function fetchAllReviewsCounterMarkup(
+  context: LegacyShopRequestContext,
+  settings: JudgeMeRuntimeSettings,
+): Promise<AllReviewsCounterMarkup> {
+  const [countResponse, ratingResponse] = await Promise.all([
+    fetchWidgetEndpoint<AllReviewsCountResponse>(
+      "all_reviews_count",
+      context.commonParams,
+      context.fetchImplementation,
+      context.signal,
+    ),
+    fetchWidgetEndpoint<AllReviewsRatingResponse>(
+      "all_reviews_rating",
+      context.commonParams,
+      context.fetchImplementation,
+      context.signal,
+    ),
+  ]);
+  return createAllReviewsCounterMarkup(
+    {
+      count: normalizeAllReviewsCount(countResponse.all_reviews_count),
+      rating: normalizeAllReviewsRating(ratingResponse.all_reviews_rating),
+    },
+    settings,
+  );
 }
 
 function createLegacyRequestContext({
@@ -809,10 +901,19 @@ async function resolveFloatingReviewsTabMarkup(
     ));
 
   return {
+    ...createFloatingReviewsTabFallbackMarkup(fallback, settings),
+  };
+}
+
+function createFloatingReviewsTabFallbackMarkup(
+  page: AllReviewsPageMarkup,
+  settings: JudgeMeRuntimeSettings,
+): FloatingReviewsTabMarkup {
+  return {
     html: createFloatingReviewsTabFallback({
-      headerHtml: fallback.headerHtml,
-      reviewType: fallback.reviewType,
-      reviewsHtml: fallback.reviewsHtml,
+      headerHtml: page.headerHtml,
+      reviewType: page.reviewType,
+      reviewsHtml: page.reviewsHtml,
       settings,
     }),
     source: "all-reviews-page-fallback",
@@ -1295,6 +1396,16 @@ function escapeHtml(value: string): string {
 async function fetchLegacyWidgetResources(
   context: LegacyShopRequestContext,
 ): Promise<LegacyWidgetResources> {
+  const response = await fetchLegacyWidgetResourceResponse(context);
+  return createLegacyWidgetResources(
+    response.settings,
+    response.html_miracle,
+  );
+}
+
+async function fetchLegacyWidgetResourceResponse(
+  context: LegacyShopRequestContext,
+): Promise<SettingsResponse & HtmlMiracleResponse> {
   const [settings, htmlMiracle] = await Promise.all([
     fetchWidgetEndpoint<SettingsResponse>(
       "settings",
@@ -1310,16 +1421,32 @@ async function fetchLegacyWidgetResources(
     ),
   ]);
 
-  return createLegacyWidgetResources(
-    settings.settings,
-    htmlMiracle.html_miracle,
-  );
+  return { ...settings, ...htmlMiracle };
 }
 
 async function fetchStorefrontCacheData(
   context: LegacyShopRequestContext,
   selection: StorefrontCacheSelection,
 ): Promise<StorefrontCacheData> {
+  const payload = await fetchStorefrontCacheResponse(context, selection);
+
+  return {
+    medals: normalizeJudgeMeMedalsMarkup(payload.medals),
+    resources: createLegacyWidgetResources(
+      payload.settings,
+      payload.html_miracle,
+    ),
+    ugcMediaGrid: normalizeUgcMediaGridMarkup(
+      payload.ugc_media_grid,
+      "cache",
+    ),
+  };
+}
+
+async function fetchStorefrontCacheResponse(
+  context: LegacyShopRequestContext,
+  selection: StorefrontCacheSelection,
+): Promise<StorefrontCacheResponse> {
   const shopDomain = context.commonParams.shop_domain;
   const publicToken = context.commonParams.api_token;
   const url = new URL(
@@ -1351,17 +1478,7 @@ async function fetchStorefrontCacheData(
     throw new Error("Judge.me storefront cache returned invalid JSON.");
   }
 
-  return {
-    medals: normalizeJudgeMeMedalsMarkup(payload.medals),
-    resources: createLegacyWidgetResources(
-      payload.settings,
-      payload.html_miracle,
-    ),
-    ugcMediaGrid: normalizeUgcMediaGridMarkup(
-      payload.ugc_media_grid,
-      "cache",
-    ),
-  };
+  return payload;
 }
 
 async function fetchUgcMediaGridFallback(
@@ -1432,6 +1549,94 @@ function createLegacyWidgetResources(
       ...extractStyleContents(htmlMiracle),
     ].join("\n"),
   };
+}
+
+async function resolveLegacyWidgetResources(
+  context: LegacyShopRequestContext,
+  cacheResponse?: StorefrontCacheResponse | null,
+): Promise<LegacyWidgetResources> {
+  if (cacheResponse) {
+    const cached = settleLegacyFactory(
+      () =>
+        createLegacyWidgetResources(
+          cacheResponse.settings,
+          cacheResponse.html_miracle,
+        ),
+      context.signal,
+    );
+    if (cached) return cached;
+  }
+
+  const standaloneResponse = await settleLegacyValue(
+    fetchLegacyWidgetResourceResponse(context),
+    context.signal,
+  );
+  if (standaloneResponse) {
+    const standalone = settleLegacyFactory(
+      () =>
+        createLegacyWidgetResources(
+          standaloneResponse.settings,
+          standaloneResponse.html_miracle,
+        ),
+      context.signal,
+    );
+    if (standalone) return standalone;
+  }
+
+  return createFallbackLegacyWidgetResources(
+    standaloneResponse,
+    cacheResponse,
+  );
+}
+
+function createFallbackLegacyWidgetResources(
+  ...responses: Array<Partial<StorefrontCacheResponse> | null | undefined>
+): LegacyWidgetResources {
+  let settings: JudgeMeRuntimeSettings = {};
+  for (const response of responses) {
+    if (typeof response?.settings === "string") {
+      try {
+        settings = parseRuntimeSettings(response.settings);
+        break;
+      } catch {
+        // Try the next available settings payload.
+      }
+    }
+  }
+
+  return {
+    settings: createLegacyRuntimeSettings(settings),
+    styles: responses
+      .flatMap((response) => [response?.settings, response?.html_miracle])
+      .flatMap((html) =>
+        typeof html === "string" ? extractStyleContents(html) : [],
+      )
+      .join("\n"),
+  };
+}
+
+async function settleLegacyValue<T>(
+  value: Promise<T>,
+  signal?: AbortSignal,
+): Promise<T | null> {
+  try {
+    return await value;
+  } catch (error) {
+    if (signal?.aborted) throw signal.reason ?? error;
+    return null;
+  }
+}
+
+function settleLegacyFactory<T>(
+  create: () => T,
+  signal?: AbortSignal,
+): T | null {
+  try {
+    return create();
+  } catch (error) {
+    if (signal?.aborted) throw signal.reason ?? error;
+    return null;
+  }
 }
 
 function normalizeJudgeMeMedalsMarkup(
@@ -1518,9 +1723,6 @@ function normalizeUgcMediaGridMarkup(
     throw new Error("Judge.me returned incomplete UGC Media Grid markup.");
   }
 
-  const perPage = normalizeUgcPerPage(
-    readHtmlAttribute(gridTag, "data-per-page"),
-  );
   const serializedPosts = readHtmlAttribute(dataTag, "data-json");
   if (serializedPosts === null) {
     throw new Error("Judge.me returned incomplete UGC Media Grid data.");
@@ -1535,6 +1737,16 @@ function normalizeUgcMediaGridMarkup(
 
   const normalizedPosts = normalizeUgcPosts(posts);
   if (normalizedPosts.length === 0) return null;
+  const perPage = normalizeUgcPerPage(
+    readHtmlAttribute(gridTag, "data-per-page"),
+    Math.min(9, Math.max(1, normalizedPosts.length)),
+  );
+  const sanitizedDataTag = setHtmlAttribute(
+    dataTag,
+    "data-json",
+    escapeHtml(JSON.stringify(normalizedPosts)),
+  );
+  completeHtml = completeHtml.replace(dataTag, sanitizedDataTag);
 
   return {
     html: completeHtml,
@@ -1545,11 +1757,9 @@ function normalizeUgcMediaGridMarkup(
 }
 
 function normalizeUgcPosts(posts: unknown): Record<string, unknown>[] {
-  if (!Array.isArray(posts)) {
-    throw new Error("Judge.me returned invalid UGC Media Grid posts.");
-  }
+  if (!Array.isArray(posts)) return [];
 
-  return posts.map((post) => {
+  return posts.flatMap((post) => {
     if (
       !isUnknownRecord(post) ||
       !isUgcPostId(post.id ?? post.uuid) ||
@@ -1558,11 +1768,26 @@ function normalizeUgcPosts(posts: unknown): Record<string, unknown>[] {
       !isHttpsUrl(post.thumbnail_url) ||
       !Array.isArray(post.products)
     ) {
-      throw new Error("Judge.me returned an invalid UGC Media Grid post.");
+      return [];
     }
 
-    return post;
+    return [post];
   });
+}
+
+function setHtmlAttribute(
+  tag: string,
+  name: string,
+  escapedValue: string,
+): string {
+  const pattern = new RegExp(
+    `\\b${escapeRegExp(name)}\\s*=\\s*(["'])[^"']*\\1`,
+    "i",
+  );
+  if (pattern.test(tag)) {
+    return tag.replace(pattern, `${name}="${escapedValue}"`);
+  }
+  return tag.replace(/\s*\/?\s*>$/, ` ${name}="${escapedValue}">`);
 }
 
 function normalizeUgcPerPage(value: unknown, fallback?: number): number {

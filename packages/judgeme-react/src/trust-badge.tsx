@@ -7,6 +7,7 @@ import {
 import { disposeTrustBadge, initializeTrustBadge } from "./exact-runtime.js";
 import type { TrustBadgeData } from "./trust-badge-api.js";
 import { useJudgeMe } from "./provider.js";
+import { startJudgeMeRuntime } from "./runtime-lifecycle.js";
 
 export interface TrustBadgeProps extends Omit<
   ComponentPropsWithoutRef<"section">,
@@ -22,7 +23,7 @@ export function TrustBadge({
   ...sectionProps
 }: TrustBadgeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { meta } = useJudgeMe();
+  const { actions, meta } = useJudgeMe();
   const badgeJson = useMemo(
     () =>
       serializeScriptJson({
@@ -59,40 +60,28 @@ export function TrustBadge({
   useEffect(() => {
     const container = containerRef.current;
     const assetBaseUrl = meta.config.v3AssetBaseUrl;
-    let active = true;
+    if (!container) return;
 
-    if (!container || !assetBaseUrl) {
-      if (container) {
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error(
-          "Judge.me Trust Badge requires config.v3AssetBaseUrl from the current Shopify extension deployment.",
-        );
-      }
-      return;
-    }
-
-    container.dataset.judgemeReactRuntimeStatus = "loading";
-    initializeTrustBadge({
+    return startJudgeMeRuntime({
       assetBaseUrl,
       container,
-      data,
-      publicToken: meta.config.publicToken,
-    })
-      .then(() => {
-        if (active) container.dataset.judgemeReactRuntimeStatus = "ready";
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error("Judge.me Trust Badge runtime error", error);
-      });
-
-    return () => {
-      active = false;
-      disposeTrustBadge(container);
-    };
-  }, [data, meta.config.publicToken, meta.config.v3AssetBaseUrl]);
+      dispose: () => disposeTrustBadge(container),
+      initialize: () =>
+        initializeTrustBadge({
+          assetBaseUrl: assetBaseUrl!,
+          container,
+          data,
+          publicToken: meta.config.publicToken,
+        }),
+      reportStatus: actions.reportRuntimeStatus,
+      widget: "trust-badge",
+    });
+  }, [
+    actions.reportRuntimeStatus,
+    data,
+    meta.config.publicToken,
+    meta.config.v3AssetBaseUrl,
+  ]);
 
   return (
     <section

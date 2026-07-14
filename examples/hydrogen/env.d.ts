@@ -13,6 +13,7 @@ declare global {
     JUDGEME_PRIVATE_TOKEN?: string;
     JUDGEME_PUBLIC_TOKEN?: string;
     JUDGEME_SHOP_DOMAIN?: string;
+    JUDGEME_STOREFRONT_URL?: string;
     JUDGEME_V3_ASSET_BASE_URL?: string;
   }
 }

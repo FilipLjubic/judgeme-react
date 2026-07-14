@@ -425,18 +425,12 @@ function normalizeTrustBadgeModal(
 
 function normalizeAiSummary(value: unknown): TrustBadgeAiSummary | null {
   if (value === undefined || value === null) return null;
-  if (!isRecord(value)) {
-    throw new Error("Judge.me returned invalid Trust Badge AI summary data.");
-  }
+  if (!isRecord(value)) return null;
 
   const text = readNonEmptyString(value.text);
   const lastUpdated = readNonEmptyString(value.last_updated);
   if (!text && !lastUpdated && Object.keys(value).length === 0) return null;
-  if (!text || !lastUpdated) {
-    throw new Error(
-      "Judge.me returned incomplete Trust Badge AI summary data.",
-    );
-  }
+  if (!text || !lastUpdated) return null;
 
   return { lastUpdated, text };
 }
@@ -444,33 +438,32 @@ function normalizeAiSummary(value: unknown): TrustBadgeAiSummary | null {
 function normalizeRatingDistribution(
   value: unknown,
 ): TrustBadgeRatingDistribution {
-  if (!isRecord(value)) {
-    throw new Error(
-      "Judge.me returned invalid Trust Badge rating distribution.",
-    );
-  }
+  if (!isRecord(value)) return createEmptyRatingDistribution();
 
   return {
-    "1_star": readCount(value["1_star"], "one-star review count"),
-    "2_star": readCount(value["2_star"], "two-star review count"),
-    "3_star": readCount(value["3_star"], "three-star review count"),
-    "4_star": readCount(value["4_star"], "four-star review count"),
-    "5_star": readCount(value["5_star"], "five-star review count"),
+    "1_star": readOptionalCount(value["1_star"]),
+    "2_star": readOptionalCount(value["2_star"]),
+    "3_star": readOptionalCount(value["3_star"]),
+    "4_star": readOptionalCount(value["4_star"]),
+    "5_star": readOptionalCount(value["5_star"]),
   };
+}
+
+function createEmptyRatingDistribution(): TrustBadgeRatingDistribution {
+  return { "1_star": 0, "2_star": 0, "3_star": 0, "4_star": 0, "5_star": 0 };
+}
+
+function readOptionalCount(value: unknown): number {
+  const count = typeof value === "number" ? value : Number(value);
+  return Number.isSafeInteger(count) && count >= 0 ? count : 0;
 }
 
 function normalizeSentimentTags(value: unknown): TrustBadgeSentimentTag[] {
   if (value === undefined || value === null) return [];
-  if (!Array.isArray(value)) {
-    throw new Error("Judge.me returned invalid Trust Badge sentiment tags.");
-  }
+  if (!Array.isArray(value)) return [];
 
-  return value.map((tag) => {
-    if (!isRecord(tag)) {
-      throw new Error(
-        "Judge.me returned an invalid Trust Badge sentiment tag.",
-      );
-    }
+  return value.flatMap((tag) => {
+    if (!isRecord(tag)) return [];
     const name = readNonEmptyString(tag.name);
     const sentiment = tag.sentiment;
     if (
@@ -479,11 +472,9 @@ function normalizeSentimentTags(value: unknown): TrustBadgeSentimentTag[] {
         sentiment !== "neutral" &&
         sentiment !== "negative")
     ) {
-      throw new Error(
-        "Judge.me returned an invalid Trust Badge sentiment tag.",
-      );
+      return [];
     }
-    return { name, sentiment };
+    return [{ name, sentiment }];
   });
 }
 

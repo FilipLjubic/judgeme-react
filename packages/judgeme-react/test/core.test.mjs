@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { startJudgeMeRuntime } from "../dist/runtime-lifecycle.js";
 import {
   createAiReviewsSummaryData,
   createHappyCustomersData,
@@ -9,6 +10,7 @@ import {
   createReviewWidgetV3Data,
   createTrustBadgeData,
   createJudgeMeConfig,
+  clearJudgeMeV3AssetDiscoveryCache,
   fetchCardsCarousel,
   fetchCardsCarouselPage,
   fetchAllReviewsCounter,
@@ -18,14 +20,17 @@ import {
   fetchLegacyProductWidgets,
   fetchLegacyReviewWidget,
   fetchLegacyStorefrontWidgets,
+  fetchAiReviewsSummaryMetafield,
   fetchAiReviewsSummaryStatus,
   fetchHappyCustomersPage,
   fetchPopupReviewsPage,
   fetchQuestionsAndAnswersPage,
   fetchReviewSnippetsPage,
+  fetchReviewWidgetV3,
   fetchReviewWidgetV3Page,
   fetchReviewsCarousel,
   fetchReviewsGrid,
+  fetchReviewsGridPage,
   fetchStarRatingBadge,
   fetchTestimonialsCarousel,
   fetchTestimonialsCarouselPage,
@@ -45,6 +50,7 @@ import {
   normalizeReviewWidgetV3Config,
   normalizeVideosCarouselConfig,
   parseAiReviewsSummaryMetafield,
+  resolveJudgeMeV3AssetDeployment,
   resolveJudgeMeEngine,
   submitQuestion,
   TrustBadge,
@@ -84,6 +90,172 @@ test("normalizes an official Shopify extension asset base", () => {
       }),
     /official cdn\.shopify\.com/,
   );
+});
+
+test("discovers and manifest-validates the current Judge.me v3 deployment", async () => {
+  clearJudgeMeV3AssetDiscoveryCache();
+  const storefrontUrl = "https://store.example/products/example";
+  const unrelatedBase =
+    "https://cdn.shopify.com/extensions/unrelated/other-app/assets/";
+  const judgeMeBase =
+    "https://cdn.shopify.com/extensions/deployment-2/judgeme-624/assets/";
+  const requests = [];
+  const mockFetch = async (input) => {
+    const url = String(input);
+    requests.push(url);
+
+    if (url === storefrontUrl) {
+      return new Response(
+        `<script src="${unrelatedBase}loader.js"></script>` +
+          `<script>window.asset = "${judgeMeBase.replaceAll("/", "\\/")}loader.js"</script>`,
+        { status: 200, headers: { "content-type": "text/html" } },
+      );
+    }
+
+    if (url === `${unrelatedBase}manifest.json`) {
+      return Response.json({ "other/main.js": { file: "other.js" } });
+    }
+
+    if (url === `${judgeMeBase}manifest.json`) {
+      return Response.json({
+        "review-widget/main.js": { file: "review-widget.js" },
+        "reviews-grid-widget/main.js": { file: "reviews-grid.js" },
+      });
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  const deployment = await resolveJudgeMeV3AssetDeployment({
+    shopDomain: "store.myshopify.com",
+    storefrontUrl,
+    requiredManifestEntries: [
+      "review-widget/main.js",
+      "reviews-grid-widget/main.js",
+    ],
+    fetch: mockFetch,
+  });
+
+  assert.equal(deployment.assetBaseUrl, judgeMeBase);
+  assert.equal(deployment.deploymentId, "deployment-2");
+  assert.equal(deployment.extensionHandle, "judgeme-624");
+  assert.equal(deployment.source, "discovered");
+  assert.deepEqual(requests, [
+    storefrontUrl,
+    `${unrelatedBase}manifest.json`,
+    `${judgeMeBase}manifest.json`,
+  ]);
+
+  const cached = await resolveJudgeMeV3AssetDeployment({
+    shopDomain: "store.myshopify.com",
+    storefrontUrl,
+    requiredManifestEntries: [
+      "reviews-grid-widget/main.js",
+      "review-widget/main.js",
+    ],
+    fetch: mockFetch,
+  });
+  assert.equal(cached.source, "cache");
+  assert.equal(requests.length, 3);
+});
+
+test("uses a validated last-known deployment when storefront discovery fails", async () => {
+  clearJudgeMeV3AssetDiscoveryCache();
+  const fallbackAssetBaseUrl =
+    "https://cdn.shopify.com/extensions/known-good/judgeme-624/assets";
+  let requests = 0;
+  const mockFetch = async () => {
+    requests += 1;
+    return new Response("rate limited", { status: 429 });
+  };
+  const deployment = await resolveJudgeMeV3AssetDeployment({
+    shopDomain: "store.myshopify.com",
+    fallbackAssetBaseUrl,
+    fetch: mockFetch,
+  });
+
+  assert.equal(deployment.assetBaseUrl, `${fallbackAssetBaseUrl}/`);
+  assert.equal(deployment.source, "fallback");
+  assert.deepEqual(deployment.manifestEntries, []);
+
+  const cachedFallback = await resolveJudgeMeV3AssetDeployment({
+    shopDomain: "store.myshopify.com",
+    fallbackAssetBaseUrl,
+    fetch: mockFetch,
+  });
+  assert.equal(cachedFallback.source, "fallback");
+  assert.equal(requests, 1);
+});
+
+test("rejects unsafe storefront discovery URLs", async () => {
+  await assert.rejects(
+    resolveJudgeMeV3AssetDeployment({
+      shopDomain: "store.myshopify.com",
+      storefrontUrl: "http://localhost:3000/internal",
+      fetch: async () => new Response(""),
+    }),
+    (error) => error?.code === "invalid-storefront-url",
+  );
+});
+
+test("runtime lifecycle suppresses stale readiness and disposes once", async () => {
+  let finishInitialization;
+  let disposeCalls = 0;
+  const statuses = [];
+  const container = { dataset: {} };
+  const initialization = new Promise((resolve) => {
+    finishInitialization = resolve;
+  });
+  const cleanup = startJudgeMeRuntime({
+    assetBaseUrl:
+      "https://cdn.shopify.com/extensions/deployment/judgeme-624/assets/",
+    container,
+    dispose: () => {
+      disposeCalls += 1;
+    },
+    initialize: () => initialization,
+    reportStatus: (event) => statuses.push(event),
+    widget: "reviews-grid",
+  });
+
+  assert.equal(container.dataset.judgemeReactRuntimeStatus, "loading");
+  assert.deepEqual(
+    statuses.map(({ status }) => status),
+    ["loading"],
+  );
+
+  cleanup();
+  cleanup();
+  finishInitialization();
+  await initialization;
+  await Promise.resolve();
+
+  assert.equal(disposeCalls, 1);
+  assert.deepEqual(
+    statuses.map(({ status }) => status),
+    ["loading"],
+  );
+});
+
+test("runtime lifecycle reports missing deployment configuration", () => {
+  const statuses = [];
+  const container = { dataset: {} };
+  let initialized = false;
+  const cleanup = startJudgeMeRuntime({
+    container,
+    initialize: async () => {
+      initialized = true;
+    },
+    reportStatus: (event) => statuses.push(event),
+    widget: "review-widget",
+  });
+
+  assert.equal(container.dataset.judgemeReactRuntimeStatus, "error");
+  assert.equal(initialized, false);
+  assert.equal(statuses[0].status, "error");
+  assert.equal(statuses[0].phase, "configuration");
+  assert.match(statuses[0].error.message, /v3AssetBaseUrl/);
+  cleanup();
 });
 
 test("extracts Shopify numeric IDs from GraphQL IDs", () => {
@@ -563,7 +735,11 @@ test("falls back to Judge.me's tokenless UGC social-post feed", async () => {
       assert.equal(url.searchParams.get("page"), "1");
       assert.equal(url.searchParams.has("api_token"), false);
       assert.equal(url.searchParams.has("public_token"), false);
-      return Response.json({ page: 1, per_page: "4", posts: createUgcPosts() });
+      return Response.json({
+        page: 1,
+        per_page: "4",
+        posts: [...createUgcPosts(), { id: "broken-post" }],
+      });
     },
   });
 
@@ -1353,6 +1529,86 @@ test("fetches all implemented storefront widgets with shared resources", async (
   assert.match(data.resources.styles, /color:teal/);
 });
 
+test("keeps healthy legacy widgets when one endpoint and shared settings fail", async () => {
+  const requestedEndpoints = [];
+  const mockFetch = async (input) => {
+    const url = new URL(input);
+    const endpoint =
+      url.hostname === "cache.judge.me"
+        ? "storefront_cache"
+        : url.pathname.split("/").pop();
+    requestedEndpoints.push(endpoint);
+
+    if (endpoint === "storefront_cache") {
+      return Response.json({
+        html_miracle: "<style>.from-cache{display:block}</style>",
+        settings: "not valid settings markup",
+      });
+    }
+    if (endpoint === "settings") {
+      return Response.json({ settings: "still not valid settings markup" });
+    }
+    if (endpoint === "html_miracle") {
+      return Response.json({
+        html_miracle: "<style>.from-fallback{display:block}</style>",
+      });
+    }
+    if (endpoint === "product_review") {
+      return new Response("unavailable", { status: 503 });
+    }
+    if (endpoint === "preview_badge") {
+      return Response.json({
+        product_external_id: 12345,
+        badge: "<div class='jdgm-prev-badge'>Five stars</div>",
+      });
+    }
+    if (endpoint === "featured_carousel") {
+      return Response.json({
+        featured_carousel:
+          "<section class='jdgm-widget jdgm-carousel'>Healthy carousel</section>",
+      });
+    }
+    if (endpoint === "reviews_tab") {
+      return Response.json({ page: 1, reviews_tab: null });
+    }
+    if (endpoint === "verified_badge") {
+      return Response.json({ verified_badge: null });
+    }
+    if (endpoint === "all_reviews_page") {
+      return Response.json({
+        all_reviews:
+          "<article class='jdgm-rev' data-review-id='healthy'>Review</article>",
+        all_reviews_header:
+          "<div class='jdgm-all-reviews__header' data-number-of-reviews='1' data-average-rating='5' data-number-of-product-reviews='1' data-number-of-shop-reviews='0' data-per-page='25'></div>",
+      });
+    }
+    if (url.hostname === "api.judge.me") {
+      return new Response("missing", { status: 404 });
+    }
+
+    throw new Error(`Unexpected endpoint: ${endpoint}`);
+  };
+
+  const data = await fetchLegacyStorefrontWidgets({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    productId: "12345",
+    fetch: mockFetch,
+  });
+
+  assert.equal(data.reviewWidget, null);
+  assert.equal(data.starRatingBadge?.productId, "12345");
+  assert.match(data.reviewsCarousel?.html ?? "", /Healthy carousel/);
+  assert.equal(data.allReviewsCounter?.count, 1);
+  assert.match(data.allReviewsWidget?.html ?? "", /data-review-id='healthy'/);
+  assert.equal(data.floatingReviewsTab?.source, "all-reviews-page-fallback");
+  assert.equal(data.resources.settings.review_widget_revamp_enabled, false);
+  assert.match(data.resources.styles, /from-cache/);
+  assert.match(data.resources.styles, /from-fallback/);
+  assert.ok(requestedEndpoints.includes("settings"));
+  assert.ok(requestedEndpoints.includes("html_miracle"));
+});
+
 function createMedalsMarkup() {
   return [
     '<div class="jdgm-medals-wrapper jdgm-hidden jdgm-widget">',
@@ -1623,6 +1879,43 @@ test("reads public AI Reviews Summary generation status without a token", async 
   });
 });
 
+test("reads the AI Reviews Summary metafield with a server-only Admin token", async () => {
+  const metafieldValue = JSON.stringify({
+    average_rating: 4.8,
+    number_of_reviews: 867,
+    ai_summary_text: "Customers praise the print quality.",
+  });
+  const value = await fetchAiReviewsSummaryMetafield({
+    adminAccessToken: "admin-token",
+    apiVersion: "2026-04",
+    shopDomain: "https://STORE.myshopify.com/products/example",
+    fetch: async (input, init) => {
+      const url = new URL(input);
+      assert.equal(url.origin, "https://store.myshopify.com");
+      assert.equal(url.pathname, "/admin/api/2026-04/graphql.json");
+      assert.equal(init?.method, "POST");
+      assert.equal(init?.headers["X-Shopify-Access-Token"], "admin-token");
+      assert.match(JSON.parse(init?.body).query, /store_summary_widget_data/);
+      return Response.json({
+        data: { shop: { summary: { value: metafieldValue } } },
+      });
+    },
+  });
+
+  assert.equal(value, metafieldValue);
+  await assert.rejects(
+    fetchAiReviewsSummaryMetafield({
+      adminAccessToken: "admin-token",
+      apiVersion: "unstable",
+      shopDomain: "store.myshopify.com",
+      fetch: async () => {
+        throw new Error("should not fetch");
+      },
+    }),
+    /stable Shopify Admin API version/,
+  );
+});
+
 test("fetches the exact Review Snippets feed without a token", async () => {
   const page = await fetchReviewSnippetsPage({
     shopDomain: "https://STORE.myshopify.com/products/example",
@@ -1793,6 +2086,215 @@ test("fetches and normalizes the tokenless Questions & Answers feed", async () =
     page.questions[0].answers[0].content,
     "Yes.\nIt uses organic cotton.",
   );
+});
+
+test("drops malformed collection rows and defaults optional response fields", async () => {
+  const validReview = {
+    uuid: "valid-review",
+    rating: 5,
+    body_html: "<p>Still useful.</p>",
+    public_reviewer_name: "Customer",
+    card_type: "photo",
+  };
+  const malformedReviews = [
+    validReview,
+    null,
+    { uuid: "", rating: 5, body_html: "<p>Missing ID.</p>" },
+    { uuid: "bad-rating", rating: 9, body_html: "<p>Bad rating.</p>" },
+  ];
+
+  const [cards, testimonials, videos, grid, snippets, happy, reviewWidget, qna] =
+    await Promise.all([
+      fetchCardsCarouselPage({
+        shopDomain: "store.myshopify.com",
+        fetch: async () => Response.json({ reviews: malformedReviews }),
+      }),
+      fetchTestimonialsCarouselPage({
+        shopDomain: "store.myshopify.com",
+        fetch: async () => Response.json({ reviews: malformedReviews }),
+      }),
+      fetchVideosCarouselPage({
+        shopDomain: "store.myshopify.com",
+        config: { reviewType: "photos-and-videos" },
+        fetch: async () => Response.json({ reviews: malformedReviews }),
+      }),
+      fetchReviewsGridPage({
+        shopDomain: "store.myshopify.com",
+        fetch: async () =>
+          Response.json({
+            current_page: "invalid",
+            per_page: 0,
+            review_selection: "all",
+            reviews: malformedReviews,
+            total_count: "invalid",
+            total_pages: -1,
+          }),
+      }),
+      fetchReviewSnippetsPage({
+        shopDomain: "store.myshopify.com",
+        fetch: async () =>
+          Response.json({ reviews: malformedReviews, settings: "invalid" }),
+      }),
+      fetchHappyCustomersPage({
+        shopDomain: "store.myshopify.com",
+        fetch: async () =>
+          Response.json({
+            reviews: malformedReviews,
+            pagination: {
+              current_page: "invalid",
+              per_page: 0,
+              total_count: "invalid",
+              total_pages: -1,
+            },
+            primary_language_reviews: "invalid",
+            other_language_reviews: null,
+            number_of_product_reviews: "invalid",
+            number_of_shop_reviews: -1,
+            custom_form_filters_and_averages: undefined,
+          }),
+      }),
+      fetchReviewWidgetV3Page({
+        shopDomain: "store.myshopify.com",
+        productId: "12345",
+        fetch: async () =>
+          Response.json({
+            average_rating: "invalid",
+            number_of_reviews: "invalid",
+            number_of_questions: -1,
+            reviews: malformedReviews,
+            pagination: {
+              current_page: "invalid",
+              per_page: 0,
+              total_pages: -1,
+            },
+          }),
+      }),
+      fetchQuestionsAndAnswersPage({
+        shopDomain: "store.myshopify.com",
+        productId: "12345",
+        fetch: async () =>
+          Response.json({
+            current_page: "invalid",
+            total_pages: 0,
+            per_page: "invalid",
+            questions: [
+              {
+                uuid: "question-1",
+                content_html: "<p>A valid question?</p>",
+                created_at: "2026-07-14T10:00:00.000Z",
+                asker_name: "Customer",
+                answers: [
+                  {
+                    uuid: "answer-1",
+                    content_html: "<p>Yes.</p>",
+                    created_at: "2026-07-14T11:00:00.000Z",
+                    answerer_name: "Store",
+                  },
+                  { uuid: "broken-answer" },
+                ],
+              },
+              { uuid: "broken-question" },
+            ],
+          }),
+      }),
+    ]);
+
+  assert.deepEqual(cards.reviews.map(({ uuid }) => uuid), ["valid-review"]);
+  assert.deepEqual(testimonials.reviews.map(({ uuid }) => uuid), [
+    "valid-review",
+  ]);
+  assert.deepEqual(videos.reviews.map(({ uuid }) => uuid), ["valid-review"]);
+  assert.deepEqual(grid.reviews.map(({ uuid }) => uuid), ["valid-review"]);
+  assert.deepEqual(
+    [grid.currentPage, grid.perPage, grid.totalCount, grid.totalPages],
+    [1, 1, 1, 1],
+  );
+  assert.deepEqual(snippets.reviews.map(({ uuid }) => uuid), [
+    "valid-review",
+  ]);
+  assert.deepEqual(snippets.settings, {});
+  assert.deepEqual(happy.reviews.map(({ uuid }) => uuid), ["valid-review"]);
+  assert.equal(happy.pagination.totalCount, 1);
+  assert.equal(happy.numberOfProductReviews, 1);
+  assert.equal(happy.numberOfShopReviews, 0);
+  assert.deepEqual(reviewWidget.reviews.map(({ uuid }) => uuid), [
+    "valid-review",
+  ]);
+  assert.deepEqual(
+    reviewWidget.payload.reviews.map(({ uuid }) => uuid),
+    ["valid-review"],
+  );
+  assert.equal(reviewWidget.averageRating, 5);
+  assert.equal(reviewWidget.numberOfReviews, 1);
+  assert.equal(reviewWidget.numberOfQuestions, 0);
+  assert.equal(qna.currentPage, 1);
+  assert.equal(qna.totalPages, 1);
+  assert.equal(qna.perPage, 1);
+  assert.equal(qna.questions.length, 1);
+  assert.equal(qna.questions[0].answers.length, 1);
+
+  await assert.rejects(
+    fetchCardsCarouselPage({
+      shopDomain: "store.myshopify.com",
+      fetch: async () =>
+        Response.json({
+          reviews: [
+            {
+              uuid: "unsafe-review",
+              rating: 5,
+              body_html: '<img src="x" onerror="alert(1)">',
+            },
+          ],
+        }),
+    }),
+    /executable Cards Carousel markup/,
+  );
+});
+
+test("standalone exact widgets survive unavailable shared legacy resources", async () => {
+  const cards = await fetchCardsCarousel({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    fetch: async (input) => {
+      const url = new URL(input);
+      if (url.hostname === "cdn.judge.me") {
+        return Response.json({
+          reviews: [
+            {
+              uuid: "card-1",
+              rating: 5,
+              body_html: "<p>Good.</p>",
+            },
+          ],
+        });
+      }
+      return new Response("unavailable", { status: 503 });
+    },
+  });
+
+  assert.deepEqual(cards.aggregate, { count: 1, rating: 5 });
+  assert.deepEqual(cards.settings, {});
+  assert.equal(cards.page.reviews.length, 1);
+
+  const reviewWidget = await fetchReviewWidgetV3({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    productId: "12345",
+    productHandle: "poster",
+    productTitle: "Poster",
+    fetch: async (input) => {
+      const url = new URL(input);
+      if (url.pathname === "/reviews/reviews_for_widget") {
+        return Response.json(createReviewWidgetV3Fixture());
+      }
+      return new Response("unavailable", { status: 503 });
+    },
+  });
+
+  assert.ok(reviewWidget);
+  assert.deepEqual(reviewWidget.shopAggregate, { count: 15, rating: 4.8 });
+  assert.deepEqual(reviewWidget.settings, {});
+  assert.equal(reviewWidget.shopReviewsCount, 0);
 });
 
 test("maps Q&A dashboard settings and rejects mismatched product data", () => {
@@ -2225,6 +2727,62 @@ test("fetches the new Review Widget page from Judge.me's tokenless CDN", async (
     perPage: 5,
     totalPages: 1,
   });
+});
+
+test("normalizes multilingual Review Widget data and sanitizes its payload", async () => {
+  const fixture = createReviewWidgetV3Fixture();
+  delete fixture.pagination;
+  fixture.reviews = [];
+  fixture.primary_language = "en";
+  fixture.primary_language_reviews = [
+    {
+      uuid: "primary-review",
+      rating: 5,
+      body_html: "<p>Excellent.</p>",
+    },
+  ];
+  fixture.primary_language_pagination = {
+    current_page: 1,
+    per_page: 5,
+    total_pages: 65,
+  };
+  fixture.other_language_reviews = [
+    {
+      uuid: "other-review",
+      rating: 4,
+      body_html: "<p>Vrlo dobro.</p>",
+    },
+  ];
+  fixture.other_language_pagination = {
+    current_page: 1,
+    per_page: 3,
+    total_pages: 4,
+  };
+
+  const data = await fetchReviewWidgetV3Page({
+    shopDomain: "store.myshopify.com",
+    productId: "12345",
+    fetch: async () => Response.json(fixture),
+  });
+
+  assert.equal(data.source, "cdn");
+  assert.equal(data.primaryLanguage, "en");
+  assert.deepEqual(data.payload.reviews, []);
+  assert.deepEqual(
+    data.reviews.map(({ uuid }) => uuid),
+    ["primary-review", "other-review"],
+  );
+  assert.deepEqual(data.primaryLanguagePagination, {
+    currentPage: 1,
+    perPage: 5,
+    totalPages: 65,
+  });
+  assert.deepEqual(data.otherLanguagePagination, {
+    currentPage: 1,
+    perPage: 3,
+    totalPages: 4,
+  });
+  assert.deepEqual(data.pagination, data.primaryLanguagePagination);
 });
 
 test("gates the disabled v3 widget and uses Judge.me's explicit sample preview", async () => {

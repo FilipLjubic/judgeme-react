@@ -5,6 +5,7 @@ import {
   initializeReviewWidgetV3,
 } from "./exact-runtime.js";
 import { useJudgeMe } from "./provider.js";
+import { startJudgeMeRuntime } from "./runtime-lifecycle.js";
 
 export interface ReviewWidgetV3Props extends Omit<
   ComponentPropsWithoutRef<"section">,
@@ -21,46 +22,34 @@ export function ReviewWidgetV3({
   ...sectionProps
 }: ReviewWidgetV3Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { meta } = useJudgeMe();
+  const { actions, meta } = useJudgeMe();
   const config = data.config;
 
   useEffect(() => {
     const container = containerRef.current;
     const assetBaseUrl = meta.config.v3AssetBaseUrl;
-    let active = true;
+    if (!container) return;
 
-    if (!container || !assetBaseUrl) {
-      if (container) {
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error(
-          "Judge.me Review Widget v3 requires config.v3AssetBaseUrl from the current Shopify extension deployment.",
-        );
-      }
-      return;
-    }
-
-    container.dataset.judgemeReactRuntimeStatus = "loading";
-    initializeReviewWidgetV3({
+    return startJudgeMeRuntime({
       assetBaseUrl,
       container,
-      data,
-      publicToken: meta.config.publicToken,
-    })
-      .then(() => {
-        if (active) container.dataset.judgemeReactRuntimeStatus = "ready";
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-
-        container.dataset.judgemeReactRuntimeStatus = "error";
-        console.error("Judge.me Review Widget v3 runtime error", error);
-      });
-
-    return () => {
-      active = false;
-      disposeReviewWidgetV3(container);
-    };
-  }, [data, meta.config.publicToken, meta.config.v3AssetBaseUrl]);
+      dispose: () => disposeReviewWidgetV3(container),
+      initialize: () =>
+        initializeReviewWidgetV3({
+          assetBaseUrl: assetBaseUrl!,
+          container,
+          data,
+          publicToken: meta.config.publicToken,
+        }),
+      reportStatus: actions.reportRuntimeStatus,
+      widget: "review-widget",
+    });
+  }, [
+    actions.reportRuntimeStatus,
+    data,
+    meta.config.publicToken,
+    meta.config.v3AssetBaseUrl,
+  ]);
 
   return (
     <section
@@ -73,7 +62,7 @@ export function ReviewWidgetV3({
       <div
         key={`${data.page.requestUrl}:${data.product.id}:${config.showStoreReviews}:${config.emptyState}`}
         ref={containerRef}
-        className="jdgm-widget jdgm-review-widget"
+        className="jdgm-react-review-widget-v3"
         data-auto-install="false"
         data-entry-key="review-widget/main.js"
         data-entry-point="review_widget.js"

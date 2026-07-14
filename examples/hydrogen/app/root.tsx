@@ -17,6 +17,7 @@ import resetStyles from '~/styles/reset.css?url';
 import appStyles from '~/styles/app.css?url';
 import {PageLayout} from './components/PageLayout';
 import {JudgeMeProvider} from '@judgeme-react/core';
+import {resolveJudgeMeAssets} from '~/lib/judgeme.server';
 
 export type RootLoader = typeof loader;
 
@@ -71,9 +72,19 @@ export async function loader(args: Route.LoaderArgs) {
   const deferredData = loadDeferredData(args);
 
   // Await the critical data required to render initial state of the page
-  const criticalData = await loadCriticalData(args);
-
   const {storefront, env} = args.context;
+  const judgeMeShopDomain =
+    env.JUDGEME_SHOP_DOMAIN ?? env.PUBLIC_STORE_DOMAIN;
+  const [criticalData, judgeMeAssets] = await Promise.all([
+    loadCriticalData(args),
+    judgeMeShopDomain
+      ? resolveJudgeMeAssets({
+          fallbackAssetBaseUrl: env.JUDGEME_V3_ASSET_BASE_URL,
+          shopDomain: judgeMeShopDomain,
+          storefrontUrl: env.JUDGEME_STOREFRONT_URL,
+        })
+      : Promise.resolve(null),
+  ]);
 
   return {
     ...deferredData,
@@ -92,11 +103,11 @@ export async function loader(args: Route.LoaderArgs) {
       language: args.context.storefront.i18n.language,
     },
     judgeMe:
-      env.JUDGEME_SHOP_DOMAIN || env.PUBLIC_STORE_DOMAIN
+      judgeMeShopDomain
         ? {
-            shopDomain: env.JUDGEME_SHOP_DOMAIN ?? env.PUBLIC_STORE_DOMAIN,
+            shopDomain: judgeMeShopDomain,
             publicToken: env.JUDGEME_PUBLIC_TOKEN,
-            v3AssetBaseUrl: env.JUDGEME_V3_ASSET_BASE_URL,
+            v3AssetBaseUrl: judgeMeAssets?.assetBaseUrl,
             defaultEngine: 'auto' as const,
           }
         : null,

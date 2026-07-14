@@ -57,11 +57,32 @@ export interface JudgeMeContextState {
   availableEngines: readonly ResolvedJudgeMeEngine[];
 }
 
+export type JudgeMeRuntimeStatus = "loading" | "ready" | "error";
+
+export type JudgeMeRuntimePhase =
+  | "configuration"
+  | "initialization"
+  | "disposal";
+
+export interface JudgeMeRuntimeStatusEvent {
+  error?: Error;
+  phase?: JudgeMeRuntimePhase;
+  status: JudgeMeRuntimeStatus;
+  widget: JudgeMeWidget;
+}
+
+export interface JudgeMeRuntimeErrorEvent {
+  error: Error;
+  phase: JudgeMeRuntimePhase;
+  widget: JudgeMeWidget;
+}
+
 export interface JudgeMeContextActions {
   resolveEngine(
     widget: JudgeMeWidget,
     preferredEngine?: JudgeMeEngine,
   ): ResolvedJudgeMeEngine | undefined;
+  reportRuntimeStatus(event: JudgeMeRuntimeStatusEvent): void;
 }
 
 export interface JudgeMeContextMeta {
