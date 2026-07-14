@@ -69,6 +69,8 @@ Version `1.0.2` was published under `latest` on 2026-07-14 as a runtime hardenin
 
 Version `1.0.3` was published under `latest` on 2026-07-14 as a Review Snippets compatibility patch. It falls back from Judge.me's unavailable dedicated snippet endpoint to the tokenless Cards Carousel feed, normalizes the public review fields, and keeps the exact runtime interception URL separate from the source URL. npm reported `latest: 1.0.3`; the 68-test release gate, 192-file package archive, and `publint` passed, the registry shasum matched the published archive, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.3` before passing typecheck and production build.
 
+Version `1.0.4` was published under `latest` on 2026-07-15 as a Happy Customers write-review runtime patch. It waits for Judge.me's shared core before configuring the exact extension runtime, ensuring `window.jdgm.widgetPath` is available when the form opens. npm reported `latest: 1.0.4`; the 69-test release gate, 192-file package archive, and `publint` passed, registry shasum `be1823a41cef9f10048c1d9012aa228118aa4319` matched the published archive, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.4` before passing typecheck and production build.
+
 ## Future releases
 
 For every release:

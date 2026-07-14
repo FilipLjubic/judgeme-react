@@ -1,6 +1,6 @@
 # npm package and Hydrogen example release boundary
 
-Date: 2026-07-14
+Date: 2026-07-14; release record updated 2026-07-15
 Scope: package exports, registry dry-run, example portability, user setup, and first-publish blockers
 
 ## Outcome
@@ -16,7 +16,7 @@ This split is an API organization and tooling boundary, not a security sandbox. 
 
 ## Example portability
 
-The example dependency now names exact version `1.0.3` instead of `*`. Bun satisfies that version from the workspace during development, while the same manifest resolves from npm when `examples/hydrogen` is copied elsewhere. There are no workspace-relative source imports in the app.
+The example dependency now names exact version `1.0.4` instead of `*`. Bun satisfies that version from the workspace during development, while the same manifest resolves from npm when `examples/hydrogen` is copied elsewhere. There are no workspace-relative source imports in the app.
 
 The example uses split subpath imports, generic placeholder environment values, one provider, automatic deployment discovery, the tested CSP, nullable per-widget composition, and one shared stylesheet mount. Its README maps the four most important integration files and documents how to run it inside or outside the monorepo.
 
@@ -49,6 +49,8 @@ The documentation overhaul was subsequently released as `judgeme-react@1.0.1` un
 The carousel-localization and Review Widget v3 overlay lifecycle fixes were released as `judgeme-react@1.0.2` under `latest` on 2026-07-14. The release commit is `59c0afd` with annotated tag `v1.0.2`. The complete release gate passed with 65 tests, workspace lint/typecheck/build, a 192-file package dry-run, and `publint`. npm registry metadata reported `latest: 1.0.2` with the same integrity hash produced by the local publish. A clean out-of-workspace Hydrogen copy excluded environment files, installed `judgeme-react@1.0.2` from the registry, and completed typecheck and production build.
 
 The Review Snippets public-data fallback was released as `judgeme-react@1.0.3` under `latest` on 2026-07-14. The release commit is `12f26a2` with annotated tag `v1.0.3`. The complete release gate passed with 68 tests, workspace lint/typecheck/build, a 192-file package archive, and `publint`. npm registry metadata reported `latest: 1.0.3`; its `5e9e278e52cb8a3ef8df99bcbd4e9fa1ca5b03a2` shasum matched the locally published archive. A clean out-of-workspace Hydrogen copy excluded environment files, installed `judgeme-react@1.0.3` from the registry, and completed typecheck and production build.
+
+The Happy Customers write-review runtime fix was released as `judgeme-react@1.0.4` under `latest` on 2026-07-15. The release commit is `6a4571e` with annotated tag `v1.0.4`. The complete release gate passed with 69 tests, workspace lint/typecheck/build, a 192-file package archive, and `publint`. npm registry metadata reported `latest: 1.0.4`; its `be1823a41cef9f10048c1d9012aa228118aa4319` shasum matched the locally published archive. A clean out-of-workspace Hydrogen copy excluded environment files, installed `judgeme-react@1.0.4` from the registry, and completed typecheck and production build.
 
 The owner subsequently finalized:
 
