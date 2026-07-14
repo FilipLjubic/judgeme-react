@@ -53,6 +53,16 @@ The owner subsequently finalized:
 
 `docs/PUBLISHING.md` records the exact first-publish procedure and result. npm registry metadata verified `latest: 1.0.0`, MIT, ESM metadata, the root compatibility export, and the split React/server exports. A clean external Bun project installed `1.0.0`, passed strict TypeScript compilation against both subpaths, and loaded their runtime exports without a workspace link.
 
+## Post-release documentation overhaul
+
+On 2026-07-14, the repository and package READMEs were reorganized around the real compatibility boundary instead of presenting the project as a conventional API wrapper. They now lead with the fact that the library is an unofficial reverse-engineered bridge for Judge.me's Shopify app-embed, public data, dashboard settings, generated styles, and current extension modules. Merchant-visible benefits and failure modes are summarized before the detailed component catalog.
+
+The package now ships a two-phase copy-paste setup prompt. A coding agent first asks one concise batch of questions about the permanent shop domain, public Judge.me token, public Online Store discovery page, desired widgets, feature eligibility, loading strategy, and verification target. It then implements the provider, server loader, nullable widget composition, v3 asset discovery, CSP, typed theme-block configuration, tests, and Brave verification without requesting a private Judge.me token.
+
+`docs/WIDGET_GALLERY.md` contains one tightly bounded Brave screenshot for every public component, and the npm-facing package README embeds the same 20 images beside a short description of each component. Long review feeds are represented through complete leading review cards rather than multi-thousand-pixel page captures. The Q&A image is visibly labeled as Judge.me sample data, the UGC image is labeled as a documentation fixture rendered through the real runtime, and the Videos Carousel image does not claim to verify iframe playback. Screenshot content and live-fixture coverage remain separate claims.
+
+The published example uses port 3000 by default. Shopify Headless channel credentials, Storefront and Customer Account tokens, optional Admin access, Hydrogen environment mapping, and the host CSP remain in the Hydrogen guide rather than the framework-neutral package guide.
+
 ## Reusable rules
 
 - Keep server and React imports split in examples, even though the compatibility barrel remains supported.
@@ -60,6 +70,7 @@ The owner subsequently finalized:
 - Run the full workspace gates plus dry-run and `publint` before a registry publish.
 - Verify a copied, out-of-workspace example against the registry package after publishing.
 - Never put real store domains, storefront IDs, tokens, or deployment UUIDs in `.env.example` or package docs.
+- Keep gallery images one component per file and crop to the component's visible bounds; label sample or fixture content inside the documentation instead of implying it came from the live store.
 
 ## Evidence
 

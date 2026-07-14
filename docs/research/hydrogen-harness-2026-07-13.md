@@ -14,7 +14,7 @@ The repository now contains a production-buildable Hydrogen integration harness 
 
 The harness was generated from Shopify's current TypeScript starter on 2026-07-13. It uses Hydrogen `2026.4.3`, React Router `7.16.0`, React `18.3`, and Vite `8`.
 
-Both the root and example `dev` scripts pin the local storefront to `http://localhost:3001`. Port 3000 is reserved for another local project.
+The root and example `dev` scripts originally pinned the local storefront to `http://localhost:3001`. On 2026-07-14 they were changed to the conventional `http://localhost:3000` for the published example.
 
 ## Package manager
 

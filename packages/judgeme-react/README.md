@@ -1,46 +1,211 @@
 # judgeme-react
 
-Alpha React adapters for Judge.me storefront widgets, built for headless Shopify and Hydrogen.
-
-The package is intentionally framework-neutral. Hydrogen is a consumer under `examples/hydrogen`, not a dependency of this package.
-
-This is a compatibility project rather than an official Judge.me package. It is not affiliated with, endorsed by, or sponsored by Judge.me Ltd. Judge.me and its related marks remain the property of their respective owner. The package combines documented public Widget API reads, tokenless CDN reads, Shopify metafields, and current Judge.me browser modules. Pin exact versions and run the compatibility harness before upgrading.
-
-## Install
-
-The package is ESM-only and expects React 18.3 or 19:
+Bring Judge.me's Shopify widgets to a React or headless storefront, including the styles and settings merchants already manage in Judge.me.
 
 ```sh
 bun add judgeme-react
 ```
 
-Server loaders fetch and validate public Judge.me data. React components receive those serializable payloads and progressively initialize the matching browser runtime. Never pass a Judge.me private token or Shopify Admin token to `JudgeMeProvider`.
+> [!WARNING]
+> This is an unofficial, reverse-engineered compatibility library. It is not affiliated with or endorsed by Judge.me. It talks to public Judge.me APIs and CDN endpoints, reads public Shopify storefront data, and loads parts of Judge.me's current Shopify extension runtime. Judge.me can change those internals without warning, so pin the package version and test upgrades against a real store.
 
-## Get your Judge.me credentials
+## Why this exists
 
-This package needs the store's permanent `*.myshopify.com` domain and its **Public API Token**:
+Judge.me works well in a Liquid theme because its app embed, app blocks, generated markup, settings payload, CSS, and browser runtime all arrive together. A headless React storefront does not get any of that automatically.
 
-1. Open the [Judge.me admin](https://judge.me/).
-2. Go to **Settings > Integrations**.
-3. Click **View API tokens** in the top-right corner.
-4. Copy the **Public API Token** and the shop domain shown on that page.
-5. Store them in server environment variables such as `JUDGEME_PUBLIC_TOKEN` and `JUDGEME_SHOP_DOMAIN`.
+Judge.me's [official Hydrogen package](https://www.npmjs.com/package/@judgeme/shopify-hydrogen) is a much smaller, client-side integration. Its current release exposes eight older widgets, documents rendering flicker, and does not reproduce the current Shopify app-block runtime. `judgeme-react` takes the less tidy route: it reconstructs the pieces a Liquid storefront receives and adapts them to a React lifecycle.
 
-The public token is designed for public Widget API GET requests and is available without the Awesome plan. It may be serialized to `JudgeMeProvider`, although keeping the environment variable on the server still avoids accidental logging and configuration drift. See Judge.me's official [API credential guide](https://judge.me/help/en/articles/8409180-using-judge-me-api).
+That means this package can:
 
-Do not use the **Private API Token** for this package. The current adapters do not need it, and it must never enter loader data, browser JavaScript, React props/context, logs, fixtures, or committed files.
+- reuse dashboard-level Judge.me colors, labels, branding, locale strings, and legacy widget CSS;
+- mount current Shopify widget modules for newer surfaces such as Review Widget v3, Reviews Grid, and the new carousels;
+- server-load initial review data instead of waiting for a client-only document scan;
+- keep widgets isolated, so one broken or disabled Judge.me response does not take down the product page;
+- expose typed React configuration for settings that normally live only on a Shopify theme block.
 
-Shopify Headless, Storefront API, Customer Account API, and optional Shopify Admin credentials belong to the consuming application rather than this framework-neutral package. The repository's `examples/hydrogen` README explains where to obtain and how to map them for Hydrogen.
+There is a trade-off. This gets much closer to the Shopify theme experience than a small API wrapper, but it is coupled to undocumented behavior. If you want a boring, permanent data contract, use Judge.me's supported APIs and build your own review UI instead.
 
-The package has three public entry points:
+## What carries over from Judge.me
 
-- `judgeme-react/server` contains fetchers, normalizers, data combiners, Shopify ID helpers, and v3 asset discovery. Import it only from server loaders or server modules.
-- `judgeme-react/react` is the client boundary for providers, components, and component prop types.
-- `judgeme-react` remains the all-in-one compatibility entry point for Hydrogen and other bundlers without React Server Components.
+| Configuration source | What happens in headless React |
+| --- | --- |
+| Judge.me dashboard settings returned by its public storefront payload | Reused automatically where the widget exposes them: colors, labels, branding, locale, rating display, legacy CSS, and feature flags |
+| Judge.me review data and generated shop metafields | Loaded by the server adapters and passed to the matching widget |
+| Shopify app embed | Must be enabled on a public Online Store theme so the library can discover the store's current Judge.me extension deployment |
+| Shopify theme-editor app-block settings | They do not exist in the public Judge.me settings payload. Pass their typed equivalents through each component's `config` |
+| Awesome-plan or content-gated features | The component renders only when Judge.me returns real eligible data, unless the package documents a public compatibility fallback |
 
-## Quick start
+## Get started with a coding agent
 
-Fetch Judge.me data in the product loader. The public token is valid for these public Widget API reads; the private Judge.me token is not used.
+The fastest route is to give an agent the package's full integration brief. It asks you for the store, widgets, loading preference, feature state, and credentials before touching the app, then uses the working Hydrogen implementation as its reference.
+
+1. Open [`SETUP_PROMPT.md`](https://github.com/FilipLjubic/judgeme-react/blob/main/packages/judgeme-react/SETUP_PROMPT.md).
+2. Copy the whole prompt into Codex or your coding agent from inside the storefront repository.
+3. Answer its setup questions in one message.
+4. Let it implement and verify the integration.
+
+The prompt recommends a server-first product integration, but it can defer below-the-fold widgets when that fits the existing app better.
+
+## See it running
+
+The [Hydrogen example](https://github.com/FilipLjubic/judgeme-react/tree/main/examples/hydrogen) is the compatibility harness and the best source to copy from. It includes the provider, server loaders, automatic asset discovery, CSP, nullable widget composition, and all implemented storefront components.
+
+[The standalone gallery](https://github.com/FilipLjubic/judgeme-react/blob/main/docs/WIDGET_GALLERY.md) provides the same captures on one page. Every component is also shown below so npm users do not have to leave this README to understand the catalog.
+
+Widgets with no eligible production data stay unmounted. The current live fixture has no published UGC, Q&A, or video-review playback case; those gaps are documented instead of being disguised as live customer content.
+
+## Component gallery
+
+Every image is a Brave capture of one component with the surrounding product page removed. Dashboard colors, labels, branding, locale strings, and star treatment are live Judge.me settings. Shopify theme-block choices come from the example's typed React config.
+
+### Product review surfaces
+
+#### Star Rating Badge
+
+Compact product rating for a title, buy box, or product card.
+
+![Star Rating Badge](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/star-rating-badge.jpeg)
+
+#### Review Widget v3
+
+Judge.me's current Shopify Review Widget with product/store tabs, filters, review cards, and the Write a review flow.
+
+![Review Widget v3](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/review-widget-v3.jpeg)
+
+#### Legacy Review Widget
+
+The public platform-independent Review Widget and fallback for stores that do not return the v3 feed.
+
+![Legacy Review Widget](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/legacy-review-widget.jpeg)
+
+#### Questions & Answers
+
+An independently placeable React Q&A feed and form. This screenshot uses Judge.me's visibly labeled, read-only `sample_data` preview because the fixture store has no published questions.
+
+![Questions and Answers](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/questions-and-answers.jpeg)
+
+### Store-wide reviews and trust
+
+#### Happy Customers
+
+Judge.me's current All Reviews v2025 experience with its histogram, review streams, filters, sorting, and pagination.
+
+![Happy Customers](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/happy-customers.jpeg)
+
+#### All Reviews Widget
+
+The platform-independent All Reviews surface with product/shop streams and React-owned navigation.
+
+![All Reviews Widget](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/all-reviews-widget.jpeg)
+
+#### All Reviews Counter
+
+Combined store rating and review count using the merchant's branded dashboard treatment.
+
+![All Reviews Counter](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/all-reviews-counter.jpeg)
+
+#### Verified Reviews Counter
+
+Judge.me's exact branded verified-review badge. Judge.me returns it only after the store reaches its verified-review threshold.
+
+![Verified Reviews Counter](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/verified-reviews-counter.jpeg)
+
+#### Judge.me Medals
+
+The medals currently earned by the store, together with Judge.me's verified-review summary.
+
+![Judge.me Medals](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/judge-me-medals.jpeg)
+
+#### Trust Badge
+
+The compact Trust Badge. Selecting it opens Judge.me's verified-review modal.
+
+![Trust Badge](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/trust-badge.jpeg)
+
+#### AI Reviews Summary
+
+Judge.me's generated shop summary, sourced from its Shopify metafield and rendered by the current extension module.
+
+![AI Reviews Summary](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/ai-reviews-summary.jpeg)
+
+### Carousels and visual proof
+
+#### Cards Carousel
+
+The current visual review-card carousel and media lightbox surface.
+
+![Cards Carousel](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/cards-carousel.jpeg)
+
+#### Testimonials Carousel
+
+One-at-a-time quote cards with React-owned arrows and autoplay lifecycle.
+
+![Testimonials Carousel](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/testimonials-carousel.jpeg)
+
+#### Videos Carousel
+
+The current media carousel in photo/video selection mode. The fixture has photo cards but no published video playback case, so this image demonstrates the media layout rather than iframe playback.
+
+![Videos Carousel](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/videos-carousel.jpeg)
+
+#### Classic Reviews Carousel
+
+Judge.me's older fixed-height Reviews Carousel for storefronts that use its classic design.
+
+![Classic Reviews Carousel](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/reviews-carousel.jpeg)
+
+#### Review Snippets
+
+The compact rotating product or cart review strip.
+
+![Review Snippets](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/review-snippets.jpeg)
+
+#### Reviews Grid
+
+Judge.me's current extension-driven review and media grid.
+
+![Reviews Grid](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/reviews-grid.jpeg)
+
+#### UGC Media Grid
+
+The Instagram shopping grid rendered through Judge.me's current browser runtime. This screenshot uses a clearly documented local post fixture because the live store has no published UGC posts.
+
+![UGC Media Grid fixture](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/ugc-media-grid.jpeg)
+
+### Global overlays
+
+#### Floating Reviews Tab
+
+The open global drawer returned by Judge.me's exact `reviews_tab` path. Stores without the paid endpoint can use the package's public All Reviews fallback.
+
+![Floating Reviews Tab](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/floating-reviews-tab.jpeg)
+
+#### Pop-up Reviews
+
+The native React compatibility version of Judge.me's timed review notification.
+
+![Pop-up Reviews](https://raw.githubusercontent.com/FilipLjubic/judgeme-react/main/docs/images/widgets/popup-reviews.jpeg)
+
+## Manual quick start
+
+### 1. Get the Judge.me values
+
+In Judge.me Admin, open **Settings > Integrations > View API tokens**.
+
+| Environment variable | Value | Browser-safe? |
+| --- | --- | --- |
+| `JUDGEME_SHOP_DOMAIN` | Permanent `store.myshopify.com` domain | Yes |
+| `JUDGEME_PUBLIC_TOKEN` | Judge.me **Public API Token** | Yes, although keeping configuration server-owned is cleaner |
+| `JUDGEME_STOREFRONT_URL` | Public Online Store page with the Judge.me app embed enabled | Yes; used for server-side v3 asset discovery |
+| `JUDGEME_V3_ASSET_BASE_URL` | Optional last-known-good extension asset URL | Yes; normally leave this empty |
+
+Do not use the Judge.me private token. None of the current adapters need it.
+
+Shopify Headless, Storefront API, Customer Account API, and optional Shopify Admin credentials belong to the host app. The [Hydrogen example guide](https://github.com/FilipLjubic/judgeme-react/tree/main/examples/hydrogen#readme) shows where to get those values and which ones must remain server-only.
+
+### 2. Fetch widget data on the server
+
+This starter fetches the product badge and legacy Review Widget in one batch:
 
 ```ts
 import {
@@ -51,15 +216,18 @@ import {
 const judgeMe = await fetchLegacyProductWidgets({
   productId: getShopifyNumericId(product.id),
   publicToken: context.env.JUDGEME_PUBLIC_TOKEN,
-  shopDomain:
-    context.env.JUDGEME_SHOP_DOMAIN ?? context.env.PUBLIC_STORE_DOMAIN,
+  shopDomain: context.env.JUDGEME_SHOP_DOMAIN,
   signal: request.signal,
 });
 
 return {product, judgeMe};
 ```
 
-Mount the provider once near the application root, then render each nullable widget independently. Batched legacy widgets should share one `JudgeMeWidgetStyles` mount.
+Every widget result is nullable. Keep that property when composing larger loaders.
+
+### 3. Mount the provider and components
+
+Mount `JudgeMeProvider` once near the app root. A batched legacy response should also mount `JudgeMeWidgetStyles` once, even if the page prefers the v3 Review Widget; Judge.me's current v3 styles still reference the shared star font.
 
 ```tsx
 import {
@@ -72,7 +240,7 @@ import {
 <JudgeMeProvider
   config={{
     shopDomain: judgeMeShopDomain,
-    publicToken: publicJudgeMeToken,
+    publicToken: judgeMePublicToken,
     v3AssetBaseUrl,
   }}
 >
@@ -91,585 +259,110 @@ import {
       includeStyles={false}
     />
   ) : null}
-</JudgeMeProvider>;
+</JudgeMeProvider>
 ```
 
-The repository's `examples/hydrogen` app demonstrates the complete provider, CSP, asset discovery, shared loader, graceful per-widget degradation, and all implemented widgets. If you want an AI coding agent to integrate the package into an existing storefront, copy [the setup prompt](./SETUP_PROMPT.md) into that project.
+Use the split entry points to keep the security boundary obvious:
 
-## Support status
+| Import | Use it for |
+| --- | --- |
+| `judgeme-react/server` | Fetchers, normalizers, data combiners, Shopify ID helpers, and v3 asset discovery |
+| `judgeme-react/react` | Provider, components, props, and client runtime events |
+| `judgeme-react` | Compatibility entry that exports both sides; avoid it in strict server/client module systems |
 
-| Surface                      | Status                                                                                                                        |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Star Rating Badge            | Implemented with the public `preview_badge` endpoint and Judge.me's interaction runtime                                       |
-| Verified Reviews Counter     | Implemented with exact public `verified_badge` markup, dashboard settings, and an eligibility-aware nullable fetcher          |
-| Judge.me Medals              | Implemented with exact public cache markup, verified stats, dashboard settings, and component-owned mobile rotation           |
-| UGC Media Grid               | Implemented with exact cache markup or tokenless social-post fallback plus Judge.me's dashboard renderer and gallery          |
-| Trust Badge                  | Implemented with server-only Admin metafields, sanitized public data, and the exact current badge/modal extension             |
-| Happy Customers              | Implemented with the tokenless All Reviews v2025 feed, shared aggregates/settings, and exact current extension manager        |
-| All Reviews Counter          | Implemented with public aggregate endpoints, dashboard text/style settings, and Judge.me's secondary runtime                  |
-| Classic Reviews Carousel     | Implemented with the public `featured_carousel` endpoint and Judge.me's secondary-widget runtime                              |
-| All Reviews Widget           | Implemented with the public `all_reviews_page` endpoint, dashboard settings, and React-owned SPA controls                     |
-| Floating Reviews Tab         | Implemented with the public `reviews_tab` endpoint plus an `all_reviews_page` fallback for stores where the tab is plan-gated |
-| Reviews Grid                 | Implemented with the tokenless v3 CDN endpoint and the store's current Shopify extension module                               |
-| Cards Carousel               | Implemented with the tokenless carousel endpoint, current deployment scripts, and v3 review lightbox                          |
-| Testimonials Carousel        | Implemented with tokenless carousel data, the current quote-card builder, autoplay controls, and v3 review lightbox           |
-| Videos Carousel              | Implemented with tokenless video/photo cards, current media/player scripts, navigation, and the v3 review lightbox            |
-| Pop-up Reviews Widget        | Implemented with dashboard settings, a tokenless public review feed, and React-owned app-embed timing and placement           |
-| AI Reviews Summary           | Implemented with Judge.me's Shopify metafield, current extension module, and complete app-block configuration                 |
-| Review Snippets              | Implemented with the tokenless v2 feed, exact current extension module, arrows/autoplay, and v3 review lightbox               |
-| Questions & Answers          | Implemented with the tokenless question feed, real multipart submission route, dashboard settings, and native React UI        |
-| Legacy Review Widget         | Implemented and tested in the Hydrogen harness                                                                                |
-| New Shopify v3 Review Widget | Implemented with the tokenless structured feed, exact deployment manager/styles, dashboard settings, and review form          |
+### 4. Copy the CSP allowlist
 
-Every current `JUDGE_ME_WIDGETS` catalog entry has a data adapter, public component, tests, and a Hydrogen integration. The review-widget entry offers both the platform-independent legacy implementation and the exact current Shopify v3 implementation.
+The host application owns Content Security Policy. Exact widgets need Judge.me APIs and media plus the store's current `cdn.shopify.com` extension assets. Video, Instagram, reviewer avatars, and branded verification marks add their own origins.
+
+Do not guess the list from an error at a time. Copy the tested policy from the example's [`entry.server.tsx`](https://github.com/FilipLjubic/judgeme-react/blob/main/examples/hydrogen/app/entry.server.tsx), then merge it with the storefront's existing checkout, analytics, and platform sources. Hydrogen/Vite must keep `'self'` in `scriptSrc` and use `workerSrc: ["'self'", "blob:"]`; do not add `blob:` to `scriptSrc`.
+
+## Pick your widgets
+
+A good product-page starting set is `StarRatingBadge` near the title, `ReviewWidgetV3` below the product content with `LegacyReviewWidget` as a fallback, and `CardsCarousel` or `ReviewSnippets` for social proof. Add overlays only after the main page is stable.
+
+| Component | Best used for | Implementation |
+| --- | --- | --- |
+| `StarRatingBadge` | Compact product rating near the title | Public legacy cache + dashboard runtime |
+| `ReviewWidgetV3` | Current product/store review list and Write a review form | Current Shopify extension module |
+| `LegacyReviewWidget` | Platform-independent Review Widget and v3 fallback | Public legacy cache + dashboard runtime |
+| `CardsCarousel` | Visual review cards | Current carousel endpoint and extension assets |
+| `TestimonialsCarousel` | One-at-a-time quote carousel | Current carousel endpoint and extension assets |
+| `VideosCarousel` | Photo/video review cards | Current media scripts; real playback needs video reviews |
+| `ReviewsCarousel` | Judge.me's classic carousel | Public legacy cache + dashboard runtime |
+| `ReviewSnippets` | Compact rotating product/cart reviews | Public tokenless feed + current extension module |
+| `ReviewsGrid` | Dense visual review/media grid | Public tokenless feed + current extension module |
+| `HappyCustomers` | Current All Reviews v2025 experience | Public feed + current extension manager |
+| `AllReviewsWidget` | Standalone product/store review streams | Public Widget API + React-owned controls |
+| `AllReviewsCounter` | Store-wide average and review count | Public aggregate data + dashboard treatment |
+| `VerifiedReviewsCounter` | Judge.me verified-review badge | Exact public badge; hidden below 20 verified reviews |
+| `JudgeMeMedals` | Earned Judge.me medals | Exact public cache markup and settings |
+| `TrustBadge` | Verified-review trust badge and modal | Shopify metafields + current extension module |
+| `AiReviewsSummary` | Judge.me-generated store summary | Shopify metafield + current extension module |
+| `UgcMediaGrid` | Instagram shopping/review media | Public cache or tokenless social feed + Judge.me runtime |
+| `QuestionsAndAnswers` | Product Q&A feed and submission form | Native React surface over public tokenless routes |
+| `FloatingReviewsTab` | Global side-tab review drawer | Exact public tab or All Reviews fallback |
+| `PopupReviews` | Timed global review notification | Native React app-embed-style surface |
+
+All component props and block-level configuration are typed. The full route in the [example](https://github.com/FilipLjubic/judgeme-react/blob/main/examples/hydrogen/app/routes/products.%24handle.tsx) shows how the shared batch and the exact/native adapters fit together without repeating the large settings payload.
 
 ## Merchant activation
 
-Installing a React component does not enable the matching Judge.me feature. Judge.me splits configuration across its admin, Shopify app embeds, Shopify app blocks, generated metafields, and the review data itself.
+Installing a component does not enable the corresponding Judge.me feature. Start by enabling **Judge.me** under **Shopify Admin > Online Store > Themes > Customize > App embeds** on the published theme.
 
-Start with the shared app embed:
+| Feature | Plan/eligibility | Merchant action before production data appears |
+| --- | --- | --- |
+| New Review Widget | Free | In Judge.me, open **Settings > Widgets > Review Widget** and upgrade the widget version if the store still uses legacy |
+| Happy Customers, new version | Awesome | Upgrade it under **Settings > Widgets > Happy Customers Widget** |
+| Trust Badge | Free + verified reviews | Enable it under **Settings > Widgets > Customize**; the headless server may need Shopify Admin metafield access |
+| Questions & Answers | Awesome UI | Enable customer questions; submitted questions remain hidden until explicitly published |
+| AI Reviews Summary | Awesome + more than five text reviews | Add its app block once on a real Online Store template and wait for Judge.me to generate the shop metafield |
+| UGC Media Grid | Instagram content | Connect a professional Instagram account and publish fetched posts in Judge.me |
+| Videos Carousel | Published media reviews | Publish matching video reviews; videos-only mode stays hidden below three cards |
+| Verified Reviews Counter | At least 20 verified reviews | No toggle; the component returns `null` below Judge.me's threshold |
+| Judge.me Medals | Earned medals | No toggle; only medals returned by Judge.me are rendered |
 
-1. In Shopify Admin, go to **Online Store > Themes > Customize > App embeds**.
-2. Enable **Judge.me** on the published theme.
-3. Save the theme.
-4. Point `JUDGEME_STOREFRONT_URL` at a public HTTPS page on that theme so the server can discover the current extension deployment.
+Judge.me officially gates Floating Reviews Tab, Pop-up Reviews, Review Snippets, Q&A, AI Reviews Summary, and Happy Customers to Awesome. Some currently have public-data compatibility paths in this package. Those paths are interoperability workarounds, not a promise that Judge.me will keep the routes available or grant the same entitlement forever.
 
-You do not need to add every Judge.me app block to the Online Store theme just to render its React counterpart. Some features still need a dashboard upgrade, an app block, or eligible content before Judge.me returns production data:
+## Loading strategy
 
-| Widget or feature                                                                                                             | Plan    | Merchant action                                                                                                                                                                                                                                                           |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [New Review Widget](https://judge.me/help/en/articles/12460582-customizing-the-review-widget-new-version)                     | Free    | Open **Judge.me Admin > Settings > Widgets > Review Widget**, click **Upgrade now**, then confirm **Upgrade Widget**. Newer installations may already use it. The legacy and new widgets are separate package components.                                                 |
-| [Happy Customers, new version](https://judge.me/help/en/articles/13653546-customizing-the-happy-customers-widget-new-version) | Awesome | Open **Settings > Widgets > Happy Customers Widget**, click **Upgrade now**, then confirm. The migration can take several minutes.                                                                                                                                        |
-| [Trust Badge](https://judge.me/help/en/articles/15281873-trust-badge)                                                         | Free    | Publish at least one verified review. Then open **Settings > Widgets > Customize**, enable **Trust Badge** under Install, and save. The package also needs a server-only Shopify Admin token to read its shop metafields.                                                 |
-| [Questions & Answers](https://judge.me/help/en/articles/8420858-questions-and-answers-widget-q-a-widget)                      | Awesome | Open **Settings > Widgets > Questions and Answers**, enable **Let customers ask questions**, and save. Submitted questions remain hidden until a merchant explicitly publishes them under **Reviews > Customer questions**; replying does not publish them automatically. |
-| [AI Reviews Summary](https://judge.me/help/en/articles/13672572-ai-reviews-summary-widget)                                    | Awesome | Collect more than five published text reviews, then add the **AI Reviews Summary (Paid)** block to an Online Store 2.0 template with real data selected. Wait for Judge.me to generate `shop.metafields.judgeme.store_summary_widget_data`.                               |
-| [UGC Media Grid](https://judge.me/help/en/articles/8420861-ugc-instagram-shopping-widget)                                     | Free    | Connect a professional Instagram account under **Settings > Social sharing > Connect**. Then open **Settings > Widgets > UGC Instagram Shopping** and publish at least one fetched post.                                                                                  |
-| [Videos Carousel](https://judge.me/help/en/articles/11883318-videos-carousel)                                                 | Free    | Publish reviews with real video media. Videos-only mode currently stays hidden below three matching cards.                                                                                                                                                                |
-| Verified Reviews Counter                                                                                                      | Free    | No toggle is needed, but Judge.me requires at least 20 verified published reviews. Below that threshold the fetcher returns `null`.                                                                                                                                       |
-| Judge.me Medals                                                                                                               | Free    | No toggle is needed. Only medals earned under Judge.me's eligibility rules are returned.                                                                                                                                                                                  |
+The default architecture is server-first data with client enhancement:
 
-Judge.me officially gates Floating Reviews Tab, Pop-up Reviews, Review Snippets, Questions & Answers, AI Reviews Summary, and Happy Customers to the Awesome plan. This package has public-data compatibility paths for some of them:
+1. Fetch and validate the initial public payload in the route loader.
+2. Server-render safe legacy markup or the exact widget marker.
+3. Hydrate the React component.
+4. Load Judge.me's browser module for forms, filters, lightboxes, media, and other interactions.
 
-- `FloatingReviewsTab` falls back to the public All Reviews feed when the official endpoint returns `null`.
-- `PopupReviews` is implemented in React and does not need the separate Pop-up Widget app embed to mount in Hydrogen.
-- Review Snippets and Q&A currently have tokenless public routes. Their availability on a lower plan is not an entitlement guarantee, and Judge.me can close or change those routes.
+For below-the-fold widgets, the host can defer the fetch or mount behind an intersection observer. Do not stream Judge.me-owned SSR markup through Suspense until the host has tested that widget's hydration race. Global overlays such as `FloatingReviewsTab` and `PopupReviews` should mount once outside the normal vertical widget stack.
 
-Production fetchers return `null` or an honest empty state when a feature is disabled or lacks eligible content. Sample feeds and disabled previews require explicit opt-in and must be visibly labeled.
+## Failure behavior
 
-### Theme block settings do not sync to React
+- A disabled endpoint or ineligible feature becomes `null`.
+- Malformed rows are removed without discarding valid siblings.
+- A failed optional widget must not reject the product loader.
+- Unsafe executable markup, mismatched product data, and mismatched shop data remain hard failures for that widget.
+- Sample Q&A, summaries, reviews, counts, UGC, and media are never presented as live customer content.
 
-Shopify theme-editor settings belong to one Liquid app-block instance. They are not all present in Judge.me's public settings response, so changing a block in the theme editor does not update the Hydrogen component.
+## Known limits
 
-Pass block-level values through the component's typed config. This includes review selection, product IDs, columns, rows, maximum width, card sizing, arrows, autoplay, transitions, per-instance colors, and empty-state behavior. Global Judge.me labels, legacy colors, and branding settings are reused where the public settings response exposes them.
+- Judge.me's undocumented endpoints and extension modules can change between deployments.
+- Exact widgets need browser JavaScript; they are not pure React Server Components.
+- One document can host one Shopify store and one Judge.me extension deployment.
+- Automatic v3 asset discovery needs a public Online Store page. A password-protected or rate-limited theme may need a cached last-known-good `JUDGEME_V3_ASSET_BASE_URL`.
+- Theme-editor block settings must be passed as typed config because Shopify does not expose the Liquid block instance to the headless app.
+- The current fixture still lacks real video playback, published Q&A moderation, and published UGC. Those are live-verification gaps, not missing components.
+- Customer Account, checkout, Thank you, and Order status extensions run in Shopify-owned surfaces and are outside this storefront package.
 
-## Known limitations
+## Package contract
 
-- This is an unofficial compatibility layer. Exact widgets use deployment-specific Shopify extension modules and tokenless endpoints that Judge.me can change without a public API version bump.
-- Automatic asset discovery can fail when the Online Store page is password-protected, rate-limited, or unavailable. Cache the discovered deployment and keep an optional last-known-good `JUDGEME_V3_ASSET_BASE_URL` fallback for cold starts.
-- Exact widgets need Judge.me's browser JavaScript for their complete layout, forms, media, lightboxes, and controls. They are not pure server components.
-- Judge.me's mutable browser globals support one Shopify store and one extension deployment per document.
-- The host application owns CSP. It must allow the Judge.me API/CDN, current `cdn.shopify.com` extension assets, review media hosts, and any required video frame origins.
-- The Judge.me private token is never needed in React. The Shopify Admin token used for Trust Badge and the optional AI-summary fallback is also server-only. Do not serialize either token through loaders, provider config, logs, fixtures, or browser bundles.
-- Shopify Customer Account, checkout, Thank you, and Order status extensions run in Shopify-owned UI-extension surfaces and are outside this storefront package.
-- Live fixture coverage still needs real video playback, published Q&A with moderation, and published UGC. These are verification gaps rather than missing component implementations.
+- ESM only
+- React 18.3 or React 19
+- TypeScript declarations for every public entry point
+- No runtime dependency on Hydrogen
+- Judge.me private token is never required
+- Optional Shopify Admin credentials stay server-only
 
-## Fixture verification
+## License and trademark
 
-Implementation coverage and live-state verification are tracked separately:
+MIT © 2026 Filip Ljubic. See [LICENSE](./LICENSE).
 
-| Verification tier                  | Widgets and states                                                                                                                                                                                                                                                                                                                                                      |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live enabled data and interactions | Star Rating Badge, Verified Reviews Counter, Judge.me Medals, Trust Badge, Happy Customers, AI Reviews Summary, All Reviews Counter, classic Reviews Carousel, legacy Review Widget, multilingual v3 Review Widget, All Reviews Widget, exact Floating Reviews Tab, Reviews Grid, Cards Carousel photo mode, Testimonials Carousel, Pop-up Reviews, and Review Snippets |
-| Correct live empty/disabled state  | UGC Media Grid and Questions & Answers                                                                                                                                                                                                                                                                                                                                  |
-| Partial media verification         | Videos Carousel photo/video selection, navigation, and image lightbox are verified; actual video iframe playback and autoplay still need a published video-review fixture                                                                                                                                                                                               |
-
-Version 1.0 ships with three explicitly documented real-state verification gaps: published video playback, published Q&A plus one end-to-end moderated submission, and published UGC. These remain compatibility-verification work, not missing component implementations. Disabled previews and sample feeds are never presented as production store data.
-
-## Current API boundary
-
-- `JudgeMeProvider` exposes public store configuration and injected runtime adapters. `onRuntimeStatusChange` observes exact-widget loading/ready/error transitions; `onRuntimeError` provides a central monitoring hook and replaces default console logging.
-- `resolveJudgeMeV3AssetDeployment` discovers the current Judge.me Shopify extension from public theme HTML, validates manifest sentinels, caches the result, serves stale cache on transient refresh failure, and accepts a last-known-good fallback URL.
-- `normalizeJudgeMeV3AssetBaseUrl` validates a manually supplied deployment URL without performing a network request.
-- `fetchStarRatingBadge` fetches a standalone product badge, settings, and CSS.
-- `fetchLegacyReviewWidget` fetches Review Widget HTML, dashboard settings, and dashboard CSS from Judge.me's public Widget API.
-- `fetchReviewWidgetV3Page` reads the tokenless structured v3 feed and returns `null` when the store returns legacy HTML; `fetchReviewWidgetV3` adds shared settings and shop aggregates for standalone use.
-- `createReviewWidgetV3Data` combines a v3 page with settings and aggregates already returned by a storefront loader.
-- `fetchLegacyProductWidgets` fetches both product widgets while sharing the settings/CSS requests.
-- `fetchReviewsCarousel` fetches the standalone classic shop-level carousel, settings, and CSS.
-- `fetchAllReviewsCounter` fetches the standalone shop-wide rating/count, settings, and CSS.
-- `fetchVerifiedReviewsCounter` fetches the exact shop-wide verified badge and returns `null` when Judge.me says the store is ineligible.
-- `fetchJudgeMeMedals` fetches exact earned-medal markup, verified stats, settings, and CSS in one public platform-independent cache read.
-- `fetchUgcMediaGrid` prefers exact cache markup and falls back to Judge.me's tokenless social-post feed; both paths return `null` when no post is published.
-- `fetchAllReviewsWidget` fetches the standalone shop-level All Reviews Widget, settings, and CSS.
-- `fetchFloatingReviewsTab` fetches the official tab when available and otherwise builds a Free-plan fallback from All Reviews Page data.
-- `fetchLegacyStorefrontWidgets` fetches all nine implemented legacy widgets, reuses one Medals/UGC cache response for shared settings/CSS, and reuses All Reviews data for the aggregate counter and Free-plan Floating Tab fallback. Every widget field is nullable: one failed endpoint or invalid payload removes only that widget.
-- `fetchReviewsGridPage` fetches one tokenless public v3 grid page; `fetchReviewsGrid` combines it with public settings and aggregate reads for standalone use.
-- `createReviewsGridData` combines a grid page with settings and aggregates already returned by a storefront batch.
-- `fetchCardsCarouselPage` fetches one tokenless public Cards page; `fetchCardsCarousel` adds public settings, aggregates, and core CSS for standalone use.
-- `createCardsCarouselData` combines Cards reviews with settings, CSS, and aggregates already returned by a storefront batch.
-- `fetchTestimonialsCarouselPage` fetches one tokenless public Testimonials page; `fetchTestimonialsCarousel` adds public settings, aggregates, and core CSS for standalone use.
-- `createTestimonialsCarouselData` combines testimonial reviews with resources already returned by a storefront batch.
-- `fetchVideosCarouselPage` fetches one tokenless public Videos page; `fetchVideosCarousel` adds public settings, aggregates, and core CSS for standalone use.
-- `createVideosCarouselData` combines video/photo cards with resources already returned by a storefront batch.
-- `fetchPopupReviewsPage` maps dashboard selection to one tokenless public review-card read; `fetchPopupReviews` adds the public settings reads for standalone use.
-- `createPopupReviewsData` combines popup cards with settings already returned by a storefront batch.
-- `parseAiReviewsSummaryMetafield` validates and normalizes Judge.me's generated `shop.metafields.judgeme.store_summary_widget_data` value.
-- `fetchAiReviewsSummaryMetafield` reads that one public-display metafield through server-only Shopify Admin GraphQL when Storefront GraphQL returns `null`; the access token is sent only in the request header.
-- `createAiReviewsSummaryData` combines the metafield value with the app block's layout settings and shared public settings.
-- `fetchAiReviewsSummaryStatus` reads Judge.me's tokenless generation state for diagnostics; it does not return summary content.
-- `fetchReviewSnippetsPage` fetches one tokenless public snippets page; `fetchReviewSnippets` adds shared public settings for standalone use.
-- `createReviewSnippetsData` combines snippets with settings already returned by a storefront batch.
-- `fetchQuestionsAndAnswersPage` reads one tokenless product-question page; `fetchQuestionsAndAnswers` adds shared public settings for standalone use.
-- `createQuestionsAndAnswersData` combines questions with shared settings and Shopify product metadata; `submitQuestion` posts the real tokenless multipart shopper form.
-- `fetchTrustBadgeMetafields` reads the eight current shop metafields through Shopify Admin GraphQL; its Admin access token is server-only and is never returned.
-- `createTrustBadgeData` validates and sanitizes that response, strips unused review records, applies typed theme-editor overrides, and optionally creates an explicitly labeled disabled preview.
-- `fetchHappyCustomersPage` fetches one tokenless All Reviews v2025 page; `fetchHappyCustomers` adds shared public settings and legacy aggregates for standalone use.
-- `createHappyCustomersData` combines a Happy Customers page with settings, aggregate values, and histogram markup already returned by a storefront batch.
-- `StarRatingBadge` server-renders the product rating and enables its scroll-to-reviews behavior.
-- `ReviewsCarousel` server-renders the configured classic carousel and enables its navigation, auto-slide, and gallery behavior.
-- `AllReviewsCounter` server-renders the configured combined store rating/count and enables its branded/text star treatment.
-- `VerifiedReviewsCounter` server-renders the exact eligible verified count and enables its branded/classic presentation, orientation, color, branding, and link.
-- `JudgeMeMedals` server-renders every earned medal plus exact verified rating/count and enables dashboard branding, colors, links, compact layout, and SPA-safe mobile rotation.
-- `UgcMediaGrid` server-renders Judge.me's hidden post-data shell and enables its dashboard layout, lazy media, pagination, product attachments, and gallery lightbox.
-- `AllReviewsWidget` server-renders the configured all-store review stream and enables its tabs, filters, sorting, pagination, and SPA lifecycle.
-- `FloatingReviewsTab` server-renders the tab and enables its modal, review streams, pagination, filters, sorting, and SPA lifecycle.
-- `LegacyReviewWidget` server-renders that payload and progressively enables Judge.me's own review form and browser behavior.
-- `ReviewsGrid` mounts Judge.me's exact current Shopify extension component, including Show more and its media lightbox.
-- `CardsCarousel` mounts Judge.me's current Shopify block, including looped navigation, automatic movement, swipe support, and its review lightbox.
-- `TestimonialsCarousel` mounts the current one-review quote carousel, automatic pause/resume behavior, navigation, and review lightbox.
-- `VideosCarousel` mounts the current Highlight/Perspective media carousel, player/navigation behavior, and review lightbox.
-- `PopupReviews` renders the global timed popup and owns page targeting, position, mobile visibility, dismissal, and SPA timer cleanup.
-- `AiReviewsSummary` mounts Judge.me's current expanded, accordion, or button-theme store summary.
-- `ReviewSnippets` mounts Judge.me's current rotating snippet card, arrows, autoplay, and review lightbox.
-- `QuestionsAndAnswers` renders an independently placeable Q&A list, pagination, dashboard styling, and accessible Ask a question flow.
-- `TrustBadge` mounts Judge.me's current deployment-specific badge and lazy verified-review modal, with root-local SPA cleanup.
-- `HappyCustomers` imports the current deployment's All Reviews v2025 manager and mounts its tabs, filters, sorting, pagination, media, and store-review form with root-local SPA cleanup.
-- `resolveJudgeMeEngine` implements the explicit `exact`, `legacy`, and `native` runtime policy.
-- `JUDGE_ME_WIDGETS` names the storefront widget surface we intend to support.
-- `getShopifyNumericId` converts Storefront API GraphQL IDs for Judge.me calls.
-
-Private Judge.me credentials do not belong in this React package. Server integrations may consume a private token, but must never serialize it through a loader or provider.
-
-## Automatic v3 asset discovery
-
-Exact widgets depend on Judge.me's current Shopify extension deployment. Resolve that URL in a server loader instead of hardcoding a deployment UUID:
-
-```ts
-import { resolveJudgeMeV3AssetDeployment } from "judgeme-react";
-
-const deployment = await resolveJudgeMeV3AssetDeployment({
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-  storefrontUrl: env.JUDGEME_STOREFRONT_URL,
-  fallbackAssetBaseUrl: env.JUDGEME_V3_ASSET_BASE_URL,
-});
-```
-
-`storefrontUrl` must be a public HTTPS Online Store page where the Judge.me app embed is enabled. The resolver extracts every Shopify extension asset base, fetches each `manifest.json`, and accepts only a deployment containing the current Judge.me sentinel entries. Successful results are cached for 15 minutes and may be served stale for 24 hours when a refresh fails. Discovery has a five-second timeout. `fallbackAssetBaseUrl` should be the last deployment verified by your compatibility job; it is used when Shopify blocks or rate-limits theme HTML reads.
-
-Pass only the resolved public URL to React:
-
-```tsx
-<JudgeMeProvider
-  config={{
-    shopDomain: env.JUDGEME_SHOP_DOMAIN,
-    publicToken: env.JUDGEME_PUBLIC_TOKEN,
-    v3AssetBaseUrl: deployment.assetBaseUrl,
-  }}
-  onRuntimeError={({ widget, phase, error }) => {
-    reportError(error, { widget, phase });
-  }}
->
-  {children}
-</JudgeMeProvider>
-```
-
-The resolver is server-only operational logic. Do not call it from a browser component and do not derive `storefrontUrl` from shopper input.
-
-## Implemented widgets
-
-Fetch the nine legacy widgets plus the v3 grid, Cards, Testimonials, Videos, Popup, Review Snippets, Questions & Answers, Happy Customers, the new Review Widget, and Trust Badge data in a server loader. The exact-cache legacy batch makes seven requests: `product_review`, `preview_badge`, `featured_carousel`, `reviews_tab`, `verified_badge`, `all_reviews_page`, and one platform-independent cache read containing Medals, UGC, `settings`, and `html_miracle`. If UGC is absent from that response, one tokenless social-post compatibility read is added. The same All Reviews response supplies `AllReviewsWidget`, the aggregate values and histogram for `AllReviewsCounter` and `HappyCustomers`, and the Floating Tab fallback when `reviews_tab` is `null`.
-
-Reviews Grid, Cards Carousel, Testimonials Carousel, Videos Carousel, Pop-up Reviews, Review Snippets, Happy Customers, and an enabled new Review Widget each add one public request and reuse the batch's settings. Fetch Questions & Answers only when `normalizeQuestionsAndAnswersConfig(settings).dashboardEnabled` is true; do not use the sample endpoint as storefront content. AI Reviews Summary adds no Judge.me request: read its metafield with Storefront GraphQL first and use `fetchAiReviewsSummaryMetafield` as a server-only Admin fallback when necessary. Trust Badge requires its own server-only Admin metafield read. The batch and standalone exact fetchers isolate optional dependencies, discard malformed collection rows, and default malformed optional metadata. Unsafe HTML and mismatched product or selection data still fail closed. Awaiting the resulting payload keeps Judge.me-owned DOM outside a streamed Suspense boundary and prevents its runtime from racing hydration.
-
-```ts
-import {
-  AiReviewsSummary,
-  AllReviewsCounter,
-  AllReviewsWidget,
-  CardsCarousel,
-  createAiReviewsSummaryData,
-  createCardsCarouselData,
-  createHappyCustomersData,
-  createPopupReviewsData,
-  createQuestionsAndAnswersData,
-  createReviewSnippetsData,
-  createReviewWidgetV3Data,
-  createReviewsGridData,
-  createTestimonialsCarouselData,
-  createTrustBadgeData,
-  createVideosCarouselData,
-  fetchAiReviewsSummaryMetafield,
-  fetchCardsCarouselPage,
-  fetchHappyCustomersPage,
-  fetchLegacyStorefrontWidgets,
-  fetchPopupReviewsPage,
-  fetchQuestionsAndAnswersPage,
-  fetchReviewSnippetsPage,
-  fetchReviewWidgetV3Page,
-  fetchReviewsGridPage,
-  fetchTestimonialsCarouselPage,
-  fetchTrustBadgeMetafields,
-  fetchVideosCarouselPage,
-  FloatingReviewsTab,
-  getShopifyNumericId,
-  HappyCustomers,
-  JudgeMeMedals,
-  JudgeMeProvider,
-  JudgeMeWidgetStyles,
-  LegacyReviewWidget,
-  normalizeQuestionsAndAnswersConfig,
-  PopupReviews,
-  QuestionsAndAnswers,
-  ReviewsCarousel,
-  ReviewsGrid,
-  ReviewSnippets,
-  ReviewWidgetV3,
-  StarRatingBadge,
-  TestimonialsCarousel,
-  TrustBadge,
-  UgcMediaGrid,
-  VerifiedReviewsCounter,
-  VideosCarousel,
-} from "judgeme-react";
-
-const widgets = await fetchLegacyStorefrontWidgets({
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-  publicToken: env.JUDGEME_PUBLIC_TOKEN,
-  productId: getShopifyNumericId(product.id),
-  signal: request.signal,
-});
-
-const reviewsGridPage = await fetchReviewsGridPage({
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-  signal: request.signal,
-});
-
-const cardsCarouselPage = await fetchCardsCarouselPage({
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-  signal: request.signal,
-});
-
-const testimonialsCarouselPage = await fetchTestimonialsCarouselPage({
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-  signal: request.signal,
-});
-
-const videosCarouselPage = await fetchVideosCarouselPage({
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-  config: { reviewType: "photos-and-videos" },
-  signal: request.signal,
-});
-
-const popupReviewsPage = await fetchPopupReviewsPage({
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-  settings: widgets.resources.settings,
-  signal: request.signal,
-});
-
-const reviewSnippetsConfig = {
-  reviewSelection: "current_product",
-  showReviewMedia: true,
-} as const;
-
-const reviewSnippetsPage = await fetchReviewSnippetsPage({
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-  productId: getShopifyNumericId(product.id),
-  config: reviewSnippetsConfig,
-  signal: request.signal,
-});
-
-const qnaEnabled = normalizeQuestionsAndAnswersConfig(
-  widgets.resources.settings,
-).dashboardEnabled;
-const questionsAndAnswersPage = qnaEnabled
-  ? await fetchQuestionsAndAnswersPage({
-      shopDomain: env.JUDGEME_SHOP_DOMAIN,
-      productId: getShopifyNumericId(product.id),
-      signal: request.signal,
-    })
-  : null;
-
-const happyCustomersPage = await fetchHappyCustomersPage({
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-  signal: request.signal,
-});
-
-const aggregate = widgets.allReviewsCounter
-  ? {
-    count: widgets.allReviewsCounter.count,
-    rating: Number(widgets.allReviewsCounter.rating),
-    }
-  : null;
-
-const reviewsGrid = aggregate
-  ? createReviewsGridData({
-      aggregate,
-      page: reviewsGridPage,
-      settings: widgets.resources.settings,
-      shopDomain: env.JUDGEME_SHOP_DOMAIN,
-    })
-  : null;
-
-const cardsCarousel = aggregate
-  ? createCardsCarouselData({
-      aggregate,
-      page: cardsCarouselPage,
-      settings: widgets.resources.settings,
-      shopDomain: env.JUDGEME_SHOP_DOMAIN,
-      styles: widgets.resources.styles,
-    })
-  : null;
-
-const testimonialsCarousel = aggregate
-  ? createTestimonialsCarouselData({
-      aggregate,
-      page: testimonialsCarouselPage,
-      settings: widgets.resources.settings,
-      shopDomain: env.JUDGEME_SHOP_DOMAIN,
-      styles: widgets.resources.styles,
-    })
-  : null;
-
-const videosCarousel = aggregate
-  ? createVideosCarouselData({
-      aggregate,
-      config: { reviewType: "photos-and-videos" },
-      page: videosCarouselPage,
-      settings: widgets.resources.settings,
-      shopDomain: env.JUDGEME_SHOP_DOMAIN,
-      styles: widgets.resources.styles,
-    })
-  : null;
-
-const popupReviews = createPopupReviewsData({
-  page: popupReviewsPage,
-  settings: widgets.resources.settings,
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-});
-
-// Server-only fallback: never return SHOPIFY_ADMIN_ACCESS_TOKEN from the loader.
-const storefrontSummary = shop.judgeMeStoreSummaryWidgetData?.value ?? null;
-const adminSummary =
-  !storefrontSummary && env.SHOPIFY_ADMIN_ACCESS_TOKEN
-    ? await fetchAiReviewsSummaryMetafield({
-        adminAccessToken: env.SHOPIFY_ADMIN_ACCESS_TOKEN,
-        apiVersion: env.SHOPIFY_ADMIN_API_VERSION ?? "2026-04",
-        shopDomain: env.JUDGEME_SHOP_DOMAIN,
-        signal: request.signal,
-      })
-    : null;
-const aiReviewsSummary = createAiReviewsSummaryData({
-  metafieldValue: storefrontSummary ?? adminSummary,
-  settings: widgets.resources.settings,
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-  config: {
-    theme: "accordion",
-    keywordsVisibility: "when_click",
-  },
-});
-
-const reviewSnippets = createReviewSnippetsData({
-  config: reviewSnippetsConfig,
-  page: reviewSnippetsPage,
-  productId: getShopifyNumericId(product.id),
-  settings: widgets.resources.settings,
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-});
-
-const questionsAndAnswers = questionsAndAnswersPage
-  ? createQuestionsAndAnswersData({
-      page: questionsAndAnswersPage,
-      productId: getShopifyNumericId(product.id),
-      productTitle: product.title,
-      productHandle: product.handle,
-      settings: widgets.resources.settings,
-      shopDomain: env.JUDGEME_SHOP_DOMAIN,
-    })
-  : null;
-
-const reviewWidgetV3Page = await fetchReviewWidgetV3Page({
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-  productId: getShopifyNumericId(product.id),
-  signal: request.signal,
-});
-
-const reviewWidgetV3 = reviewWidgetV3Page && aggregate
-  ? createReviewWidgetV3Data({
-      page: reviewWidgetV3Page,
-      productId: getShopifyNumericId(product.id),
-      productTitle: product.title,
-      productHandle: product.handle,
-      settings: widgets.resources.settings,
-      shopAggregate: aggregate,
-      shopDomain: env.JUDGEME_SHOP_DOMAIN,
-      shopReviewsCount: happyCustomersPage.numberOfShopReviews,
-      config: { showStoreReviews: true },
-    })
-  : null;
-
-// Server-only: never return SHOPIFY_ADMIN_ACCESS_TOKEN from the loader.
-const trustBadgeMetafields = await fetchTrustBadgeMetafields({
-  adminAccessToken: env.SHOPIFY_ADMIN_ACCESS_TOKEN,
-  apiVersion: env.SHOPIFY_ADMIN_API_VERSION ?? "2026-04",
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-  signal: request.signal,
-});
-
-const trustBadge = createTrustBadgeData({
-  metafields: trustBadgeMetafields,
-  settings: widgets.resources.settings,
-  shopDomain: env.JUDGEME_SHOP_DOMAIN,
-});
-
-const happyCustomers = aggregate && widgets.allReviewsWidget
-  ? createHappyCustomersData({
-      aggregate,
-      legacyHtml: widgets.allReviewsWidget.html,
-      page: happyCustomersPage,
-      settings: widgets.resources.settings,
-      shopDomain: env.JUDGEME_SHOP_DOMAIN,
-    })
-  : null;
-```
-
-Render it inside the store-level provider:
-
-```tsx
-<JudgeMeProvider
-  config={{
-    shopDomain: env.JUDGEME_SHOP_DOMAIN,
-    publicToken: env.JUDGEME_PUBLIC_TOKEN,
-    v3AssetBaseUrl: env.JUDGEME_V3_ASSET_BASE_URL,
-  }}
->
-  <JudgeMeWidgetStyles data={widgets.resources} />
-  {widgets.starRatingBadge ? (
-    <StarRatingBadge
-      data={{ ...widgets.starRatingBadge, ...widgets.resources }}
-      includeStyles={false}
-    />
-  ) : null}
-  {widgets.allReviewsCounter ? (
-    <AllReviewsCounter
-      data={{ ...widgets.allReviewsCounter, ...widgets.resources }}
-      includeStyles={false}
-    />
-  ) : null}
-  {widgets.verifiedReviewsCounter ? (
-    <VerifiedReviewsCounter
-      data={{ ...widgets.verifiedReviewsCounter, ...widgets.resources }}
-      includeStyles={false}
-    />
-  ) : null}
-  {widgets.medals ? (
-    <JudgeMeMedals
-      data={{ ...widgets.medals, ...widgets.resources }}
-      includeStyles={false}
-    />
-  ) : null}
-  {widgets.ugcMediaGrid ? (
-    <UgcMediaGrid
-      data={{ ...widgets.ugcMediaGrid, ...widgets.resources }}
-      includeStyles={false}
-    />
-  ) : null}
-  {trustBadge ? <TrustBadge data={trustBadge} /> : null}
-  {happyCustomers ? <HappyCustomers data={happyCustomers} /> : null}
-  {aiReviewsSummary ? <AiReviewsSummary data={aiReviewsSummary} /> : null}
-  <ReviewSnippets data={reviewSnippets} />
-  {questionsAndAnswers ? (
-    <QuestionsAndAnswers data={questionsAndAnswers} />
-  ) : null}
-  {reviewWidgetV3 ? <ReviewWidgetV3 data={reviewWidgetV3} /> : null}
-  {cardsCarousel ? <CardsCarousel data={cardsCarousel} includeStyles={false} /> : null}
-  {testimonialsCarousel ? <TestimonialsCarousel data={testimonialsCarousel} includeStyles={false} /> : null}
-  {videosCarousel ? <VideosCarousel data={videosCarousel} includeStyles={false} /> : null}
-  {widgets.reviewsCarousel ? (
-    <ReviewsCarousel
-      data={{ ...widgets.reviewsCarousel, ...widgets.resources }}
-      includeStyles={false}
-    />
-  ) : null}
-  {widgets.reviewWidget ? (
-    <LegacyReviewWidget
-      data={{ ...widgets.reviewWidget, ...widgets.resources }}
-      includeStyles={false}
-    />
-  ) : null}
-  {widgets.allReviewsWidget ? (
-    <AllReviewsWidget
-      data={{ ...widgets.allReviewsWidget, ...widgets.resources }}
-      includeStyles={false}
-    />
-  ) : null}
-  {reviewsGrid ? <ReviewsGrid data={reviewsGrid} /> : null}
-  {widgets.floatingReviewsTab ? (
-    <FloatingReviewsTab
-      data={{ ...widgets.floatingReviewsTab, ...widgets.resources }}
-      includeStyles={false}
-      position="right"
-    />
-  ) : null}
-  <PopupReviews data={popupReviews} pageType="product" />
-</JudgeMeProvider>
-```
-
-`JudgeMeWidgetStyles` emits the shared dashboard CSS once for a batched response. Keep `includeStyles={false}` on every legacy component in that batch, including `LegacyReviewWidget`, so they do not emit duplicate copies. Mounting the shared styles explicitly is important even when the route uses exact v3 components: Judge.me's current v3 Review Widget still references the `JudgemeStar` icon font declared by the shared CSS. When rendering one legacy widget from a standalone fetcher, omit `JudgeMeWidgetStyles` and leave `includeStyles` at its default `true`. Use `fetchLegacyProductWidgets` when a route needs only the two product widgets.
-
-`VerifiedReviewsCounter` is eligibility-aware. `fetchVerifiedReviewsCounter` returns `null` when Judge.me's public `verified_badge` response is `null`, which currently means the store has not reached the 20-verified-review requirement. Do not substitute the All Reviews count: that includes reviews Judge.me does not classify as verified.
-
-`JudgeMeMedals` is also eligibility-aware. `fetchJudgeMeMedals` returns `null` when Judge.me has no earned-medal markup, and otherwise preserves every earned medal plus the exact verified-only rating and count from Judge.me's cache response. The host needs `judgeme-public-images.imgix.net` in `connect-src` and `img-src`. On compact layouts the component shows three medals at once and rotates through the rest, with its timer released on SPA unmount.
-
-`UgcMediaGrid` is publication-aware. Exact cache markup is used when available; otherwise `fetchUgcMediaGrid` reads the tokenless `/reviews/social_posts` feed and reconstructs only Judge.me's official hidden-JSON shell. Visible markup and interactions still come from the current public bundles. HTTP 404 or an empty feed returns `null`. Instagram media may require `https://*.cdninstagram.com` and `https://*.fbcdn.net` in the host's image, media, and frame CSP directives.
-
-`TrustBadge` is eligibility- and enablement-aware. `fetchTrustBadgeMetafields` needs a server-side Shopify Admin access token because the current `judgeme.trust_badge.*` shop metafields are not exposed through Storefront GraphQL. `createTrustBadgeData` returns `null` for zero verified reviews and, by default, when the badge is disabled. A theme-editor-style harness may explicitly pass `previewWhenDisabled: true` and must label that output as a preview. The normalized browser payload excludes the raw modal's redundant `photo_gallery` customer records. The host must supply the current `v3AssetBaseUrl`; opening the modal then uses Judge.me's tokenless verified-review feed.
-
-`HappyCustomers` is an exact current extension mount with a public-data fallback. `fetchHappyCustomersPage` reads the tokenless `all_reviews_js_based` endpoint, while `createHappyCustomersData` reuses the batched All Reviews aggregate, histogram, and dashboard settings. It returns `null` when `all_reviews_widget_v2025_enabled` is false unless a theme-editor-style harness explicitly requests and labels `previewWhenDisabled`. The exact manager owns Product/Store tabs, filters, sorting, pagination, media, and the Write a review flow. A tab that was not seeded by the loader performs one lazy tokenless browser read. The host must allow `https://judgeme.imgix.net` in `img-src` for reviewer avatars.
-
-`AllReviewsCounter` is the store-wide aggregate, including product and shop reviews. Its standalone fetcher calls `all_reviews_count` and `all_reviews_rating`; the batched loader reads the equivalent values from the `all_reviews_page` header. Dashboard templates are rendered as escaped text, and unsafe `javascript:` destinations are not emitted.
-
-The host application must allow Judge.me's script, style, API, media, and image hosts in its Content Security Policy. Exact extension adapters also require `https://cdn.shopify.com` in script, style, connect, font, and image policies. Happy Customers reviewer avatars additionally require `https://judgeme.imgix.net` in `img-src`. The Hydrogen example in this repository contains the tested configuration. It preserves `'self'` when overriding `scriptSrc` and permits Vite's local blob worker with `workerSrc: ["'self'", 'blob:']`.
-
-`ReviewsCarousel` implements Judge.me's classic carousel, sometimes called the legacy Reviews Carousel. It is not an adapter for the newer Cards, Testimonials, or Videos carousel blocks. Its card theme assumes Shopify's conventional `border-box` sizing while applying fixed heights, padding, and `overflow: hidden`; the component supplies that sizing rule within its own root so host resets cannot clip the reviewer footer.
-
-`AllReviewsWidget` uses Judge.me's official platform-independent marker and CDN styling, but React owns its interactive request lifecycle. Judge.me's `arp.js` normally pages through a cache-server contract; the adapter instead captures the same controls and reads `all_reviews_page` with the public token. Do not infer the API batch size from the header's `data-per-page`: on the current store the header says 10 while the endpoint returns 25 reviews per full page. The adapter records the largest observed batch size and uses returned review counts to detect the end.
-
-`FloatingReviewsTab` prefers Judge.me's official markup. Its fallback exists because the official endpoint returns `null` when the Awesome-only tab is unavailable, even though `all_reviews_page` remains readable with the same public token. The fallback uses Judge.me's returned reviews and dashboard settings; it does not invent review content. Its `position` prop mirrors the Shopify app-embed setting because that setting lives in the theme editor rather than the Judge.me API.
-
-`LegacyReviewWidget` intentionally implements Judge.me's public platform-independent Review Widget contract. When a store has the new Review Widget enabled, the fetch helper preserves its dashboard-generated text, colors, and other shared settings but disables the v3-only `review_widget_revamp_enabled` flag for the legacy runtime.
-
-`ReviewWidgetV3` uses the exact current Shopify extension manager and styles. Its initial `reviews_for_widget` read is tokenless and returns structured JSON only when the new widget is enabled; a legacy HTML response becomes `null`. The normalizer accepts both Judge.me's older top-level `reviews`/`pagination` contract and its current primary-/other-language streams. It removes malformed rows, fills invalid optional metadata from the valid page content, and passes the sanitized payload to the exact manager. A theme-editor-style harness may set `previewWhenDisabled: true`, but must label the official sample content as a preview. The host supplies the current validated `v3AssetBaseUrl`. The adapter delays its legacy `.jdgm-review-widget` marker until Judge.me's old runtime has snapshotted legacy roots, preventing Happy Customers' modal preloader from initializing the v3 root as a legacy form. Current media CSP can require `vimeo.com` in `connect-src`, `i.vimeocdn.com` in `img-src`, and `player.vimeo.com` in `frame-src`; Judge.me's official sample currently also uses `i.ibb.co` images.
-
-`ReviewsGrid` is an exact v3 client mount. The host must supply the current `https://cdn.shopify.com/extensions/<deployment>/<handle>/assets/` base because Judge.me can change it between extension deployments. Use `fetchReviewsGridPage` beside `fetchLegacyStorefrontWidgets` to add only one request to the product loader, then pass the shared settings and All Reviews aggregate through `createReviewsGridData`. The grid marker is server-rendered, but the review cards are mounted on the client by Judge.me's module.
-
-`CardsCarousel` is an exact hybrid mount. Its page fetch is tokenless; the block shell is server-rendered; Judge.me's current `carousels.css`, `carousels.js`, `media_carousel.js`, and `video_carousel.js` build and move the cards; and the deployment manifest resolves the v3 review lightbox. The adapter seeds the server-fetched reviews before the SPA-root scanner runs, so hydration does not repeat the CDN data request. For `reviewSelection: "cart"`, pass the current cart's product IDs in `selectedProductIds`; the adapter maps them to the equivalent public custom-product read.
-
-`TestimonialsCarousel` is also a hybrid exact mount. Its page fetch uses the same tokenless endpoint with `carousel_type=testimonials`; `carousels.css`, `carousels.js`, and `testimonials_carousel.js` build the one-card-at-a-time quote carousel; and the manifest-resolved lightbox remains shared. React supplies the block's serialized theme-editor configuration and owns navigation, autoplay pause/resume, and unmount cleanup. The full setting surface is typed by `TestimonialsCarouselConfig`; `transitionSpeed: 0` disables autoplay, and `arrowsPosition: "hidden"` removes navigation controls. Cart mode uses the same explicit `selectedProductIds` workaround as Cards Carousel.
-
-`VideosCarousel` is the media-focused exact mount. Its tokenless request sets `carousel_type=videos` and maps `reviewType` to Judge.me's required `video`, `photo_and_video`, or `all` value. The component reuses Judge.me's deployed carousel CSS, media-card builder, player/navigation scanner, and manifest-resolved lightbox. `VideosCarouselConfig` covers the current theme-block selection, star/media filters, Highlight/Perspective layout, sizing, colors, arrows, border/shadow, autoplay, transition, and header controls. Videos-only mode requires at least three returned cards, matching Judge.me's documented minimum. The current fixture verifies photo cards and the image lightbox; iframe playback still requires seeded video reviews.
-
-`PopupReviews` is a native global embed. Its tokenless request maps the dashboard's recent, picture-first, or featured selection to the existing public carousel feed, while `PopupReviewsConfig` comes from the shared Judge.me settings response. Mount it once near the application root in a complete storefront; pass an explicit `pageType` when route metadata is available. Product-picture mode needs `productImageUrlsByHandle` from the host's Storefront API because the public review feed does not consistently include base product images. The adapter never needs the private Judge.me token and never serializes reviewer contact or IP fields.
-
-`AiReviewsSummary` is a store-level exact mount. First query `shop.metafield(namespace: "judgeme", key: "store_summary_widget_data") { value }` with Shopify's Storefront API. If Shopify returns `null` even though Judge.me has generated the summary, call `fetchAiReviewsSummaryMetafield` from the server with a Shopify Admin token and pass the returned string to `createAiReviewsSummaryData`; missing data from both paths returns `null`. The public status route is useful for generation diagnostics but does not contain the summary. Layout, visibility, sizing, corner, and color values belong to the Shopify app block, so the headless host must supply them through `AiReviewsSummaryConfig`. Judge.me's current module renders the generated summary, translations, keywords, aggregate, disclaimer, and verified branding; it does not currently consume a separately verified review-highlights field. No private Judge.me token is required, and the Shopify Admin token must never cross the loader boundary.
-
-`ReviewSnippets` is an exact current extension mount backed by `api.judge.me/reviews/reviews_for_review_snippet_widget`. Use `fetchReviewSnippetsPage` beside the shared storefront batch, then pass its result and shared settings to `createReviewSnippetsData`. The React marker carries the current product/cart selection, filters, sizing, arrows, autoplay, media, corner, and color settings. Judge.me's module insists on fetching its own URL, so the adapter gives it the already validated loader response through an exact-URL, GET-only preload bridge and releases that response on unmount. No private token is required. Judge.me officially gates theme installation to Awesome; the current Free-plan public response is a compatibility workaround, not an entitlement guarantee.
-
-`QuestionsAndAnswers` is a native compatibility surface because Judge.me exposes Q&A only as an internal new-Review-Widget tab, not as a standalone extension entry. Check `normalizeQuestionsAndAnswersConfig(settings).dashboardEnabled` before fetching or mounting it. `fetchQuestionsAndAnswersPage` reads the current tokenless product feed; `submitQuestion` sends Judge.me's real multipart shopper form without either token. The component consumes dashboard labels, colors, typography, corners, reviewer/date settings, pagination, and the moderation success state. Keep the browser POST a simple multipart request: do not set `Content-Type`, because Judge.me's route currently allows the POST response cross-origin but does not answer preflights. Judge.me officially gates its Shopify Q&A UI to Awesome; the public route is an interoperability contract that must be monitored. Never present `preview_mode=sample_data` as published storefront questions.
-
-In a combined loader, render every nullable result from `fetchLegacyStorefrontWidgets` independently and wrap each v3/optional adapter construction in its own error boundary. The batch retries shared resources through the standalone settings endpoints when its cache payload is unusable, then falls back to empty settings and any recoverable CSS. It also falls back to the aggregate endpoints if `all_reviews_page` fails. Collection adapters discard malformed records and default optional pagination or summary fields. They still reject executable HTML, mismatched product IDs, and mismatched selection data.
-
-The Widget API response is treated as trusted third-party HTML. The helper rejects script tags, inline event handlers, and `javascript:` URLs before the payload reaches server rendering. Judge.me's runtime is loaded from its CDN after React hydration and is never copied into this package.
-
-## License
-
-MIT © 2026 Filip Ljubic. See [LICENSE](LICENSE).
+Judge.me and its related marks belong to their respective owner. This package is an independent compatibility project.

@@ -1,75 +1,99 @@
-# `judgeme-react` Hydrogen example
+# Hydrogen example
 
-This is the reference storefront for integrating the package into a real Shopify Hydrogen app. It is intentionally private and is not a second npm package. Its `judgeme-react` dependency is pinned to the same exact version as the workspace library, so the directory can also be copied into a standalone repository after that version is published.
+This is the working reference storefront for [`judgeme-react`](../../packages/judgeme-react). It shows how the reverse-engineered Judge.me bridge fits into a current Shopify Hydrogen app without leaking server credentials or turning one flaky widget into a failed product page.
 
-The app demonstrates every implemented storefront component, but the most reusable integration points are small:
+Use it as a comparison repo, not as an instruction to replace your storefront. The package itself has no Hydrogen dependency.
 
-| File | What to copy or compare |
+## What to copy
+
+| File | What it demonstrates |
 | --- | --- |
-| `app/lib/judgeme.server.ts` | Server-only v3 asset discovery with a safe legacy fallback |
-| `app/root.tsx` | One `JudgeMeProvider` around the storefront |
-| `app/routes/products.$handle.tsx` | Shared data fetches, nullable widget composition, and the vertical widget stack |
-| `app/entry.server.tsx` | The complete tested Hydrogen CSP allowlist |
-| `.env.example` | Public configuration and optional server-only Shopify Admin variables |
+| [`app/lib/judgeme.server.ts`](app/lib/judgeme.server.ts) | Server-only discovery of the store's current Judge.me extension assets, with a safe legacy/native fallback |
+| [`app/root.tsx`](app/root.tsx) | One `JudgeMeProvider` around the storefront |
+| [`app/routes/products.$handle.tsx`](app/routes/products.$handle.tsx) | Shared server fetches, per-widget failure isolation, typed config, and nullable vertical composition |
+| [`app/entry.server.tsx`](app/entry.server.tsx) | Complete tested Hydrogen CSP sources for Judge.me, Shopify extension assets, images, media, and video frames |
+| [`.env.example`](.env.example) | Shopify Headless values, Judge.me public configuration, and optional server-only Admin values |
 
-Server code imports from `judgeme-react/server`. Components import from `judgeme-react/react`. The all-in-one package root still works, but the split imports make the credential and rendering boundaries obvious and are compatible with React Server Component tooling.
+Server modules import from `judgeme-react/server`. Components import from `judgeme-react/react`. The split prevents an accidental server fetcher or secret-bearing helper from entering the browser bundle.
 
-## Prerequisites
+[Browse one element-level screenshot for every component](../../docs/WIDGET_GALLERY.md).
 
-- Bun 1.3.14
-- a Shopify store published to the Headless channel
-- a permanent `*.myshopify.com` domain and Storefront API values
-- Judge.me installed, with the Judge.me app embed enabled on the published Online Store theme
-- a Judge.me public Widget API token
-- at least one published product URL on that Online Store theme for v3 asset discovery
+[![Cards Carousel in the Hydrogen example](../../docs/images/widgets/cards-carousel.jpeg)](../../docs/WIDGET_GALLERY.md#cards-carousel)
 
-The Judge.me private token is not used by this package. Do not add it to the app.
+## Before you run it
+
+You need:
+
+- Bun 1.3.14;
+- a Shopify storefront published to the Headless channel;
+- Judge.me installed on the same store;
+- the Judge.me app embed enabled on a published Online Store theme;
+- a Judge.me Public API Token;
+- a public product URL on that theme for extension-asset discovery.
+
+The Judge.me private token is not used. Do not add it to the app.
 
 ## Get the credentials
 
-### Judge.me public token
+### Judge.me
 
-In Judge.me Admin, go to **Settings > Integrations**, click **View API tokens**, and copy the **Public API Token** plus the permanent `*.myshopify.com` domain. Put them in `JUDGEME_PUBLIC_TOKEN` and `JUDGEME_SHOP_DOMAIN` respectively. The public token is intended for public Widget API GET requests and does not require the Awesome plan. Never copy the private token into this app. See Judge.me's [API credential guide](https://judge.me/help/en/articles/8409180-using-judge-me-api).
+In Judge.me Admin, open **Settings > Integrations > View API tokens** and copy the **Public API Token** plus the permanent `*.myshopify.com` domain.
 
-### Shopify Headless storefront credentials
+```dotenv
+JUDGEME_SHOP_DOMAIN=store.myshopify.com
+JUDGEME_PUBLIC_TOKEN=your-public-widget-api-token
+JUDGEME_STOREFRONT_URL=https://store.myshopify.com/products/published-product
+JUDGEME_V3_ASSET_BASE_URL=
+```
+
+`JUDGEME_STOREFRONT_URL` points at a public theme page where the Judge.me app embed is enabled. The server inspects that page only to find the current `cdn.shopify.com/extensions/.../assets/` deployment; it does not scrape reviews from Liquid HTML.
+
+`JUDGEME_V3_ASSET_BASE_URL` is an optional last-known-good fallback for a password-protected, rate-limited, or unavailable theme. Most storefronts should leave it blank and use automatic discovery.
+
+The public token is intended for storefront Widget API reads. The private token must never enter loader data, React props, `JudgeMeProvider`, logs, fixtures, or committed files. Judge.me documents the tokens in its [API credential guide](https://judge.me/help/en/articles/8409180-using-judge-me-api).
+
+### Shopify Headless
 
 If the store does not already have a Headless storefront:
 
 1. Install or open Shopify's **Headless** sales channel.
-2. In Shopify Admin, go to **Sales channels > Headless**.
-3. Click **Add storefront**, or open the existing storefront you want this app to use.
-4. Under **Manage API access**, open **Storefront API** and copy the public access token. Generate the private token when server-side Storefront API access is required.
-5. Open **Customer Account API** under the same API-access area and copy the client ID and API URL if the storefront uses customer accounts.
-6. Review the shared Storefront API permissions and publish the products this app should display to the Headless sales channel.
+2. Open **Sales channels > Headless**.
+3. Add a storefront or select the existing one.
+4. Under **Manage API access**, copy the Storefront API values.
+5. Copy the Customer Account API values if the storefront uses customer accounts.
+6. Publish the required products to the Headless sales channel.
 
-Map the storefront detail values to the example environment:
+Map the channel values like this:
 
-| Environment variable | Headless value | Exposure |
+| Environment variable | Shopify value | Exposure |
 | --- | --- | --- |
 | `PUBLIC_STORE_DOMAIN` | Permanent `store.myshopify.com` domain | Public |
-| `PUBLIC_CHECKOUT_DOMAIN` | Checkout/store domain configured for the storefront | Public |
-| `PUBLIC_STOREFRONT_ID` | Numeric storefront ID shown for the Headless storefront | Public |
-| `PUBLIC_STOREFRONT_API_TOKEN` | Storefront API public access token | Public |
-| `PRIVATE_STOREFRONT_API_TOKEN` | Storefront API private access token | Server-only secret |
-| `PUBLIC_CUSTOMER_ACCOUNT_API_CLIENT_ID` | Customer Account API client ID | Public |
+| `PUBLIC_CHECKOUT_DOMAIN` | Checkout/store domain | Public |
+| `PUBLIC_STOREFRONT_ID` | Numeric Headless storefront ID | Public |
+| `PUBLIC_STOREFRONT_API_TOKEN` | Storefront API public token | Public |
+| `PRIVATE_STOREFRONT_API_TOKEN` | Storefront API private token | Server-only |
+| `PUBLIC_CUSTOMER_ACCOUNT_API_CLIENT_ID` | Customer Account client ID | Public |
 | `PUBLIC_CUSTOMER_ACCOUNT_API_URL` | Customer Account API URL | Public |
-| `SESSION_SECRET` | A new high-entropy secret generated for this Hydrogen app | Server-only secret |
+| `SESSION_SECRET` | New high-entropy session secret | Server-only |
 
-Shopify documents the current channel flow in [Bring your own headless stack](https://shopify.dev/docs/storefronts/headless/bring-your-own-stack/index) and [Manage the Headless channel](https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/manage-headless-channels). Public Storefront tokens are for browser-safe storefront reads; private Storefront tokens and `SESSION_SECRET` must never be exposed to client code or committed.
+Shopify's current flow is documented in [Bring your own headless stack](https://shopify.dev/docs/storefronts/headless/bring-your-own-stack/index) and [Manage the Headless channel](https://shopify.dev/docs/storefronts/headless/building-with-the-storefront-api/manage-headless-channels). A storefront linked to Shopify's Hydrogen channel can also use `shopify hydrogen env pull`.
 
-If this storefront is linked to a Shopify Hydrogen channel instead, `shopify hydrogen env pull` can populate its managed environment. The manual Headless values above remain useful for this standalone reference app.
+### Optional Shopify Admin token
 
-### Optional Shopify Admin access token
+`SHOPIFY_ADMIN_ACCESS_TOKEN` is not the Headless private Storefront token, and it is not a Judge.me token. This example uses it only on the server for Trust Badge metafields and as an AI Reviews Summary fallback when Judge.me's shop metafield is not Storefront-visible.
 
-`SHOPIFY_ADMIN_ACCESS_TOKEN` is **not** the Headless private Storefront token. It is an optional server-only GraphQL Admin API credential used only for Trust Badge metafields and the AI Reviews Summary fallback.
+```dotenv
+SHOPIFY_ADMIN_ACCESS_TOKEN=
+SHOPIFY_ADMIN_API_VERSION=2026-04
+```
 
-- Leave it empty if those widgets work through public/Storefront data or you do not need them.
-- For an existing admin-created custom app, use the installed app's Admin API credential.
-- Shopify no longer allows creation of new admin-created custom apps. New apps must use the Dev Dashboard or Shopify CLI and Shopify's current token-acquisition flow. Follow the official [Admin API token guide](https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/generate-app-access-tokens-admin) instead of treating a copied token as permanently valid.
-- Grant the minimum read access needed by the app and verify that it can query the required `shop.metafield` keys. Judge.me-owned metafield definitions can impose their own access restrictions, so an authenticated Admin token alone does not guarantee those fields are readable.
-- Inject the resulting token only into the server runtime. Never return it from a loader, put it in a `PUBLIC_*` variable, or pass it to `JudgeMeProvider`.
+Leave it blank if you do not need those paths. If you do, follow Shopify's [Admin API token guide](https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/generate-app-access-tokens-admin), grant the least access the app needs, and inject the credential only into the server runtime. Never return it from a loader or put it in a `PUBLIC_*` variable.
 
-## Run from this monorepo
+Judge.me owns these metafield definitions, so an authenticated Admin token does not guarantee that every key is readable.
+
+## Run it
+
+From the monorepo root:
 
 ```sh
 bun install
@@ -77,59 +101,56 @@ cp examples/hydrogen/.env.example examples/hydrogen/.env
 bun run dev
 ```
 
-The storefront runs at `http://localhost:3001`; port 3000 stays free for other projects.
-
-## Run as a standalone example
-
-After `judgeme-react@1.0.0` is published, copy `examples/hydrogen` into its own repository, then run:
+The example is also self-contained once the published npm dependency is installed:
 
 ```sh
+cd examples/hydrogen
 bun install
 cp .env.example .env
 bun run dev
 ```
 
-There are no `workspace:` imports or paths in the example. Before the npm release, its exact dependency is satisfied by the local Bun workspace.
+It has no `workspace:` imports or private workspace aliases.
 
-## Environment
+## How the route is put together
 
-Fill the Shopify Headless variables generated by the Headless channel, then add:
+The product loader starts with `fetchLegacyStorefrontWidgets`. That call shares Judge.me's large settings/CSS response across legacy widgets and gives each optional endpoint its own nullable slot.
 
-```dotenv
-JUDGEME_SHOP_DOMAIN=store.myshopify.com
-JUDGEME_PUBLIC_TOKEN=your-public-widget-api-token
-JUDGEME_STOREFRONT_URL=https://store.myshopify.com/products/published-product
-JUDGEME_V3_ASSET_BASE_URL=
-SHOPIFY_ADMIN_ACCESS_TOKEN=
-SHOPIFY_ADMIN_API_VERSION=2026-04
-```
+The newer components then fetch only what they need. For example, the v3 Review Widget, Reviews Grid, and carousel adapters combine one page-specific tokenless response with the shared settings and current extension deployment. A malformed or disabled widget returns `null`; it does not reject the route.
 
-`JUDGEME_STOREFRONT_URL` is the primary v3 discovery input. It must be a public HTTPS page where the Judge.me app embed is enabled. `JUDGEME_V3_ASSET_BASE_URL` is only an optional last-known-good fallback for password-protected, rate-limited, or unavailable theme pages; most users can leave it empty.
+`JudgeMeWidgetStyles` mounts the shared dashboard stylesheet once. Every legacy component in that batch uses `includeStyles={false}`. Keep the shared style mount even when the page prefers `ReviewWidgetV3`: Judge.me's current v3 CSS references the `JudgemeStar` font from that payload.
 
-`SHOPIFY_ADMIN_ACCESS_TOKEN` is optional and server-only. The browser receives only validated public display data, never this credential.
+Normal components are stacked in `.product-widgets`. The product information is not sticky. `FloatingReviewsTab` and `PopupReviews` sit outside the stack because they are viewport overlays.
 
-## How the product route works
+Production content is honest by default:
 
-The product route first fetches `fetchLegacyStorefrontWidgets`, which shares one Judge.me settings/CSS payload across the legacy widgets and isolates each nullable endpoint. Exact/native widgets then fetch only their page-specific data and combine it with those shared resources. A malformed or disabled optional widget becomes `null`; it does not reject the entire page.
+| State | Example behavior |
+| --- | --- |
+| New Review Widget returns valid data | Render `ReviewWidgetV3` |
+| New Review Widget is disabled or unavailable | Fall back to `LegacyReviewWidget` |
+| Q&A is disabled | Skip the Q&A request and component |
+| AI summary metafield is absent | Render nothing; never invent a summary |
+| Trust badge, verified counter, medals, UGC, or video feed is ineligible/empty | Keep that component unmounted |
+| One optional request is malformed or unavailable | Hide that widget and keep the rest of the page |
 
-`JudgeMeWidgetStyles` mounts the shared dashboard CSS once. All legacy components consuming that shared payload use `includeStyles={false}`. This is important because the stylesheet includes the `JudgemeStar` font also used by the v3 Review Widget.
+## Settings: Judge.me-owned vs host-owned
 
-Normal content widgets live one below another in `.product-widgets`. `FloatingReviewsTab` and `PopupReviews` remain outside that stack because they are global overlays. Product information is not sticky.
+Dashboard-level Judge.me values that appear in the public settings payload carry over automatically: labels, translations, colors, branding, feature flags, and legacy CSS.
 
-The Review Widget prefers a valid v3 payload and falls back to `LegacyReviewWidget`. Q&A is requested only when the dashboard setting enables it. AI summary content comes only from Judge.me's generated metafield. Trust Badge, verified counts, UGC, medals, questions, and media widgets stay unmounted when the store has no eligible live data.
+Shopify theme-editor app-block settings belong to one Liquid block instance and are not available to a headless app. The route supplies their typed equivalents in objects such as `reviewsGridConfig`, `reviewWidgetV3Config`, and `reviewSnippetsConfig`. That includes review selection, product IDs, rows, columns, max width, card sizing, arrows, autoplay, transitions, per-instance colors, and empty-state choices.
 
 ## CSP
 
-The host application owns CSP. The tested policy is in `app/entry.server.tsx` and intentionally:
+The consuming app owns Content Security Policy. The tested configuration is in [`app/entry.server.tsx`](app/entry.server.tsx). It:
 
-- preserves `'self'` in `scriptSrc`;
-- uses `workerSrc: ["'self'", "blob:"]` for local Vite without adding `blob:` to `scriptSrc`;
+- keeps `'self'` in `scriptSrc`;
+- uses `workerSrc: ["'self'", "blob:"]` for Vite without adding `blob:` to `scriptSrc`;
 - allows `cdn.shopify.com` in script, style, connect, font, and image directives;
-- allows Judge.me API/CDN/media origins, both Judge.me imgix hosts, the classic S3 badge host, and required Vimeo/YouTube media/frame origins.
+- includes Judge.me API/CDN origins, both Judge.me imgix hosts, the legacy S3 badge host, Instagram media hosts, and Vimeo/YouTube media and frame hosts.
 
-Merge those sources into an existing policy; do not replace unrelated checkout, analytics, or storefront sources.
+Merge those sources into the host's existing policy. Do not replace checkout, analytics, or storefront sources. CSP headers are document-scoped, so perform a full page reload after changing them; hot module replacement cannot update the policy on the current document.
 
-## Verification
+## Verify it
 
 From the monorepo root:
 
@@ -140,14 +161,6 @@ bun run typecheck
 bun run build
 ```
 
-From a standalone example repository:
+Compilation cannot prove that Judge.me's current deployment still behaves the same way. Reload a published product in Brave, inspect console/network errors, exercise an interaction such as Write a review or a carousel/lightbox, then navigate away and back once to test SPA cleanup.
 
-```sh
-bun run lint
-bun run typecheck
-bun run build
-```
-
-Compilation cannot prove a mutable third-party deployment is healthy. Perform a clean Brave reload of a published product and exercise at least one relevant interaction, such as opening Write a review, moving a carousel, switching an All Reviews stream, or opening a media lightbox.
-
-For a smaller first integration, use the copy-paste prompt shipped as `SETUP_PROMPT.md` in `judgeme-react`. This app started from Shopify's Hydrogen Skeleton; refer to the [Hydrogen documentation](https://shopify.dev/docs/storefronts/headless/hydrogen) for the base storefront and Customer Account setup.
+For an agent-led integration into another storefront, use the [copy-paste setup prompt](../../packages/judgeme-react/SETUP_PROMPT.md). It asks for the store, desired widgets, feature activation, loading strategy, and optional Admin access before implementing the same architecture.

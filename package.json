@@ -15,7 +15,7 @@
   "scripts": {
     "build": "bun run build:library && bunx shopify hydrogen build --codegen --path examples/hydrogen",
     "build:library": "bun run --filter judgeme-react build",
-    "dev": "bun run build:library && bunx shopify hydrogen dev --codegen --port 3001 --path examples/hydrogen",
+    "dev": "bun run build:library && bunx shopify hydrogen dev --codegen --port 3000 --path examples/hydrogen",
     "lint": "bun run --workspaces --sequential lint",
     "release:check": "bun run test && bun run lint && bun run typecheck && bun run build && bun run --filter judgeme-react pack:check && bun run --filter judgeme-react publint",
     "test": "bun run --filter judgeme-react test",
