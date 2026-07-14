@@ -3,6 +3,7 @@ import { getShopifyNumericId } from "./shopify.js";
 
 const JUDGE_ME_WIDGET_API = "https://judge.me/api/v1/widgets";
 const JUDGE_ME_CACHE_HOST = "https://cache.judge.me";
+const JUDGE_ME_API_HOST = "https://api.judge.me";
 
 export type JudgeMeJsonValue =
   | boolean
@@ -72,6 +73,20 @@ export interface JudgeMeMedalsMarkup extends LegacyShopWidgetMarkup {
 export interface JudgeMeMedalsData
   extends JudgeMeMedalsMarkup, LegacyWidgetResources {}
 
+export type UgcMediaGridSource = "cache" | "social-posts-fallback";
+
+export interface UgcMediaGridMarkup extends LegacyShopWidgetMarkup {
+  /** Number of Instagram posts serialized into the initial grid payload. */
+  postCount: number;
+  /** Page size used by Judge.me's public social-post pagination. */
+  perPage: number;
+  /** Whether Judge.me supplied exact cache markup or the public fallback shell. */
+  source: UgcMediaGridSource;
+}
+
+export interface UgcMediaGridData
+  extends UgcMediaGridMarkup, LegacyWidgetResources {}
+
 export type AllReviewsWidgetReviewType = "product-reviews" | "shop-reviews";
 
 export interface AllReviewsWidgetMarkup extends LegacyShopWidgetMarkup {
@@ -108,6 +123,8 @@ export interface LegacyStorefrontWidgetsData extends LegacyProductWidgetsData {
   /** `null` until the store has earned Judge.me Medals. */
   medals: JudgeMeMedalsMarkup | null;
   reviewsCarousel: LegacyShopWidgetMarkup;
+  /** `null` until the store has at least one published Instagram post. */
+  ugcMediaGrid: UgcMediaGridMarkup | null;
   /** `null` until the store meets Judge.me's verified-review eligibility. */
   verifiedReviewsCounter: VerifiedReviewsCounterMarkup | null;
 }
@@ -150,6 +167,11 @@ export type FetchFloatingReviewsTabOptions = FetchReviewsCarouselOptions;
 export type FetchAllReviewsCounterOptions = FetchReviewsCarouselOptions;
 export type FetchVerifiedReviewsCounterOptions = FetchReviewsCarouselOptions;
 export type FetchJudgeMeMedalsOptions = FetchReviewsCarouselOptions;
+
+export interface FetchUgcMediaGridOptions extends FetchReviewsCarouselOptions {
+  /** Initial posts to request when cache markup is unavailable. Defaults to 9. */
+  perPage?: number;
+}
 
 interface ProductReviewResponse {
   product_external_id: number | string;
@@ -201,13 +223,27 @@ interface HtmlMiracleResponse {
   html_miracle: string;
 }
 
-interface MedalsCacheResponse extends HtmlMiracleResponse, SettingsResponse {
-  medals: null | string;
+interface StorefrontCacheResponse extends HtmlMiracleResponse, SettingsResponse {
+  medals?: null | string;
+  ugc_media_grid?: null | string;
 }
 
-interface MedalsCacheData {
+interface StorefrontCacheData {
   medals: JudgeMeMedalsMarkup | null;
   resources: LegacyWidgetResources;
+  ugcMediaGrid: UgcMediaGridMarkup | null;
+}
+
+interface StorefrontCacheSelection {
+  medals?: boolean;
+  ugcMediaGrid?: boolean;
+}
+
+interface UgcMediaGridPageResponse {
+  page?: unknown;
+  per_page?: unknown;
+  posts?: unknown;
+  total?: unknown;
 }
 
 interface LegacyRequestContext {
@@ -379,9 +415,39 @@ export async function fetchJudgeMeMedals({
     signal,
     fetchImplementation,
   });
-  const { medals, resources } = await fetchMedalsCacheData(context);
+  const { medals, resources } = await fetchStorefrontCacheData(context, {
+    medals: true,
+  });
 
   return medals ? { ...medals, ...resources } : null;
+}
+
+/**
+ * Fetches Judge.me's UGC Media Grid. Exact cache markup is preferred; stores
+ * without the platform-independent entitlement fall back to the same public,
+ * tokenless social-post feed used by Judge.me's Load More interaction.
+ */
+export async function fetchUgcMediaGrid({
+  shopDomain,
+  publicToken,
+  perPage = 9,
+  signal,
+  fetch: fetchImplementation = globalThis.fetch,
+}: FetchUgcMediaGridOptions): Promise<UgcMediaGridData | null> {
+  const context = createLegacyShopRequestContext({
+    shopDomain,
+    publicToken,
+    signal,
+    fetchImplementation,
+  });
+  const cache = await fetchStorefrontCacheData(context, {
+    ugcMediaGrid: true,
+  });
+  const ugcMediaGrid =
+    cache.ugcMediaGrid ??
+    (await fetchUgcMediaGridFallback(context, normalizeUgcPerPage(perPage)));
+
+  return ugcMediaGrid ? { ...ugcMediaGrid, ...cache.resources } : null;
 }
 
 /** Fetches the legacy All Reviews Widget, also called Happy Customers. */
@@ -472,7 +538,7 @@ export async function fetchLegacyProductWidgets({
 
 /**
  * Fetches every currently implemented legacy storefront widget with one shared
- * settings/CSS payload. Prefer this on routes that render all eight.
+ * settings/CSS payload. Prefer this on routes that render all nine.
  */
 export async function fetchLegacyStorefrontWidgets({
   shopDomain,
@@ -489,11 +555,20 @@ export async function fetchLegacyStorefrontWidgets({
     fetchImplementation,
   });
 
-  // Judge.me's own platform-independent preloader returns Medals, settings,
-  // and html_miracle together. Reuse that exact response instead of fetching
-  // settings and CSS again through two separate Widget API reads.
-  const medalsCachePromise = fetchMedalsCacheData(context);
-  const resourcesPromise = medalsCachePromise.then(({ resources }) => resources);
+  // Judge.me's own platform-independent preloader returns Medals, UGC Media
+  // Grid, settings, and html_miracle together. Reuse that exact response
+  // instead of fetching settings and CSS again through separate Widget reads.
+  const storefrontCachePromise = fetchStorefrontCacheData(context, {
+    medals: true,
+    ugcMediaGrid: true,
+  });
+  const resourcesPromise = storefrontCachePromise.then(
+    ({ resources }) => resources,
+  );
+  const ugcMediaGridPromise = storefrontCachePromise.then(
+    ({ ugcMediaGrid }) =>
+      ugcMediaGrid ?? fetchUgcMediaGridFallback(context, 9),
+  );
   const allReviewsPagePromise = resourcesPromise.then(({ settings }) =>
     fetchAllReviewsPageMarkup(context, getInitialAllReviewsType(settings)),
   );
@@ -503,18 +578,20 @@ export async function fetchLegacyStorefrontWidgets({
     reviewsCarousel,
     reviewsTab,
     verifiedReviewsCounter,
-    medalsCache,
+    storefrontCache,
     allReviewsPage,
+    ugcMediaGrid,
   ] = await Promise.all([
     fetchReviewWidgetMarkup(context),
     fetchStarRatingBadgeMarkup(context),
     fetchReviewsCarouselMarkup(context),
     fetchReviewsTabResponse(context),
     fetchVerifiedReviewsCounterMarkup(context),
-    medalsCachePromise,
+    storefrontCachePromise,
     allReviewsPagePromise,
+    ugcMediaGridPromise,
   ]);
-  const { medals, resources } = medalsCache;
+  const { medals, resources } = storefrontCache;
   const floatingReviewsTab = await resolveFloatingReviewsTabMarkup(
     context,
     reviewsTab,
@@ -541,6 +618,7 @@ export async function fetchLegacyStorefrontWidgets({
     reviewWidget,
     reviewsCarousel,
     starRatingBadge,
+    ugcMediaGrid,
     verifiedReviewsCounter,
   };
 }
@@ -1238,9 +1316,10 @@ async function fetchLegacyWidgetResources(
   );
 }
 
-async function fetchMedalsCacheData(
+async function fetchStorefrontCacheData(
   context: LegacyShopRequestContext,
-): Promise<MedalsCacheData> {
+  selection: StorefrontCacheSelection,
+): Promise<StorefrontCacheData> {
   const shopDomain = context.commonParams.shop_domain;
   const publicToken = context.commonParams.api_token;
   const url = new URL(
@@ -1248,7 +1327,8 @@ async function fetchMedalsCacheData(
     JUDGE_ME_CACHE_HOST,
   );
   url.searchParams.set("public_token", publicToken);
-  url.searchParams.set("medals", "1");
+  if (selection.medals) url.searchParams.set("medals", "1");
+  if (selection.ugcMediaGrid) url.searchParams.set("ugc_media_grid", "1");
 
   // Cloudflare's fetch throws an illegal-invocation error when called as an
   // object method because that binds `this` to our request context.
@@ -1260,15 +1340,15 @@ async function fetchMedalsCacheData(
 
   if (!response.ok) {
     throw new Error(
-      `Judge.me Medals request failed with HTTP ${response.status}.`,
+      `Judge.me storefront cache request failed with HTTP ${response.status}.`,
     );
   }
 
-  let payload: MedalsCacheResponse;
+  let payload: StorefrontCacheResponse;
   try {
-    payload = (await response.json()) as MedalsCacheResponse;
+    payload = (await response.json()) as StorefrontCacheResponse;
   } catch {
-    throw new Error("Judge.me Medals returned invalid JSON.");
+    throw new Error("Judge.me storefront cache returned invalid JSON.");
   }
 
   return {
@@ -1277,6 +1357,63 @@ async function fetchMedalsCacheData(
       payload.settings,
       payload.html_miracle,
     ),
+    ugcMediaGrid: normalizeUgcMediaGridMarkup(
+      payload.ugc_media_grid,
+      "cache",
+    ),
+  };
+}
+
+async function fetchUgcMediaGridFallback(
+  context: LegacyShopRequestContext,
+  perPage: number,
+): Promise<UgcMediaGridMarkup | null> {
+  const shopDomain = context.commonParams.shop_domain;
+  const url = new URL("/reviews/social_posts", JUDGE_ME_API_HOST);
+  url.searchParams.set("url", shopDomain);
+  url.searchParams.set("shop_domain", shopDomain);
+  url.searchParams.set("platform", "shopify");
+  url.searchParams.set("per_page", String(perPage));
+  url.searchParams.set("page", "1");
+
+  const fetchImplementation = context.fetchImplementation;
+  const response = await fetchImplementation(url, {
+    headers: { Accept: "application/json" },
+    signal: context.signal,
+  });
+
+  // Judge.me uses 404 as the empty/unavailable state for this public route.
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(
+      `Judge.me UGC Media Grid request failed with HTTP ${response.status}.`,
+    );
+  }
+
+  let payload: UgcMediaGridPageResponse;
+  try {
+    payload = (await response.json()) as UgcMediaGridPageResponse;
+  } catch {
+    throw new Error("Judge.me UGC Media Grid returned invalid JSON.");
+  }
+
+  const posts = normalizeUgcPosts(payload.posts);
+  if (posts.length === 0) return null;
+
+  const responsePerPage = normalizeUgcPerPage(payload.per_page, perPage);
+  const html = [
+    '<div class="jdgm-widget jdgm-ugc-media-wrapper">',
+    `<div class="jdgm-ugc-media" data-per-page="${responsePerPage}">`,
+    '<div class="jdgm-ugc-media-data jdgm-hidden" data-json="',
+    escapeHtml(JSON.stringify(posts)),
+    '"></div></div></div>',
+  ].join("");
+
+  return {
+    html,
+    perPage: responsePerPage,
+    postCount: posts.length,
+    source: "social-posts-fallback",
   };
 }
 
@@ -1300,7 +1437,7 @@ function createLegacyWidgetResources(
 function normalizeJudgeMeMedalsMarkup(
   html: unknown,
 ): JudgeMeMedalsMarkup | null {
-  if (html === null || html === "") return null;
+  if (html === undefined || html === null || html === "") return null;
   if (typeof html !== "string") {
     throw new Error("Judge.me returned invalid Medals markup.");
   }
@@ -1344,6 +1481,160 @@ function normalizeJudgeMeMedalsMarkup(
   }
 
   return { html, medalCount, rating, verifiedReviewCount };
+}
+
+function normalizeUgcMediaGridMarkup(
+  html: unknown,
+  source: UgcMediaGridSource,
+): UgcMediaGridMarkup | null {
+  if (html === undefined || html === null || html === "") return null;
+  if (typeof html !== "string") {
+    throw new Error("Judge.me returned invalid UGC Media Grid markup.");
+  }
+
+  assertSafeWidgetMarkup(html, "UGC Media Grid");
+
+  let completeHtml = hasHtmlClass(html, "jdgm-ugc-media-wrapper")
+    ? html
+    : `<div class="jdgm-widget jdgm-ugc-media-wrapper">${html}</div>`;
+
+  if (!hasHtmlClass(completeHtml, "jdgm-widget")) {
+    completeHtml = completeHtml.replace(
+      /class\s*=\s*(["'])([^"']*\bjdgm-ugc-media-wrapper\b[^"']*)\1/i,
+      (_attribute, quote: string, classNames: string) =>
+        `class=${quote}${classNames} jdgm-widget${quote}`,
+    );
+  }
+
+  const gridTag = findHtmlTagByClass(completeHtml, "jdgm-ugc-media");
+  const dataTag = findHtmlTagByClass(completeHtml, "jdgm-ugc-media-data");
+
+  if (
+    !hasHtmlClass(completeHtml, "jdgm-ugc-media-wrapper") ||
+    !hasHtmlClass(completeHtml, "jdgm-widget") ||
+    !gridTag ||
+    !dataTag
+  ) {
+    throw new Error("Judge.me returned incomplete UGC Media Grid markup.");
+  }
+
+  const perPage = normalizeUgcPerPage(
+    readHtmlAttribute(gridTag, "data-per-page"),
+  );
+  const serializedPosts = readHtmlAttribute(dataTag, "data-json");
+  if (serializedPosts === null) {
+    throw new Error("Judge.me returned incomplete UGC Media Grid data.");
+  }
+
+  let posts: unknown;
+  try {
+    posts = JSON.parse(decodeHtmlAttribute(serializedPosts));
+  } catch {
+    throw new Error("Judge.me returned invalid UGC Media Grid data.");
+  }
+
+  const normalizedPosts = normalizeUgcPosts(posts);
+  if (normalizedPosts.length === 0) return null;
+
+  return {
+    html: completeHtml,
+    perPage,
+    postCount: normalizedPosts.length,
+    source,
+  };
+}
+
+function normalizeUgcPosts(posts: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(posts)) {
+    throw new Error("Judge.me returned invalid UGC Media Grid posts.");
+  }
+
+  return posts.map((post) => {
+    if (
+      !isUnknownRecord(post) ||
+      !isUgcPostId(post.id ?? post.uuid) ||
+      !isUgcMediaType(post.media_type) ||
+      !isHttpsUrl(post.media_url) ||
+      !isHttpsUrl(post.thumbnail_url) ||
+      !Array.isArray(post.products)
+    ) {
+      throw new Error("Judge.me returned an invalid UGC Media Grid post.");
+    }
+
+    return post;
+  });
+}
+
+function normalizeUgcPerPage(value: unknown, fallback?: number): number {
+  const perPage = typeof value === "string" ? Number(value) : value;
+  if (
+    typeof perPage === "number" &&
+    Number.isSafeInteger(perPage) &&
+    perPage >= 1 &&
+    perPage <= 9
+  ) {
+    return perPage;
+  }
+
+  if (fallback !== undefined) return fallback;
+  throw new Error("UGC Media Grid perPage must be an integer from 1 to 9.");
+}
+
+function findHtmlTagByClass(html: string, className: string): string | null {
+  for (const match of html.matchAll(
+    /<[^>]*\bclass\s*=\s*(["'])([^"']*)\1[^>]*>/gi,
+  )) {
+    if (match[2]?.split(/\s+/).includes(className)) return match[0];
+  }
+  return null;
+}
+
+function readHtmlAttribute(tag: string, attribute: string): string | null {
+  const match = tag.match(
+    new RegExp(`${escapeRegExp(attribute)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i"),
+  );
+  return match?.[2] ?? null;
+}
+
+function decodeHtmlAttribute(value: string): string {
+  return value.replace(
+    /&(quot|amp|lt|gt|#39|#x27);/gi,
+    (entity) =>
+      ({
+        "&amp;": "&",
+        "&gt;": ">",
+        "&lt;": "<",
+        "&quot;": '"',
+        "&#39;": "'",
+        "&#x27;": "'",
+      })[entity.toLowerCase()] ?? entity,
+  );
+}
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isUgcPostId(value: unknown): boolean {
+  return (
+    (typeof value === "string" && value.trim().length > 0) ||
+    (typeof value === "number" && Number.isFinite(value))
+  );
+}
+
+function isUgcMediaType(value: unknown): boolean {
+  return (
+    value === "IMAGE" || value === "VIDEO" || value === "CAROUSEL_ALBUM"
+  );
+}
+
+function isHttpsUrl(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function hasHtmlClass(html: string, className: string): boolean {

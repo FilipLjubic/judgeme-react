@@ -414,6 +414,26 @@
       "current": "20260714T045603Z-dc36bc0721b6",
       "created_at": "2026-07-14T04:54:44Z",
       "updated_at": "2026-07-14T04:56:03Z"
+    },
+    {
+      "id": "8201f6d7fb05ca47",
+      "label": "judge-me-ugc-media-grid",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/8420861-ugc-instagram-shopping-widget",
+      "reason": null,
+      "current": "20260714T052219Z-e5c22e799403",
+      "created_at": "2026-07-14T05:22:14Z",
+      "updated_at": "2026-07-14T05:22:14Z"
+    },
+    {
+      "id": "a1b375ae651f1720",
+      "label": "judge-me-ugc-media-grid-spike-2026-07-14",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/judge-me-ugc-media-grid-spike-2026-07-14.md",
+      "reason": null,
+      "current": "20260714T052344Z-453ea845d67f",
+      "created_at": "2026-07-14T05:22:20Z",
+      "updated_at": "2026-07-14T05:23:44Z"
     }
   ]
 }

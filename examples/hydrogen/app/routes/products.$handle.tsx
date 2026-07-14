@@ -44,6 +44,7 @@ import {
   ReviewSnippets,
   StarRatingBadge,
   TestimonialsCarousel,
+  UgcMediaGrid,
   VideosCarousel,
   VerifiedReviewsCounter,
 } from '@judgeme-react/core';
@@ -392,6 +393,16 @@ export default function Product() {
               className="product-judgeme-medals"
               data={{
                 ...judgeMeWidgets.medals,
+                ...judgeMeWidgets.resources,
+              }}
+              includeStyles={false}
+            />
+          ) : null}
+          {judgeMeWidgets.ugcMediaGrid ? (
+            <UgcMediaGrid
+              className="product-ugc-media-grid"
+              data={{
+                ...judgeMeWidgets.ugcMediaGrid,
                 ...judgeMeWidgets.resources,
               }}
               includeStyles={false}

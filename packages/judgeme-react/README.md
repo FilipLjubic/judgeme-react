@@ -11,6 +11,7 @@ The package is intentionally framework-neutral. Hydrogen is a consumer under `ex
 | Star Rating Badge                       | Implemented with the public `preview_badge` endpoint and Judge.me's interaction runtime                                       |
 | Verified Reviews Counter                | Implemented with exact public `verified_badge` markup, dashboard settings, and an eligibility-aware nullable fetcher           |
 | Judge.me Medals                         | Implemented with exact public cache markup, verified stats, dashboard settings, and component-owned mobile rotation           |
+| UGC Media Grid                          | Implemented with exact cache markup or tokenless social-post fallback plus Judge.me's dashboard renderer and gallery          |
 | All Reviews Counter                     | Implemented with public aggregate endpoints, dashboard text/style settings, and Judge.me's secondary runtime                  |
 | Classic Reviews Carousel                | Implemented with the public `featured_carousel` endpoint and Judge.me's secondary-widget runtime                              |
 | All Reviews Widget                      | Implemented with the public `all_reviews_page` endpoint, dashboard settings, and React-owned SPA controls                     |
@@ -39,9 +40,10 @@ The package is intentionally framework-neutral. Hydrogen is a consumer under `ex
 - `fetchAllReviewsCounter` fetches the standalone shop-wide rating/count, settings, and CSS.
 - `fetchVerifiedReviewsCounter` fetches the exact shop-wide verified badge and returns `null` when Judge.me says the store is ineligible.
 - `fetchJudgeMeMedals` fetches exact earned-medal markup, verified stats, settings, and CSS in one public platform-independent cache read.
+- `fetchUgcMediaGrid` prefers exact cache markup and falls back to Judge.me's tokenless social-post feed; both paths return `null` when no post is published.
 - `fetchAllReviewsWidget` fetches the standalone shop-level All Reviews Widget, settings, and CSS.
 - `fetchFloatingReviewsTab` fetches the official tab when available and otherwise builds a Free-plan fallback from All Reviews Page data.
-- `fetchLegacyStorefrontWidgets` fetches all eight implemented legacy widgets, reuses the Medals cache response for shared settings/CSS, and reuses All Reviews data for the aggregate counter and Free-plan Floating Tab fallback.
+- `fetchLegacyStorefrontWidgets` fetches all nine implemented legacy widgets, reuses one Medals/UGC cache response for shared settings/CSS, and reuses All Reviews data for the aggregate counter and Free-plan Floating Tab fallback.
 - `fetchReviewsGridPage` fetches one tokenless public v3 grid page; `fetchReviewsGrid` combines it with public settings and aggregate reads for standalone use.
 - `createReviewsGridData` combines a grid page with settings and aggregates already returned by a storefront batch.
 - `fetchCardsCarouselPage` fetches one tokenless public Cards page; `fetchCardsCarousel` adds public settings, aggregates, and core CSS for standalone use.
@@ -64,6 +66,7 @@ The package is intentionally framework-neutral. Hydrogen is a consumer under `ex
 - `AllReviewsCounter` server-renders the configured combined store rating/count and enables its branded/text star treatment.
 - `VerifiedReviewsCounter` server-renders the exact eligible verified count and enables its branded/classic presentation, orientation, color, branding, and link.
 - `JudgeMeMedals` server-renders every earned medal plus exact verified rating/count and enables dashboard branding, colors, links, compact layout, and SPA-safe mobile rotation.
+- `UgcMediaGrid` server-renders Judge.me's hidden post-data shell and enables its dashboard layout, lazy media, pagination, product attachments, and gallery lightbox.
 - `AllReviewsWidget` server-renders the configured all-store review stream and enables its tabs, filters, sorting, pagination, and SPA lifecycle.
 - `FloatingReviewsTab` server-renders the tab and enables its modal, review streams, pagination, filters, sorting, and SPA lifecycle.
 - `LegacyReviewWidget` server-renders that payload and progressively enables Judge.me's own review form and browser behavior.
@@ -83,7 +86,7 @@ Private Judge.me credentials do not belong in this React package. Server integra
 
 ## Implemented widgets
 
-Fetch the eight legacy widgets plus the v3 grid, Cards, Testimonials, Videos, Popup, Review Snippets, and Questions & Answers pages in a server loader. The legacy batch makes seven requests: `product_review`, `preview_badge`, `featured_carousel`, `reviews_tab`, `verified_badge`, `all_reviews_page`, and one platform-independent cache read containing Medals, `settings`, and `html_miracle`. The same All Reviews response supplies `AllReviewsWidget`, the aggregate values for `AllReviewsCounter`, and the Floating Tab fallback when `reviews_tab` is `null`. Reviews Grid, Cards Carousel, Testimonials Carousel, Videos Carousel, Pop-up Reviews, Review Snippets, and Questions & Answers each add one public request and reuse the batch's settings, for fourteen Judge.me requests total. AI Reviews Summary adds no Judge.me data request: its content comes from a Shopify Storefront API metafield fetched with the product query. The large settings/CSS payload remains shared. Awaiting the data keeps Judge.me-owned DOM outside a streamed Suspense boundary, which prevents its runtime from racing hydration.
+Fetch the nine legacy widgets plus the v3 grid, Cards, Testimonials, Videos, Popup, Review Snippets, and Questions & Answers pages in a server loader. The exact-cache legacy batch makes seven requests: `product_review`, `preview_badge`, `featured_carousel`, `reviews_tab`, `verified_badge`, `all_reviews_page`, and one platform-independent cache read containing Medals, UGC, `settings`, and `html_miracle`. If UGC is absent from that response, one tokenless social-post compatibility read is added. The same All Reviews response supplies `AllReviewsWidget`, the aggregate values for `AllReviewsCounter`, and the Floating Tab fallback when `reviews_tab` is `null`. Reviews Grid, Cards Carousel, Testimonials Carousel, Videos Carousel, Pop-up Reviews, Review Snippets, and Questions & Answers each add one public request and reuse the batch's settings, for fourteen Judge.me requests with exact cached UGC or fifteen on the compatibility/empty path. AI Reviews Summary adds no Judge.me data request: its content comes from a Shopify Storefront API metafield fetched with the product query. The large settings/CSS payload remains shared. Awaiting the data keeps Judge.me-owned DOM outside a streamed Suspense boundary, which prevents its runtime from racing hydration.
 
 ```ts
 import {
@@ -119,6 +122,7 @@ import {
   ReviewSnippets,
   StarRatingBadge,
   TestimonialsCarousel,
+  UgcMediaGrid,
   VerifiedReviewsCounter,
   VideosCarousel,
 } from "@judgeme-react/core";
@@ -283,6 +287,12 @@ Render it inside the store-level provider:
       includeStyles={false}
     />
   ) : null}
+  {widgets.ugcMediaGrid ? (
+    <UgcMediaGrid
+      data={{ ...widgets.ugcMediaGrid, ...widgets.resources }}
+      includeStyles={false}
+    />
+  ) : null}
   {aiReviewsSummary ? <AiReviewsSummary data={aiReviewsSummary} /> : null}
   <ReviewSnippets data={reviewSnippets} />
   <QuestionsAndAnswers data={questionsAndAnswers} />
@@ -310,11 +320,13 @@ Render it inside the store-level provider:
 </JudgeMeProvider>
 ```
 
-`includeStyles={false}` prevents the product badge, Verified Reviews Counter, Medals, aggregate counter, carousel, All Reviews Widget, and floating tab from emitting duplicate copies of the shared dashboard CSS; the Review Widget emits it once for all eight. When rendering one widget, use its standalone fetcher and leave `includeStyles` at its default `true` where available. Use `fetchLegacyProductWidgets` when a route needs only the two product widgets.
+`includeStyles={false}` prevents the product badge, Verified Reviews Counter, Medals, UGC Media Grid, aggregate counter, carousel, All Reviews Widget, and floating tab from emitting duplicate copies of the shared dashboard CSS; the Review Widget emits it once for all nine. When rendering one widget, use its standalone fetcher and leave `includeStyles` at its default `true` where available. Use `fetchLegacyProductWidgets` when a route needs only the two product widgets.
 
 `VerifiedReviewsCounter` is eligibility-aware. `fetchVerifiedReviewsCounter` returns `null` when Judge.me's public `verified_badge` response is `null`, which currently means the store has not reached the 20-verified-review requirement. Do not substitute the All Reviews count: that includes reviews Judge.me does not classify as verified.
 
 `JudgeMeMedals` is also eligibility-aware. `fetchJudgeMeMedals` returns `null` when Judge.me has no earned-medal markup, and otherwise preserves every earned medal plus the exact verified-only rating and count from Judge.me's cache response. The host needs `judgeme-public-images.imgix.net` in `connect-src` and `img-src`. On compact layouts the component shows three medals at once and rotates through the rest, with its timer released on SPA unmount.
+
+`UgcMediaGrid` is publication-aware. Exact cache markup is used when available; otherwise `fetchUgcMediaGrid` reads the tokenless `/reviews/social_posts` feed and reconstructs only Judge.me's official hidden-JSON shell. Visible markup and interactions still come from the current public bundles. HTTP 404 or an empty feed returns `null`. Instagram media may require `https://*.cdninstagram.com` and `https://*.fbcdn.net` in the host's image, media, and frame CSP directives.
 
 `AllReviewsCounter` is the store-wide aggregate, including product and shop reviews. Its standalone fetcher calls `all_reviews_count` and `all_reviews_rating`; the batched loader reads the equivalent values from the `all_reviews_page` header. Dashboard templates are rendered as escaped text, and unsafe `javascript:` destinations are not emitted.
 

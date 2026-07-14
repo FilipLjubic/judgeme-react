@@ -24,6 +24,7 @@ import {
   fetchStarRatingBadge,
   fetchTestimonialsCarousel,
   fetchTestimonialsCarouselPage,
+  fetchUgcMediaGrid,
   fetchVerifiedReviewsCounter,
   fetchVideosCarousel,
   fetchVideosCarouselPage,
@@ -486,6 +487,97 @@ test("returns null when Judge.me has no earned Medals", async () => {
         settings:
           '<script class="jdgm-settings-script">window.jdgmSettings={};</script>',
       }),
+  });
+
+  assert.equal(data, null);
+});
+
+test("fetches exact UGC Media Grid cache markup and wraps its Liquid shell", async () => {
+  const requestedUrls = [];
+  const data = await fetchUgcMediaGrid({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    fetch: async function (input) {
+      assert.equal(this, undefined);
+      const url = new URL(input);
+      requestedUrls.push(url);
+      assert.equal(url.hostname, "cache.judge.me");
+      assert.equal(url.searchParams.get("ugc_media_grid"), "1");
+      assert.equal(url.searchParams.has("medals"), false);
+
+      return Response.json({
+        html_miracle: "<style>.jdgm-ugc-media{display:grid}</style>",
+        settings:
+          '<script class="jdgm-settings-script">window.jdgmSettings={"widget_ugc_title":"From our community"};</script>',
+        ugc_media_grid: createUgcMediaGridMarkup({includeWrapper: false}),
+      });
+    },
+  });
+
+  assert.equal(requestedUrls.length, 1);
+  assert.ok(data);
+  assert.equal(data.source, "cache");
+  assert.equal(data.postCount, 2);
+  assert.equal(data.perPage, 6);
+  assert.match(data.html, /jdgm-widget jdgm-ugc-media-wrapper/);
+  assert.equal(data.settings.widget_ugc_title, "From our community");
+  assert.match(data.styles, /display:grid/);
+});
+
+test("falls back to Judge.me's tokenless UGC social-post feed", async () => {
+  const requestedUrls = [];
+  const data = await fetchUgcMediaGrid({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    perPage: 4,
+    fetch: async (input) => {
+      const url = new URL(input);
+      requestedUrls.push(url);
+
+      if (url.hostname === "cache.judge.me") {
+        return Response.json({
+          html_miracle: "",
+          settings:
+            '<script class="jdgm-settings-script">window.jdgmSettings={};</script>',
+        });
+      }
+
+      assert.equal(url.hostname, "api.judge.me");
+      assert.equal(url.pathname, "/reviews/social_posts");
+      assert.equal(url.searchParams.get("shop_domain"), "store.myshopify.com");
+      assert.equal(url.searchParams.get("url"), "store.myshopify.com");
+      assert.equal(url.searchParams.get("platform"), "shopify");
+      assert.equal(url.searchParams.get("per_page"), "4");
+      assert.equal(url.searchParams.get("page"), "1");
+      assert.equal(url.searchParams.has("api_token"), false);
+      assert.equal(url.searchParams.has("public_token"), false);
+      return Response.json({page: 1, per_page: "4", posts: createUgcPosts()});
+    },
+  });
+
+  assert.equal(requestedUrls.length, 2);
+  assert.ok(data);
+  assert.equal(data.source, "social-posts-fallback");
+  assert.equal(data.postCount, 2);
+  assert.equal(data.perPage, 4);
+  assert.match(data.html, /jdgm-ugc-media-data/);
+  assert.match(data.html, /&quot;media_type&quot;:&quot;IMAGE&quot;/);
+});
+
+test("returns null when UGC Media Grid has no published posts", async () => {
+  const data = await fetchUgcMediaGrid({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    fetch: async (input) => {
+      const url = new URL(input);
+      return url.hostname === "cache.judge.me"
+        ? Response.json({
+            html_miracle: "",
+            settings:
+              '<script class="jdgm-settings-script">window.jdgmSettings={};</script>',
+          })
+        : new Response("null", {status: 404});
+    },
   });
 
   assert.equal(data, null);
@@ -1149,11 +1241,13 @@ test("fetches all implemented storefront widgets with shared resources", async (
       assert.equal(url.pathname, "/widgets/shopify/store.myshopify.com");
       assert.equal(url.searchParams.get("public_token"), "public-token");
       assert.equal(url.searchParams.get("medals"), "1");
+      assert.equal(url.searchParams.get("ugc_media_grid"), "1");
       return Response.json({
         html_miracle: "",
         medals: createMedalsMarkup(),
         settings:
           "<script class='jdgm-settings-script'>window.jdgmSettings={};</script><style>.jdgm-widget{color:teal}</style>",
+        ugc_media_grid: createUgcMediaGridMarkup({includeWrapper: false}),
       });
     }
 
@@ -1233,6 +1327,8 @@ test("fetches all implemented storefront widgets with shared resources", async (
   assert.equal(data.verifiedReviewsCounter?.count, 27);
   assert.equal(data.medals?.medalCount, 2);
   assert.equal(data.medals?.verifiedReviewCount, 866);
+  assert.equal(data.ugcMediaGrid?.postCount, 2);
+  assert.equal(data.ugcMediaGrid?.source, "cache");
   assert.equal(data.allReviewsWidget.initialReviewType, "product-reviews");
   assert.match(data.allReviewsWidget.html, /jdgm-all-reviews-widget/);
   assert.equal(data.floatingReviewsTab.source, "all-reviews-page-fallback");
@@ -1259,6 +1355,50 @@ function createMedalsMarkup() {
     '</div><div class="jdgm-verified-by"><span class="jdgm-verified-by__text"></span><span class="jdgm-verified-by__image"></span></div></div>',
     "</div>",
   ].join("");
+}
+
+function createUgcPosts() {
+  return [
+    {
+      id: "post-1",
+      username: "community_one",
+      timestamp: "Today",
+      html_safe_caption: "A customer photo",
+      media_type: "IMAGE",
+      media_url: "https://judgeme.imgix.net/example/photo-one.jpg",
+      thumbnail_url: "https://judgeme.imgix.net/example/thumb-one.jpg",
+      products: [],
+    },
+    {
+      id: "post-2",
+      username: "community_two",
+      timestamp: "Yesterday",
+      html_safe_caption: "A customer video",
+      media_type: "VIDEO",
+      media_url: "https://judgeme.imgix.net/example/video-two.mp4",
+      thumbnail_url: "https://judgeme.imgix.net/example/thumb-two.jpg",
+      products: [],
+    },
+  ];
+}
+
+function createUgcMediaGridMarkup({includeWrapper = true} = {}) {
+  const serializedPosts = JSON.stringify(createUgcPosts())
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+  const grid = [
+    '<div class="jdgm-ugc-media" data-per-page="6">',
+    '<div class="jdgm-ugc-media-data jdgm-hidden" data-json="',
+    serializedPosts,
+    '"></div></div>',
+  ].join("");
+
+  return includeWrapper
+    ? `<div class="jdgm-widget jdgm-ugc-media-wrapper">${grid}</div>`
+    : grid;
 }
 
 test("normalizes dashboard popup settings and its public review feed", async () => {

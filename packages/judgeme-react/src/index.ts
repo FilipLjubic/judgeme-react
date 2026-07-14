@@ -25,6 +25,7 @@ export {
   fetchLegacyStorefrontWidgets,
   fetchReviewsCarousel,
   fetchStarRatingBadge,
+  fetchUgcMediaGrid,
   fetchVerifiedReviewsCounter,
 } from "./legacy-api.js";
 export { FloatingReviewsTab } from "./floating-reviews-tab.js";
@@ -65,6 +66,7 @@ export { AUTO_ENGINE_ORDER, resolveJudgeMeEngine } from "./runtime.js";
 export { getShopifyNumericId } from "./shopify.js";
 export { StarRatingBadge } from "./star-rating-badge.js";
 export { TestimonialsCarousel } from "./testimonials-carousel.js";
+export { UgcMediaGrid } from "./ugc-media-grid.js";
 export {
   createTestimonialsCarouselData,
   fetchTestimonialsCarousel,
@@ -107,6 +109,7 @@ export type {
   FetchLegacyStorefrontWidgetsOptions,
   FetchReviewsCarouselOptions,
   FetchStarRatingBadgeOptions,
+  FetchUgcMediaGridOptions,
   FetchVerifiedReviewsCounterOptions,
   FloatingReviewsTabData,
   FloatingReviewsTabMarkup,
@@ -123,6 +126,9 @@ export type {
   LegacyWidgetResources,
   ReviewsCarouselData,
   StarRatingBadgeData,
+  UgcMediaGridData,
+  UgcMediaGridMarkup,
+  UgcMediaGridSource,
   VerifiedReviewsCounterData,
   VerifiedReviewsCounterMarkup,
 } from "./legacy-api.js";
@@ -199,6 +205,7 @@ export type {
 export type { StarRatingBadgeProps } from "./star-rating-badge.js";
 export type { VerifiedReviewsCounterProps } from "./verified-reviews-counter.js";
 export type { TestimonialsCarouselProps } from "./testimonials-carousel.js";
+export type { UgcMediaGridProps } from "./ugc-media-grid.js";
 export type {
   CreateTestimonialsCarouselDataOptions,
   FetchTestimonialsCarouselOptions,

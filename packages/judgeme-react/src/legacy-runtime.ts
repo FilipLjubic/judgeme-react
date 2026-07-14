@@ -23,7 +23,16 @@ interface JudgeMeRuntime {
   PUBLIC_TOKEN?: string;
   SHOP_DOMAIN?: string;
   WIDGET_REBRANDING_ENABLED?: boolean;
-  $?: (value: unknown) => JudgeMeRuntimeCollection;
+  $?: ((value: unknown) => JudgeMeRuntimeCollection) & {
+    magnificPopup?: {
+      close?: () => void;
+      open?: (...args: unknown[]) => void;
+    };
+  };
+  _transformJsonData?: (
+    root: JudgeMeRuntimeCollection,
+    page?: unknown,
+  ) => void;
   _customizeReviewWidget?: (root: unknown) => void;
   _renderAndSetupReviewForm?: (root: unknown) => void;
   _setupFormsSubmit?: (root: unknown) => void;
@@ -60,6 +69,9 @@ interface JudgeMeRuntime {
   ) => unknown;
   loadScript?: (url: string) => unknown;
   setupMediaGallery?: (root: unknown) => void;
+  templates?: {
+    ugcMediaGridPopup?: (...args: unknown[]) => string;
+  };
   widgetPath?: (asset: string) => string;
 }
 
@@ -74,6 +86,7 @@ interface JudgeMeWindow extends Window {
 
 let runtimeShopDomain: string | undefined;
 let loaderPromise: Promise<void> | undefined;
+let ugcMediaGridSequence = 0;
 const floatingTabDisposers = new WeakMap<HTMLElement, () => void>();
 const allReviewsWidgetDisposers = new WeakMap<HTMLElement, () => void>();
 const medalsTimers = new WeakMap<HTMLElement, number>();
@@ -116,6 +129,15 @@ export interface InitializeVerifiedReviewsCounterOptions {
 export interface InitializeJudgeMeMedalsOptions {
   container: HTMLElement;
   /** Prevents a stale React effect from mutating a remounted widget. */
+  isCurrent?: () => boolean;
+  publicToken: string;
+  settings: JudgeMeRuntimeSettings;
+  shopDomain: string;
+}
+
+export interface InitializeUgcMediaGridOptions {
+  container: HTMLElement;
+  /** Prevents a stale React effect from mutating a remounted grid. */
   isCurrent?: () => boolean;
   publicToken: string;
   settings: JudgeMeRuntimeSettings;
@@ -385,6 +407,89 @@ export function disposeJudgeMeMedals(container: HTMLElement): void {
     window.clearInterval(timer);
   }
   medalsTimers.delete(container);
+}
+
+/** Loads Judge.me's public UGC transformers and gallery for one SPA root. */
+export async function initializeUgcMediaGrid({
+  container,
+  isCurrent,
+  publicToken,
+  settings,
+  shopDomain,
+}: InitializeUgcMediaGridOptions): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = configureRuntime({
+    publicToken,
+    settings,
+    shopDomain,
+  });
+
+  await loadRuntimeScript();
+  await waitFor(
+    () => isSecondaryWidgetLoaderReady(runtimeWindow.jdgm),
+    "Judge.me's UGC Media Grid dependency loader did not become ready.",
+  );
+
+  // The component masks both selector classes while these document-scanning
+  // bundles load. We then apply their public transformer to this root only.
+  const dependencyRuntime = runtimeWindow.jdgm;
+  dependencyRuntime?.loadScript?.(`${JUDGE_ME_CDN_HOST}widget/others.js`);
+  dependencyRuntime?.loadScript?.(`${JUDGE_ME_CDN_HOST}widget/media.js`);
+  if (dependencyRuntime?.widgetPath) {
+    dependencyRuntime.loadCSS?.(dependencyRuntime.widgetPath("media.css"));
+  }
+
+  await waitFor(
+    () => isUgcMediaGridRuntimeReady(runtimeWindow.jdgm),
+    "Judge.me's UGC Media Grid helpers did not become ready.",
+  );
+
+  if (isCurrent && !isCurrent()) return;
+
+  restorePendingUgcMediaGridClasses(container);
+  const root = container.querySelector<HTMLElement>(
+    ".jdgm-ugc-media-wrapper",
+  );
+  const grid = root?.querySelector<HTMLElement>(".jdgm-ugc-media");
+  const runtime = runtimeWindow.jdgm;
+
+  if (!root || !grid || !runtime || !isUgcMediaGridRuntimeReady(runtime)) {
+    throw new Error("Judge.me did not return a UGC Media Grid root.");
+  }
+
+  grid.dataset.loaded = "true";
+  grid.dataset.id ||= `ugc-media-react-${++ugcMediaGridSequence}`;
+  if (grid.querySelector(".jdgm-ugc-media-data")) {
+    runtime._transformJsonData(runtime.$(grid));
+  }
+
+  root.style.removeProperty("display");
+  grid.style.removeProperty("display");
+  root.classList.remove("jdgm-hidden");
+
+  await waitFor(
+    () => isUgcMediaGridPrepared(root),
+    "Judge.me did not finish initializing UGC Media Grid.",
+  );
+
+  if (isCurrent && !isCurrent()) {
+    disposeUgcMediaGrid(container);
+    return;
+  }
+
+  root.dataset.judgemeReactSetup = "true";
+}
+
+/** Closes a grid-owned lightbox before React removes its source elements. */
+export function disposeUgcMediaGrid(_container: HTMLElement): void {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+
+  const runtime = (window as JudgeMeWindow).jdgm;
+  if (document.querySelector(".jdgm-gallery-popup__ugc-media")) {
+    runtime?.$?.magnificPopup?.close?.();
+  }
+  document.body.classList.remove("jm-mfp-is-open");
 }
 
 /** Stops Judge.me's per-carousel auto-slide timer before React removes it. */
@@ -726,6 +831,14 @@ type JudgeMeMedalsRuntime = Required<
 > &
   JudgeMeRuntime;
 
+type UgcMediaGridRuntime = Required<
+  Pick<
+    JudgeMeRuntime,
+    "$" | "_transformJsonData" | "loadCSS" | "loadScript" | "templates"
+  >
+> &
+  JudgeMeRuntime;
+
 function isVerifiedReviewsCounterRuntimeReady(
   runtime: JudgeMeRuntime | undefined,
 ): runtime is VerifiedReviewsCounterRuntime {
@@ -746,6 +859,40 @@ function isJudgeMeMedalsRuntimeReady(
     typeof runtime._renderVerifiedByJudgeme === "function" &&
     typeof runtime.buildStarsFor === "function",
   );
+}
+
+function isUgcMediaGridRuntimeReady(
+  runtime: JudgeMeRuntime | undefined,
+): runtime is UgcMediaGridRuntime {
+  return Boolean(
+    runtime &&
+    typeof runtime.$ === "function" &&
+    typeof runtime._transformJsonData === "function" &&
+    typeof runtime.loadCSS === "function" &&
+    typeof runtime.loadScript === "function" &&
+    typeof runtime.templates?.ugcMediaGridPopup === "function" &&
+    typeof runtime.$.magnificPopup?.open === "function",
+  );
+}
+
+function restorePendingUgcMediaGridClasses(container: HTMLElement): void {
+  container
+    .querySelector<HTMLElement>(".jdgm-react-ugc-media-wrapper-pending")
+    ?.classList.replace(
+      "jdgm-react-ugc-media-wrapper-pending",
+      "jdgm-ugc-media-wrapper",
+    );
+  container
+    .querySelector<HTMLElement>(".jdgm-react-ugc-media-pending")
+    ?.classList.replace(
+      "jdgm-react-ugc-media-pending",
+      "jdgm-ugc-media",
+    );
+}
+
+function isUgcMediaGridPrepared(root: HTMLElement): boolean {
+  const thumbnails = root.querySelectorAll(".jdgm-ugc-media__thumbnail");
+  return thumbnails.length > 0 && !root.querySelector(".jdgm-ugc-media-data");
 }
 
 function restorePendingMedalsClasses(container: HTMLElement): void {

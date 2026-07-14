@@ -25,6 +25,7 @@
 | `questions-and-answers-spike-2026-07-13`         | notes | Official nested placement, tokenless read/write routes, dashboard mapping, native React UI, and Free-plan limits      |
 | `verified-reviews-counter-spike-2026-07-13`      | notes | Exact public badge markup, eligibility/null contract, dashboard/runtime mapping, CSP, batching, and Brave validation |
 | `judge-me-medals-spike-2026-07-14`               | notes | Exact cache markup, verified stats, settings/CSS reuse, responsive rotation lifecycle, and Brave validation          |
+| `judge-me-ugc-media-grid-spike-2026-07-14`       | notes | Exact cache markup, tokenless social-post fallback, dashboard runtime, CSP, empty state, and Brave lightbox check     |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                            |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                        |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                            |
@@ -40,6 +41,7 @@
 | `judge-me-questions-and-answers`                  | docs  | Official Q&A plan, placement, settings, moderation, and new Review Widget requirements                               |
 | `judge-me-verified-reviews-counter`               | docs  | Official eligibility, styles, orientation, colors, link behavior, and install requirements                           |
 | `judge-me-medals`                                 | docs  | Official medal eligibility, catalog, colors, verification summary, and Shopify install requirements                  |
+| `judge-me-ugc-media-grid`                         | docs  | Official UGC Media Grid plan, setup, publication, settings, limits, and Instagram authorization requirements         |
 | `judge-me-hydrogen-npm-metadata`                 | docs  | Registry metadata for Judge.me's official Hydrogen package                                                           |
 | `judge-me-liquid-widgets`                        | docs  | Official Liquid markup and Judge.me metafield dependencies                                                           |
 | `shopify-theme-app-extensions`                   | docs  | Official Shopify app-block, app-embed, Liquid-scope, and CDN model                                                   |
@@ -210,6 +212,16 @@ Query the Questions & Answers report:
 ctx query \
   "How does Questions & Answers read, submit, configure, and render in Hydrogen?" \
   --label questions-and-answers-spike-2026-07-13 \
+  --kind notes \
+  --cwd /Users/panda/Code/judgeme-react
+```
+
+Query the UGC Media Grid report:
+
+```sh
+ctx query \
+  "How does UGC Media Grid obtain posts, render with Judge.me's dashboard settings, and behave when the store is empty?" \
+  --label judge-me-ugc-media-grid-spike-2026-07-14 \
   --kind notes \
   --cwd /Users/panda/Code/judgeme-react
 ```
