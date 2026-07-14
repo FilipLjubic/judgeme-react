@@ -14,12 +14,14 @@ import type {
   VideosCarouselConfig,
   VideosCarouselData,
 } from "./videos-carousel-api.js";
+import type { TrustBadgeData } from "./trust-badge-api.js";
 
 const JUDGE_ME_API_HOST = "https://api.judge.me";
 const JUDGE_ME_CDN_API_HOST = "https://cdn.judge.me/";
 const AI_REVIEWS_SUMMARY_ENTRY_KEY = "store-summary-widget/main.js";
 const REVIEW_SNIPPETS_ENTRY_KEY = "review-snippet-widget/main.js";
 const REVIEWS_GRID_ENTRY_KEY = "reviews-grid-widget/main.js";
+const TRUST_BADGE_ENTRY_KEY = "trust-badge/main.js";
 const REVIEWS_GRID_ENTRY_FILE = "reviews_grid.js";
 const CAROUSEL_LIGHTBOX_ENTRY_KEY = "carousel-lightbox/main.js";
 const CAROUSEL_STYLES_FILE = "carousels.css";
@@ -165,6 +167,14 @@ interface CarouselElement extends HTMLElement {
   };
 }
 
+interface TrustBadgeWidgetManager {
+  destroy?: () => void;
+}
+
+interface TrustBadgeInitializer {
+  widgetManagers?: Map<HTMLElement, TrustBadgeWidgetManager>;
+}
+
 interface ExactJudgeMeWindow extends Window {
   jdgm?: ExactJudgeMeRuntime;
   judgeme?: ExactJudgeMeRuntime;
@@ -185,6 +195,7 @@ interface ExactJudgeMeWindow extends Window {
     config: CardsCarouselRuntimeConfig,
     reviewCount: number,
   ) => void;
+  __trustBadgeInitializer?: TrustBadgeInitializer;
 }
 
 export interface InitializeReviewsGridOptions {
@@ -232,6 +243,13 @@ export interface InitializeVideosCarouselOptions {
   publicToken?: string;
 }
 
+export interface InitializeTrustBadgeOptions {
+  assetBaseUrl: string;
+  container: HTMLElement;
+  data: TrustBadgeData;
+  publicToken?: string;
+}
+
 let exactRuntimeShopDomain: string | undefined;
 let exactRuntimeAssetBaseUrl: string | undefined;
 let moduleInstance = 0;
@@ -258,6 +276,10 @@ const testimonialsCarouselInitializers = new WeakMap<
 const testimonialsCarouselDisposals = new WeakMap<HTMLElement, number>();
 const videosCarouselInitializers = new WeakMap<HTMLElement, Promise<void>>();
 const videosCarouselDisposals = new WeakMap<HTMLElement, number>();
+const trustBadgeInitializers = new WeakMap<HTMLElement, Promise<void>>();
+const trustBadgeManagers = new WeakMap<HTMLElement, TrustBadgeWidgetManager>();
+const trustBadgeDisposals = new WeakMap<HTMLElement, number>();
+let trustBadgeScanQueue = Promise.resolve();
 
 /** Loads Judge.me's deployment-specific AI Reviews Summary module. */
 export function initializeAiReviewsSummary(
@@ -401,6 +423,33 @@ export function initializeVideosCarousel(
   return initializer;
 }
 
+/** Loads Judge.me's current v3 Trust Badge module for one SPA root. */
+export function initializeTrustBadge(
+  options: InitializeTrustBadgeOptions,
+): Promise<void> {
+  if (typeof window !== "undefined") {
+    const pendingDisposal = trustBadgeDisposals.get(options.container);
+    if (pendingDisposal !== undefined) {
+      window.clearTimeout(pendingDisposal);
+      trustBadgeDisposals.delete(options.container);
+    }
+  }
+
+  const existing = trustBadgeInitializers.get(options.container);
+  if (existing) return existing;
+
+  const initializer = trustBadgeScanQueue.then(() =>
+    initializeTrustBadgeRoot(options),
+  );
+  trustBadgeScanQueue = initializer.catch(() => undefined);
+  const guardedInitializer = initializer.catch((error) => {
+    trustBadgeInitializers.delete(options.container);
+    throw error;
+  });
+  trustBadgeInitializers.set(options.container, guardedInitializer);
+  return guardedInitializer;
+}
+
 /** Releases root-local observers and timers after an SPA unmount. */
 export function disposeCardsCarousel(
   container: HTMLElement,
@@ -502,6 +551,29 @@ export function disposeVideosCarousel(
   }, 0);
 
   videosCarouselDisposals.set(container, timeoutId);
+}
+
+/** Releases the manager owned by one Trust Badge after an SPA unmount. */
+export function disposeTrustBadge(container: HTMLElement): void {
+  if (typeof window === "undefined") return;
+
+  const initializer = trustBadgeInitializers.get(container);
+  const timeoutId = window.setTimeout(() => {
+    trustBadgeDisposals.delete(container);
+    const cleanup = () => {
+      const manager = trustBadgeManagers.get(container);
+      manager?.destroy?.();
+      const runtimeWindow = window as ExactJudgeMeWindow;
+      runtimeWindow.__trustBadgeInitializer?.widgetManagers?.delete(container);
+      trustBadgeManagers.delete(container);
+      trustBadgeInitializers.delete(container);
+    };
+
+    if (initializer) void initializer.then(cleanup, cleanup);
+    else cleanup();
+  }, 0);
+
+  trustBadgeDisposals.set(container, timeoutId);
 }
 
 /** Moves an initialized Cards Carousel without CSP-unsafe inline handlers. */
@@ -644,6 +716,40 @@ async function initializeReviewsGridRoot({
   container.removeAttribute("data-entry-point");
   runtimeWindow.jdgm?.debugLog?.(
     "[judgeme-react] Reviews Grid exact adapter ready",
+  );
+}
+
+async function initializeTrustBadgeRoot({
+  assetBaseUrl,
+  container,
+  data,
+  publicToken,
+}: InitializeTrustBadgeOptions): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = configureExactRuntime({
+    assetBaseUrl,
+    settings: data.settings,
+    shopDomain: data.shopDomain,
+    publicToken,
+  });
+  await loadManifestStyles(assetBaseUrl, TRUST_BADGE_ENTRY_KEY);
+
+  const manifest = await getManifest(assetBaseUrl);
+  const entryFile = getManifestFile(manifest, TRUST_BADGE_ENTRY_KEY);
+  await loadModule(
+    new URL(
+      `${entryFile}?judgeme_react_instance=${++moduleInstance}`,
+      assetBaseUrl,
+    ).toString(),
+    "Trust Badge",
+  );
+  const manager = await waitForTrustBadge(container);
+  trustBadgeManagers.set(container, manager);
+
+  container.removeAttribute("data-entry-point");
+  runtimeWindow.jdgm?.debugLog?.(
+    "[judgeme-react] Trust Badge exact adapter ready",
   );
 }
 
@@ -1530,6 +1636,48 @@ function waitForReviewsGrid(container: HTMLElement): Promise<void> {
   });
 }
 
+function waitForTrustBadge(
+  container: HTMLElement,
+): Promise<TrustBadgeWidgetManager> {
+  const readyManager = getTrustBadgeManager(container);
+  if (readyManager) return Promise.resolve(readyManager);
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (error?: Error) => {
+      if (settled) return;
+
+      const manager = getTrustBadgeManager(container);
+      if (!error && !manager) return;
+
+      settled = true;
+      observer.disconnect();
+      window.clearInterval(intervalId);
+      window.clearTimeout(timeoutId);
+
+      if (error) reject(error);
+      else resolve(manager as TrustBadgeWidgetManager);
+    };
+    const check = () => {
+      if (getTrustBadgeManager(container)) settle();
+    };
+    const observer = new MutationObserver(check);
+    observer.observe(container, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+    const intervalId = window.setInterval(check, 50);
+    const timeoutId = window.setTimeout(() => {
+      if (getTrustBadgeManager(container)) {
+        settle();
+      } else {
+        settle(new Error("Judge.me did not finish initializing Trust Badge."));
+      }
+    }, EXACT_RUNTIME_TIMEOUT_MS);
+  });
+}
+
 function waitForCardsCarousel(
   container: CarouselElement,
   reviewCount: number,
@@ -1674,6 +1822,21 @@ function isReviewsGridReady(container: HTMLElement): boolean {
     container.classList.contains("jdgm-widget-revamp") &&
     container.childElementCount > 0
   );
+}
+
+function getTrustBadgeManager(
+  container: HTMLElement,
+): TrustBadgeWidgetManager | undefined {
+  if (
+    container.dataset.mounted !== "true" ||
+    container.querySelector(".jdgm-trust-badge") === null
+  ) {
+    return undefined;
+  }
+
+  return (
+    window as ExactJudgeMeWindow
+  ).__trustBadgeInitializer?.widgetManagers?.get(container);
 }
 
 function isCardsCarouselReady(

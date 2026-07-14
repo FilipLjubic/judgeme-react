@@ -66,6 +66,12 @@ export { AUTO_ENGINE_ORDER, resolveJudgeMeEngine } from "./runtime.js";
 export { getShopifyNumericId } from "./shopify.js";
 export { StarRatingBadge } from "./star-rating-badge.js";
 export { TestimonialsCarousel } from "./testimonials-carousel.js";
+export { TrustBadge } from "./trust-badge.js";
+export {
+  createTrustBadgeData,
+  fetchTrustBadgeMetafields,
+  normalizeTrustBadgeConfig,
+} from "./trust-badge-api.js";
 export { UgcMediaGrid } from "./ugc-media-grid.js";
 export {
   createTestimonialsCarouselData,
@@ -205,6 +211,25 @@ export type {
 export type { StarRatingBadgeProps } from "./star-rating-badge.js";
 export type { VerifiedReviewsCounterProps } from "./verified-reviews-counter.js";
 export type { TestimonialsCarouselProps } from "./testimonials-carousel.js";
+export type { TrustBadgeProps } from "./trust-badge.js";
+export type {
+  CreateTrustBadgeDataOptions,
+  FetchTrustBadgeMetafieldsOptions,
+  TrustBadgeAiSummary,
+  TrustBadgeAlignment,
+  TrustBadgeBadgeData,
+  TrustBadgeColor,
+  TrustBadgeConfig,
+  TrustBadgeData,
+  TrustBadgeMetafields,
+  TrustBadgeModalData,
+  TrustBadgeRatingDistribution,
+  TrustBadgeSentiment,
+  TrustBadgeSentimentTag,
+  TrustBadgeShopDefaults,
+  TrustBadgeSource,
+  TrustBadgeStructure,
+} from "./trust-badge-api.js";
 export type { UgcMediaGridProps } from "./ugc-media-grid.js";
 export type {
   CreateTestimonialsCarouselDataOptions,

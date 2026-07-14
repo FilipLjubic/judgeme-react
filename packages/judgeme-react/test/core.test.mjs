@@ -5,6 +5,7 @@ import {
   createPopupReviewsData,
   createQuestionsAndAnswersData,
   createReviewSnippetsData,
+  createTrustBadgeData,
   createJudgeMeConfig,
   fetchCardsCarousel,
   fetchCardsCarouselPage,
@@ -24,12 +25,14 @@ import {
   fetchStarRatingBadge,
   fetchTestimonialsCarousel,
   fetchTestimonialsCarouselPage,
+  fetchTrustBadgeMetafields,
   fetchUgcMediaGrid,
   fetchVerifiedReviewsCounter,
   fetchVideosCarousel,
   fetchVideosCarouselPage,
   getShopifyNumericId,
   normalizeTestimonialsCarouselConfig,
+  normalizeTrustBadgeConfig,
   normalizeAiReviewsSummaryConfig,
   normalizePopupReviewsConfig,
   normalizeQuestionsAndAnswersConfig,
@@ -38,6 +41,7 @@ import {
   parseAiReviewsSummaryMetafield,
   resolveJudgeMeEngine,
   submitQuestion,
+  TrustBadge,
 } from "../dist/index.js";
 
 test("normalizes the permanent Shopify domain", () => {
@@ -509,7 +513,7 @@ test("fetches exact UGC Media Grid cache markup and wraps its Liquid shell", asy
         html_miracle: "<style>.jdgm-ugc-media{display:grid}</style>",
         settings:
           '<script class="jdgm-settings-script">window.jdgmSettings={"widget_ugc_title":"From our community"};</script>',
-        ugc_media_grid: createUgcMediaGridMarkup({includeWrapper: false}),
+        ugc_media_grid: createUgcMediaGridMarkup({ includeWrapper: false }),
       });
     },
   });
@@ -551,7 +555,7 @@ test("falls back to Judge.me's tokenless UGC social-post feed", async () => {
       assert.equal(url.searchParams.get("page"), "1");
       assert.equal(url.searchParams.has("api_token"), false);
       assert.equal(url.searchParams.has("public_token"), false);
-      return Response.json({page: 1, per_page: "4", posts: createUgcPosts()});
+      return Response.json({ page: 1, per_page: "4", posts: createUgcPosts() });
     },
   });
 
@@ -576,7 +580,7 @@ test("returns null when UGC Media Grid has no published posts", async () => {
             settings:
               '<script class="jdgm-settings-script">window.jdgmSettings={};</script>',
           })
-        : new Response("null", {status: 404});
+        : new Response("null", { status: 404 });
     },
   });
 
@@ -1247,7 +1251,7 @@ test("fetches all implemented storefront widgets with shared resources", async (
         medals: createMedalsMarkup(),
         settings:
           "<script class='jdgm-settings-script'>window.jdgmSettings={};</script><style>.jdgm-widget{color:teal}</style>",
-        ugc_media_grid: createUgcMediaGridMarkup({includeWrapper: false}),
+        ugc_media_grid: createUgcMediaGridMarkup({ includeWrapper: false }),
       });
     }
 
@@ -1382,7 +1386,7 @@ function createUgcPosts() {
   ];
 }
 
-function createUgcMediaGridMarkup({includeWrapper = true} = {}) {
+function createUgcMediaGridMarkup({ includeWrapper = true } = {}) {
   const serializedPosts = JSON.stringify(createUgcPosts())
     .replaceAll("&", "&amp;")
     .replaceAll('"', "&quot;")
@@ -1895,6 +1899,193 @@ test("submits a shopper question without either Judge.me token", async () => {
   );
 });
 
+test("reads Trust Badge metafields through the server-only Shopify Admin API", async () => {
+  assert.equal(typeof TrustBadge, "function");
+  const metafields = await fetchTrustBadgeMetafields({
+    adminAccessToken: " private-admin-token ",
+    apiVersion: "2026-04",
+    shopDomain: "https://STORE.myshopify.com/products/example",
+    fetch: async function (input, init) {
+      assert.equal(this, undefined);
+      const url = new URL(input);
+      assert.equal(
+        url.href,
+        "https://store.myshopify.com/admin/api/2026-04/graphql.json",
+      );
+      assert.equal(url.href.includes("private-admin-token"), false);
+      assert.equal(init?.method, "POST");
+      assert.equal(
+        init?.headers["X-Shopify-Access-Token"],
+        "private-admin-token",
+      );
+      const request = JSON.parse(init?.body);
+      assert.match(request.query, /trust_badge\.modal_data/);
+
+      return Response.json({
+        data: {
+          shop: {
+            enabled: { value: "true" },
+            structure: { value: "outline" },
+            color: { value: "black" },
+            star: { value: "brand" },
+            verifiedReviewsCount: { value: "42" },
+            verifiedAverageRating: { value: "4.8" },
+            totalReviewsCount: { value: "45" },
+            modalData: {
+              value: JSON.stringify(createTrustBadgeModalFixture()),
+            },
+          },
+        },
+      });
+    },
+  });
+
+  assert.deepEqual(metafields, {
+    color: "black",
+    enabled: "true",
+    modalData: JSON.stringify(createTrustBadgeModalFixture()),
+    star: "brand",
+    structure: "outline",
+    totalReviewsCount: "45",
+    verifiedAverageRating: "4.8",
+    verifiedReviewsCount: "42",
+  });
+});
+
+test("sanitizes Trust Badge data and supports an explicit disabled preview", () => {
+  const modalData = JSON.stringify({
+    ...createTrustBadgeModalFixture(),
+    features: [{ label: "Fast shipping" }],
+    photo_gallery: [
+      {
+        reviewer_name: "Private Customer",
+        body_html: "<p>Private review body</p>",
+      },
+    ],
+    transparency_score: 98,
+  });
+  const metafields = {
+    color: "black",
+    enabled: "false",
+    modalData,
+    star: "brand",
+    structure: "outline",
+    totalReviewsCount: "45",
+    verifiedAverageRating: "4.8",
+    verifiedReviewsCount: "42",
+  };
+  const settings = { locale: "en" };
+
+  assert.equal(
+    createTrustBadgeData({
+      metafields,
+      settings,
+      shopDomain: "store.myshopify.com",
+    }),
+    null,
+  );
+
+  const data = createTrustBadgeData({
+    metafields,
+    previewWhenDisabled: true,
+    config: { alignment: "center", color: "white" },
+    settings,
+    shopDomain: "store.myshopify.com",
+  });
+  assert.equal(data.enabled, false);
+  assert.equal(data.source, "disabled-preview");
+  assert.deepEqual(data.badge, {
+    isCertified: true,
+    totalReviewsCount: 45,
+    verifiedAverageRating: 4.8,
+    verifiedReviewsCount: 42,
+  });
+  assert.deepEqual(data.config, {
+    alignment: "center",
+    color: "white",
+    star: "default",
+    structure: "default",
+  });
+  assert.deepEqual(data.modal, {
+    aiSummary: { lastUpdated: "2026-07-14", text: "Customers love it." },
+    averageRating: 4.7,
+    isCertified: true,
+    memberSince: "January 2024",
+    ratingDistribution: {
+      "1_star": 1,
+      "2_star": 1,
+      "3_star": 2,
+      "4_star": 6,
+      "5_star": 35,
+    },
+    sentimentTags: [{ name: "Quality", sentiment: "positive" }],
+    shopLogoUrl: "https://cdn.shopify.com/example-logo.png",
+    shopName: "Fixture Store",
+    totalReviewsCount: 45,
+    verifiedReviewsCount: 42,
+  });
+  assert.equal("photoGallery" in data.modal, false);
+
+  const withoutAiSummary = createTrustBadgeData({
+    metafields: {
+      ...metafields,
+      enabled: "true",
+      modalData: JSON.stringify({
+        ...createTrustBadgeModalFixture(),
+        ai_summary: {},
+      }),
+    },
+    settings,
+    shopDomain: "store.myshopify.com",
+  });
+  assert.equal(withoutAiSummary.modal.aiSummary, null);
+});
+
+test("validates Trust Badge theme controls and eligibility", () => {
+  assert.throws(
+    () => normalizeTrustBadgeConfig({ alignment: "middle" }),
+    /alignment is invalid/,
+  );
+
+  const modalData = JSON.stringify(createTrustBadgeModalFixture());
+  assert.equal(
+    createTrustBadgeData({
+      metafields: {
+        color: "black",
+        enabled: "true",
+        modalData,
+        star: "brand",
+        structure: "outline",
+        totalReviewsCount: "45",
+        verifiedAverageRating: "0",
+        verifiedReviewsCount: "0",
+      },
+      settings: {},
+      shopDomain: "store.myshopify.com",
+    }),
+    null,
+  );
+
+  assert.throws(
+    () =>
+      createTrustBadgeData({
+        metafields: {
+          color: "black",
+          enabled: "true",
+          modalData,
+          star: "black",
+          structure: "filled",
+          totalReviewsCount: "45",
+          verifiedAverageRating: "4.8",
+          verifiedReviewsCount: "42",
+        },
+        settings: {},
+        shopDomain: "store.myshopify.com",
+      }),
+    /filled color and star color must differ/,
+  );
+});
+
 test("rejects executable markup returned by the Widget API", async () => {
   const mockFetch = async (input) => {
     const endpoint = new URL(input).pathname.split("/").pop();
@@ -1926,3 +2117,28 @@ test("rejects executable markup returned by the Widget API", async () => {
     /executable Review Widget markup/,
   );
 });
+
+function createTrustBadgeModalFixture() {
+  return {
+    ai_summary: {
+      text: "Customers love it.",
+      last_updated: "2026-07-14",
+    },
+    average_rating: 4.7,
+    is_certified: true,
+    member_since: "January 2024",
+    rating_distribution: {
+      "1_star": 1,
+      "2_star": 1,
+      "3_star": 2,
+      "4_star": 6,
+      "5_star": 35,
+    },
+    sentiment_tags: [{ name: "Quality", sentiment: "positive" }],
+    shop_domain: "store.myshopify.com",
+    shop_logo_url: "https://cdn.shopify.com/example-logo.png",
+    shop_name: "Fixture Store",
+    total_reviews_count: 45,
+    verified_reviews_count: 42,
+  };
+}

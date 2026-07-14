@@ -583,6 +583,19 @@ button.reset:hover:not(:has(> *)) {
   justify-content: center;
 }
 
+.product-trust-badge-preview {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+}
+
+.judgeme-preview-note {
+  margin: 0;
+  color: #666;
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
 .product-rating {
   min-height: 1.25rem;
   margin-block: 0.5rem 1rem;

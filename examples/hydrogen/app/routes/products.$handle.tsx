@@ -24,6 +24,7 @@ import {
   createReviewSnippetsData,
   createReviewsGridData,
   createTestimonialsCarouselData,
+  createTrustBadgeData,
   createVideosCarouselData,
   fetchCardsCarouselPage,
   fetchLegacyStorefrontWidgets,
@@ -32,6 +33,7 @@ import {
   fetchReviewSnippetsPage,
   fetchReviewsGridPage,
   fetchTestimonialsCarouselPage,
+  fetchTrustBadgeMetafields,
   fetchVideosCarouselPage,
   FloatingReviewsTab,
   getShopifyNumericId,
@@ -44,6 +46,7 @@ import {
   ReviewSnippets,
   StarRatingBadge,
   TestimonialsCarousel,
+  TrustBadge,
   UgcMediaGrid,
   VideosCarousel,
   VerifiedReviewsCounter,
@@ -68,6 +71,8 @@ export async function loader(args: Route.LoaderArgs) {
     productId: criticalData.product.id,
     productHandle: criticalData.product.handle,
     productTitle: criticalData.product.title,
+    shopifyAdminAccessToken: env.SHOPIFY_ADMIN_ACCESS_TOKEN,
+    shopifyAdminApiVersion: env.SHOPIFY_ADMIN_API_VERSION ?? '2026-04',
     publicToken: env.JUDGEME_PUBLIC_TOKEN,
     shopDomain: env.JUDGEME_SHOP_DOMAIN ?? env.PUBLIC_STORE_DOMAIN,
     v3AssetBaseUrl: env.JUDGEME_V3_ASSET_BASE_URL,
@@ -116,6 +121,8 @@ async function loadJudgeMeWidgets({
   productHandle,
   productTitle,
   publicToken,
+  shopifyAdminAccessToken,
+  shopifyAdminApiVersion,
   shopDomain,
   v3AssetBaseUrl,
   signal,
@@ -125,6 +132,8 @@ async function loadJudgeMeWidgets({
   productHandle: string;
   productTitle: string;
   publicToken?: string;
+  shopifyAdminAccessToken?: string;
+  shopifyAdminApiVersion: string;
   shopDomain: string;
   v3AssetBaseUrl?: string;
   signal: AbortSignal;
@@ -164,6 +173,7 @@ async function loadJudgeMeWidgets({
       videosCarouselPage,
       reviewSnippetsPage,
       questionsAndAnswersPage,
+      trustBadgeMetafields,
     ] = await Promise.all([
       legacyWidgetsPromise,
       v3AssetBaseUrl
@@ -212,6 +222,14 @@ async function loadJudgeMeWidgets({
         previewMode: questionsAndAnswersPreviewMode,
         signal,
       }),
+      shopifyAdminAccessToken && v3AssetBaseUrl
+        ? fetchTrustBadgeMetafields({
+            adminAccessToken: shopifyAdminAccessToken,
+            apiVersion: shopifyAdminApiVersion,
+            shopDomain,
+            signal,
+          })
+        : Promise.resolve(null),
     ]);
     const popupReviewsPage = await fetchPopupReviewsPage({
       shopDomain,
@@ -299,6 +317,14 @@ async function loadJudgeMeWidgets({
             settings: legacyWidgets.resources.settings,
             shopDomain,
             styles: legacyWidgets.resources.styles,
+          })
+        : null,
+      trustBadge: trustBadgeMetafields
+        ? createTrustBadgeData({
+            metafields: trustBadgeMetafields,
+            previewWhenDisabled: true,
+            settings: legacyWidgets.resources.settings,
+            shopDomain,
           })
         : null,
       videosCarousel: videosCarouselPage
@@ -397,6 +423,16 @@ export default function Product() {
               }}
               includeStyles={false}
             />
+          ) : null}
+          {judgeMeWidgets.trustBadge ? (
+            <div className="product-trust-badge-preview">
+              {judgeMeWidgets.trustBadge.source === 'disabled-preview' ? (
+                <p className="judgeme-preview-note">
+                  Trust Badge preview — disabled in Judge.me
+                </p>
+              ) : null}
+              <TrustBadge data={judgeMeWidgets.trustBadge} />
+            </div>
           ) : null}
           {judgeMeWidgets.ugcMediaGrid ? (
             <UgcMediaGrid
