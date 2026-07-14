@@ -94,12 +94,42 @@ test("publishes the final npm identity with matching MIT licenses", async () => 
   const exampleJson = JSON.parse(exampleJsonSource);
 
   assert.equal(packageJson.name, "judgeme-react");
-  assert.equal(packageJson.version, "1.0.3");
+  assert.equal(packageJson.version, "1.0.4");
   assert.equal(exampleJson.dependencies[packageJson.name], packageJson.version);
   assert.equal(packageJson.license, "MIT");
   assert.equal(packageJson.author, "Filip Ljubic");
   assert.equal(packageLicense, repositoryLicense);
   assert.match(repositoryLicense, /Copyright \(c\) 2026 Filip Ljubic/);
+});
+
+test("initializes Happy Customers core before configuring its exact runtime", async () => {
+  const source = await readFile(
+    new URL("../src/exact-runtime.ts", import.meta.url),
+    "utf8",
+  );
+  const initializerStart = source.indexOf(
+    "async function initializeHappyCustomersRoot",
+  );
+  const initializerEnd = source.indexOf(
+    "async function initializeReviewWidgetV3Root",
+    initializerStart,
+  );
+
+  assert.notEqual(initializerStart, -1);
+  assert.notEqual(initializerEnd, -1);
+
+  const initializer = source.slice(initializerStart, initializerEnd);
+  const ensureCore = initializer.indexOf("await ensureJudgeMeCoreRuntime({");
+  const configureExact = initializer.indexOf(
+    "const runtimeWindow = configureExactRuntime({",
+  );
+
+  assert.notEqual(ensureCore, -1);
+  assert.ok(configureExact > ensureCore);
+  assert.match(
+    initializer,
+    /await ensureJudgeMeCoreRuntime\(\{\s+publicToken,\s+settings: data\.settings,\s+shopDomain: data\.shopDomain,\s+\}\);/,
+  );
 });
 
 test("renders the batched Judge.me dashboard styles through an explicit mount", () => {

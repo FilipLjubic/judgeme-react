@@ -155,6 +155,12 @@ That origin must be present in the host's `img-src`. The Brave pass caught and c
 - Clicking Store reviews issued the lazy public read and replaced the product cards with store-review cards and three pages of navigation.
 - Brave exposed the missing `judgeme.imgix.net` avatar CSP rule; the Hydrogen host allowlist now includes it in `img-src`.
 
+### 2026-07-15 write-review runtime ordering correction
+
+The exact Happy Customers manager can render before Judge.me's shared legacy core has finished defining the form helpers used by its **Write a review** action. Configuring the exact runtime first leaves `window.jdgm.widgetPath` unavailable, which prevents the form from opening and produces a `window.jdgm.widgetPath is not a function` warning.
+
+`initializeHappyCustomersRoot` now awaits `ensureJudgeMeCoreRuntime` with the widget's public token, shared settings, and permanent shop domain before calling `configureExactRuntime`. The package owner browser-verified this ordering against the authorized Brave harness on 2026-07-15: **Write a review** opened and the warning disappeared. A source-order regression test keeps that initialization boundary explicit.
+
 ## Sources
 
 - Judge.me, [Happy Customers Widget](https://judge.me/help/en/articles/8201189-happy-customers-widget), accessed 2026-07-14.

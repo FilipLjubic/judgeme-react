@@ -937,6 +937,12 @@ async function initializeHappyCustomersRoot({
 }: InitializeHappyCustomersOptions): Promise<void> {
   if (typeof window === "undefined") return;
 
+  await ensureJudgeMeCoreRuntime({
+    publicToken,
+    settings: data.settings,
+    shopDomain: data.shopDomain,
+  });
+
   const runtimeWindow = configureExactRuntime({
     assetBaseUrl,
     settings: data.settings,
