@@ -65,6 +65,7 @@ The workspace pins Bun 1.3.14 and uses `bun.lock` as its only dependency lockfil
 - [Working Review Snippets spike](docs/research/review-snippets-spike-2026-07-13.md), queryable in ctx as `review-snippets-spike-2026-07-13`.
 - [Working Questions & Answers spike](docs/research/questions-and-answers-spike-2026-07-13.md), queryable in ctx as `questions-and-answers-spike-2026-07-13`.
 - [Working Verified Reviews Counter spike](docs/research/verified-reviews-counter-spike-2026-07-13.md), queryable in ctx as `verified-reviews-counter-spike-2026-07-13`.
+- [Working Judge.me Medals spike](docs/research/judge-me-medals-spike-2026-07-14.md), queryable in ctx as `judge-me-medals-spike-2026-07-14`.
 - [Research workflow and resource index](docs/research/README.md)
 - Project documentation sources are pinned in `.ctx/ctx.json`.
 - `ctx` Codex hooks are installed under `.ctx/hooks` and pass `ctx hook doctor`.

@@ -578,6 +578,11 @@ button.reset:hover:not(:has(> *)) {
   text-align: center;
 }
 
+.product-judgeme-medals {
+  display: flex;
+  justify-content: center;
+}
+
 .product-rating {
   min-height: 1.25rem;
   margin-block: 0.5rem 1rem;

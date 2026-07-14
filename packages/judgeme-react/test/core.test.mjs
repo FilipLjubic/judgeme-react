@@ -11,6 +11,7 @@ import {
   fetchAllReviewsCounter,
   fetchAllReviewsWidget,
   fetchFloatingReviewsTab,
+  fetchJudgeMeMedals,
   fetchLegacyProductWidgets,
   fetchLegacyReviewWidget,
   fetchLegacyStorefrontWidgets,
@@ -111,7 +112,8 @@ test("an explicit engine never silently falls through", () => {
 
 test("fetches and normalizes a complete legacy Review Widget payload", async () => {
   const requestedEndpoints = [];
-  const mockFetch = async (input) => {
+  const mockFetch = async function (input) {
+    assert.equal(this, undefined);
     const url = new URL(input);
     const endpoint = url.pathname.split("/").pop();
     requestedEndpoints.push(endpoint);
@@ -433,6 +435,60 @@ test("returns null when the store is ineligible for the Verified Reviews Counter
     }),
     null,
   );
+});
+
+test("fetches exact Judge.me Medals and shared resources in one cache read", async () => {
+  const requestedUrls = [];
+  const mockFetch = async function (input) {
+    assert.equal(this, undefined);
+    const url = new URL(input);
+    requestedUrls.push(url);
+
+    assert.equal(url.hostname, "cache.judge.me");
+    assert.equal(url.pathname, "/widgets/shopify/store.myshopify.com");
+    assert.equal(url.searchParams.get("public_token"), "public-token");
+    assert.equal(url.searchParams.get("medals"), "1");
+    assert.equal(url.searchParams.has("api_token"), false);
+
+    return Response.json({
+      html_miracle: "<style>.jdgm-medals{display:flex}</style>",
+      medals: createMedalsMarkup(),
+      settings:
+        '<script class="jdgm-settings-script">window.jdgmSettings={"medals_widget_use_monochromatic_version":true,"medals_widget_elements_color":"#108474"};</script><style>.jdgm-widget{box-sizing:border-box}</style>',
+    });
+  };
+
+  const data = await fetchJudgeMeMedals({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    fetch: mockFetch,
+  });
+
+  assert.equal(requestedUrls.length, 1);
+  assert.ok(data);
+  assert.equal(data.medalCount, 2);
+  assert.equal(data.rating, "4.78");
+  assert.equal(data.verifiedReviewCount, 866);
+  assert.match(data.html, /jdgm-medals-wrapper/);
+  assert.equal(data.settings.medals_widget_use_monochromatic_version, true);
+  assert.match(data.styles, /box-sizing:border-box/);
+  assert.match(data.styles, /display:flex/);
+});
+
+test("returns null when Judge.me has no earned Medals", async () => {
+  const data = await fetchJudgeMeMedals({
+    shopDomain: "store.myshopify.com",
+    publicToken: "public-token",
+    fetch: async () =>
+      Response.json({
+        html_miracle: "",
+        medals: null,
+        settings:
+          '<script class="jdgm-settings-script">window.jdgmSettings={};</script>',
+      }),
+  });
+
+  assert.equal(data, null);
 });
 
 test("fetches the exact v3 Reviews Grid from Judge.me's public CDN", async () => {
@@ -1083,8 +1139,23 @@ test("fetches all implemented storefront widgets with shared resources", async (
   const requestedEndpoints = [];
   const mockFetch = async (input) => {
     const url = new URL(input);
-    const endpoint = url.pathname.split("/").pop();
+    const endpoint =
+      url.hostname === "cache.judge.me"
+        ? "medals_cache"
+        : url.pathname.split("/").pop();
     requestedEndpoints.push(endpoint);
+
+    if (endpoint === "medals_cache") {
+      assert.equal(url.pathname, "/widgets/shopify/store.myshopify.com");
+      assert.equal(url.searchParams.get("public_token"), "public-token");
+      assert.equal(url.searchParams.get("medals"), "1");
+      return Response.json({
+        html_miracle: "",
+        medals: createMedalsMarkup(),
+        settings:
+          "<script class='jdgm-settings-script'>window.jdgmSettings={};</script><style>.jdgm-widget{color:teal}</style>",
+      });
+    }
 
     if (endpoint === "product_review") {
       return Response.json({
@@ -1131,14 +1202,7 @@ test("fetches all implemented storefront widgets with shared resources", async (
       });
     }
 
-    if (endpoint === "settings") {
-      return Response.json({
-        settings:
-          "<script class='jdgm-settings-script'>window.jdgmSettings={};</script><style>.jdgm-widget{color:teal}</style>",
-      });
-    }
-
-    return Response.json({ html_miracle: "" });
+    throw new Error(`Unexpected endpoint: ${endpoint}`);
   };
 
   const data = await fetchLegacyStorefrontWidgets({
@@ -1151,11 +1215,10 @@ test("fetches all implemented storefront widgets with shared resources", async (
   assert.deepEqual(requestedEndpoints.sort(), [
     "all_reviews_page",
     "featured_carousel",
-    "html_miracle",
+    "medals_cache",
     "preview_badge",
     "product_review",
     "reviews_tab",
-    "settings",
     "verified_badge",
   ]);
   assert.equal(data.reviewWidget.productId, "12345");
@@ -1168,6 +1231,8 @@ test("fetches all implemented storefront widgets with shared resources", async (
   );
   assert.match(data.reviewsCarousel.html, /Featured reviews/);
   assert.equal(data.verifiedReviewsCounter?.count, 27);
+  assert.equal(data.medals?.medalCount, 2);
+  assert.equal(data.medals?.verifiedReviewCount, 866);
   assert.equal(data.allReviewsWidget.initialReviewType, "product-reviews");
   assert.match(data.allReviewsWidget.html, /jdgm-all-reviews-widget/);
   assert.equal(data.floatingReviewsTab.source, "all-reviews-page-fallback");
@@ -1179,6 +1244,22 @@ test("fetches all implemented storefront widgets with shared resources", async (
   );
   assert.match(data.resources.styles, /color:teal/);
 });
+
+function createMedalsMarkup() {
+  return [
+    '<div class="jdgm-medals-wrapper jdgm-hidden jdgm-widget">',
+    '<div class="jdgm-medals" data-link="https://app.judge.me/reviews/stores/example">',
+    '<div class="jdgm-medals__container">',
+    '<div class="jdgm-medal-wrapper"><a class="jdgm-medal jdgm--loading"><div class="jdgm-medal__image" data-url="auth/platinum.svg"></div></a></div>',
+    '<div class="jdgm-medal-wrapper"><a class="jdgm-medal jdgm--loading"><div class="jdgm-medal__image" data-url="ver_rev/platinum.svg"></div><div class="jdgm-medal__value">866</div></a></div>',
+    "</div></div>",
+    '<div class="jdgm-verified-wrapper"><div class="jdgm-rating">',
+    '<span class="jdgm-rating__stars" data-score="4.78"></span>',
+    '<span class="jdgm-rating__count" data-value="866"></span>',
+    '</div><div class="jdgm-verified-by"><span class="jdgm-verified-by__text"></span><span class="jdgm-verified-by__image"></span></div></div>',
+    "</div>",
+  ].join("");
+}
 
 test("normalizes dashboard popup settings and its public review feed", async () => {
   const settings = {

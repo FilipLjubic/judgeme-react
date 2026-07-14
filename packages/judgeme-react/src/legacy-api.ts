@@ -2,6 +2,7 @@ import { normalizeShopDomain } from "./config.js";
 import { getShopifyNumericId } from "./shopify.js";
 
 const JUDGE_ME_WIDGET_API = "https://judge.me/api/v1/widgets";
+const JUDGE_ME_CACHE_HOST = "https://cache.judge.me";
 
 export type JudgeMeJsonValue =
   | boolean
@@ -59,6 +60,18 @@ export interface VerifiedReviewsCounterMarkup extends LegacyShopWidgetMarkup {
 export interface VerifiedReviewsCounterData
   extends VerifiedReviewsCounterMarkup, LegacyWidgetResources {}
 
+export interface JudgeMeMedalsMarkup extends LegacyShopWidgetMarkup {
+  /** Number of earned medals contained in Judge.me's exact widget response. */
+  medalCount: number;
+  /** Average rating shown in the verified-review summary. */
+  rating: string;
+  /** Published verified-review count shown by Judge.me. */
+  verifiedReviewCount: number;
+}
+
+export interface JudgeMeMedalsData
+  extends JudgeMeMedalsMarkup, LegacyWidgetResources {}
+
 export type AllReviewsWidgetReviewType = "product-reviews" | "shop-reviews";
 
 export interface AllReviewsWidgetMarkup extends LegacyShopWidgetMarkup {
@@ -92,6 +105,8 @@ export interface LegacyStorefrontWidgetsData extends LegacyProductWidgetsData {
   allReviewsCounter: AllReviewsCounterMarkup;
   allReviewsWidget: AllReviewsWidgetMarkup;
   floatingReviewsTab: FloatingReviewsTabMarkup;
+  /** `null` until the store has earned Judge.me Medals. */
+  medals: JudgeMeMedalsMarkup | null;
   reviewsCarousel: LegacyShopWidgetMarkup;
   /** `null` until the store meets Judge.me's verified-review eligibility. */
   verifiedReviewsCounter: VerifiedReviewsCounterMarkup | null;
@@ -134,6 +149,7 @@ export interface FetchAllReviewsWidgetOptions extends FetchReviewsCarouselOption
 export type FetchFloatingReviewsTabOptions = FetchReviewsCarouselOptions;
 export type FetchAllReviewsCounterOptions = FetchReviewsCarouselOptions;
 export type FetchVerifiedReviewsCounterOptions = FetchReviewsCarouselOptions;
+export type FetchJudgeMeMedalsOptions = FetchReviewsCarouselOptions;
 
 interface ProductReviewResponse {
   product_external_id: number | string;
@@ -183,6 +199,15 @@ interface SettingsResponse {
 
 interface HtmlMiracleResponse {
   html_miracle: string;
+}
+
+interface MedalsCacheResponse extends HtmlMiracleResponse, SettingsResponse {
+  medals: null | string;
+}
+
+interface MedalsCacheData {
+  medals: JudgeMeMedalsMarkup | null;
+  resources: LegacyWidgetResources;
 }
 
 interface LegacyRequestContext {
@@ -338,6 +363,27 @@ export async function fetchVerifiedReviewsCounter({
     : null;
 }
 
+/**
+ * Fetches Judge.me's exact platform-independent Medals widget. Stores that
+ * have not earned a medal return `null`.
+ */
+export async function fetchJudgeMeMedals({
+  shopDomain,
+  publicToken,
+  signal,
+  fetch: fetchImplementation = globalThis.fetch,
+}: FetchJudgeMeMedalsOptions): Promise<JudgeMeMedalsData | null> {
+  const context = createLegacyShopRequestContext({
+    shopDomain,
+    publicToken,
+    signal,
+    fetchImplementation,
+  });
+  const { medals, resources } = await fetchMedalsCacheData(context);
+
+  return medals ? { ...medals, ...resources } : null;
+}
+
 /** Fetches the legacy All Reviews Widget, also called Happy Customers. */
 export async function fetchAllReviewsWidget({
   shopDomain,
@@ -426,7 +472,7 @@ export async function fetchLegacyProductWidgets({
 
 /**
  * Fetches every currently implemented legacy storefront widget with one shared
- * settings/CSS request pair. Prefer this on routes that render all seven.
+ * settings/CSS payload. Prefer this on routes that render all eight.
  */
 export async function fetchLegacyStorefrontWidgets({
   shopDomain,
@@ -443,7 +489,11 @@ export async function fetchLegacyStorefrontWidgets({
     fetchImplementation,
   });
 
-  const resourcesPromise = fetchLegacyWidgetResources(context);
+  // Judge.me's own platform-independent preloader returns Medals, settings,
+  // and html_miracle together. Reuse that exact response instead of fetching
+  // settings and CSS again through two separate Widget API reads.
+  const medalsCachePromise = fetchMedalsCacheData(context);
+  const resourcesPromise = medalsCachePromise.then(({ resources }) => resources);
   const allReviewsPagePromise = resourcesPromise.then(({ settings }) =>
     fetchAllReviewsPageMarkup(context, getInitialAllReviewsType(settings)),
   );
@@ -453,7 +503,7 @@ export async function fetchLegacyStorefrontWidgets({
     reviewsCarousel,
     reviewsTab,
     verifiedReviewsCounter,
-    resources,
+    medalsCache,
     allReviewsPage,
   ] = await Promise.all([
     fetchReviewWidgetMarkup(context),
@@ -461,9 +511,10 @@ export async function fetchLegacyStorefrontWidgets({
     fetchReviewsCarouselMarkup(context),
     fetchReviewsTabResponse(context),
     fetchVerifiedReviewsCounterMarkup(context),
-    resourcesPromise,
+    medalsCachePromise,
     allReviewsPagePromise,
   ]);
+  const { medals, resources } = medalsCache;
   const floatingReviewsTab = await resolveFloatingReviewsTabMarkup(
     context,
     reviewsTab,
@@ -485,6 +536,7 @@ export async function fetchLegacyStorefrontWidgets({
       resources.settings,
     ),
     floatingReviewsTab,
+    medals,
     resources,
     reviewWidget,
     reviewsCarousel,
@@ -1180,22 +1232,163 @@ async function fetchLegacyWidgetResources(
     ),
   ]);
 
-  if (
-    typeof settings.settings !== "string" ||
-    typeof htmlMiracle.html_miracle !== "string"
-  ) {
+  return createLegacyWidgetResources(
+    settings.settings,
+    htmlMiracle.html_miracle,
+  );
+}
+
+async function fetchMedalsCacheData(
+  context: LegacyShopRequestContext,
+): Promise<MedalsCacheData> {
+  const shopDomain = context.commonParams.shop_domain;
+  const publicToken = context.commonParams.api_token;
+  const url = new URL(
+    `/widgets/shopify/${encodeURIComponent(shopDomain)}`,
+    JUDGE_ME_CACHE_HOST,
+  );
+  url.searchParams.set("public_token", publicToken);
+  url.searchParams.set("medals", "1");
+
+  // Cloudflare's fetch throws an illegal-invocation error when called as an
+  // object method because that binds `this` to our request context.
+  const fetchImplementation = context.fetchImplementation;
+  const response = await fetchImplementation(url, {
+    headers: { Accept: "application/json" },
+    signal: context.signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Judge.me Medals request failed with HTTP ${response.status}.`,
+    );
+  }
+
+  let payload: MedalsCacheResponse;
+  try {
+    payload = (await response.json()) as MedalsCacheResponse;
+  } catch {
+    throw new Error("Judge.me Medals returned invalid JSON.");
+  }
+
+  return {
+    medals: normalizeJudgeMeMedalsMarkup(payload.medals),
+    resources: createLegacyWidgetResources(
+      payload.settings,
+      payload.html_miracle,
+    ),
+  };
+}
+
+function createLegacyWidgetResources(
+  settingsHtml: unknown,
+  htmlMiracle: unknown,
+): LegacyWidgetResources {
+  if (typeof settingsHtml !== "string" || typeof htmlMiracle !== "string") {
     throw new Error("Judge.me returned an invalid widget settings payload.");
   }
 
   return {
-    settings: createLegacyRuntimeSettings(
-      parseRuntimeSettings(settings.settings),
-    ),
+    settings: createLegacyRuntimeSettings(parseRuntimeSettings(settingsHtml)),
     styles: [
-      ...extractStyleContents(settings.settings),
-      ...extractStyleContents(htmlMiracle.html_miracle),
+      ...extractStyleContents(settingsHtml),
+      ...extractStyleContents(htmlMiracle),
     ].join("\n"),
   };
+}
+
+function normalizeJudgeMeMedalsMarkup(
+  html: unknown,
+): JudgeMeMedalsMarkup | null {
+  if (html === null || html === "") return null;
+  if (typeof html !== "string") {
+    throw new Error("Judge.me returned invalid Medals markup.");
+  }
+
+  assertSafeWidgetMarkup(html, "Medals");
+
+  if (
+    !hasHtmlClass(html, "jdgm-medals-wrapper") ||
+    !hasHtmlClass(html, "jdgm-widget") ||
+    !hasHtmlClass(html, "jdgm-medals")
+  ) {
+    throw new Error("Judge.me returned incomplete Medals markup.");
+  }
+
+  const medalCount = countHtmlClass(html, "jdgm-medal-wrapper");
+  if (medalCount === 0) return null;
+
+  const rating = readNumericClassAttribute(
+    html,
+    "jdgm-rating__stars",
+    "data-score",
+  );
+  const serializedVerifiedReviewCount = readNumericClassAttribute(
+    html,
+    "jdgm-rating__count",
+    "data-value",
+  );
+  const numericRating = Number(rating);
+  const verifiedReviewCount = Number(serializedVerifiedReviewCount);
+
+  if (
+    rating === null ||
+    !Number.isFinite(numericRating) ||
+    numericRating < 0 ||
+    numericRating > 5 ||
+    serializedVerifiedReviewCount === null ||
+    !Number.isSafeInteger(verifiedReviewCount) ||
+    verifiedReviewCount < 0
+  ) {
+    throw new Error("Judge.me returned invalid Medals review statistics.");
+  }
+
+  return { html, medalCount, rating, verifiedReviewCount };
+}
+
+function hasHtmlClass(html: string, className: string): boolean {
+  return new RegExp(
+    `class\\s*=\\s*["'][^"']*\\b${escapeRegExp(className)}\\b[^"']*["']`,
+    "i",
+  ).test(html);
+}
+
+function countHtmlClass(html: string, className: string): number {
+  return (
+    html.match(
+      new RegExp(
+        `class\\s*=\\s*["'][^"']*\\b${escapeRegExp(className)}\\b[^"']*["']`,
+        "gi",
+      ),
+    ) ?? []
+  ).length;
+}
+
+function readNumericClassAttribute(
+  html: string,
+  className: string,
+  attribute: string,
+): string | null {
+  const tag = html.match(
+    new RegExp(
+      `<[^>]+class\\s*=\\s*["'][^"']*\\b${escapeRegExp(className)}\\b[^"']*["'][^>]*>`,
+      "i",
+    ),
+  )?.[0];
+  if (!tag) return null;
+
+  return (
+    tag.match(
+      new RegExp(
+        `${escapeRegExp(attribute)}\\s*=\\s*["']([0-9]+(?:\\.[0-9]+)?)["']`,
+        "i",
+      ),
+    )?.[1] ?? null
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeProductWidgetMarkup({

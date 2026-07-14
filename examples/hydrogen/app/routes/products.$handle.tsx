@@ -35,6 +35,7 @@ import {
   fetchVideosCarouselPage,
   FloatingReviewsTab,
   getShopifyNumericId,
+  JudgeMeMedals,
   LegacyReviewWidget,
   PopupReviews,
   QuestionsAndAnswers,
@@ -381,6 +382,16 @@ export default function Product() {
               className="product-verified-reviews-counter"
               data={{
                 ...judgeMeWidgets.verifiedReviewsCounter,
+                ...judgeMeWidgets.resources,
+              }}
+              includeStyles={false}
+            />
+          ) : null}
+          {judgeMeWidgets.medals ? (
+            <JudgeMeMedals
+              className="product-judgeme-medals"
+              data={{
+                ...judgeMeWidgets.medals,
                 ...judgeMeWidgets.resources,
               }}
               includeStyles={false}

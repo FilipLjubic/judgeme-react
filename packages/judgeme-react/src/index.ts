@@ -19,6 +19,7 @@ export {
   fetchAllReviewsCounter,
   fetchAllReviewsWidget,
   fetchFloatingReviewsTab,
+  fetchJudgeMeMedals,
   fetchLegacyProductWidgets,
   fetchLegacyReviewWidget,
   fetchLegacyStorefrontWidgets,
@@ -27,6 +28,7 @@ export {
   fetchVerifiedReviewsCounter,
 } from "./legacy-api.js";
 export { FloatingReviewsTab } from "./floating-reviews-tab.js";
+export { JudgeMeMedals } from "./judge-me-medals.js";
 export { LegacyReviewWidget } from "./legacy-review-widget.js";
 export { JudgeMeProvider, useJudgeMe } from "./provider.js";
 export { PopupReviews } from "./popup-reviews.js";
@@ -99,6 +101,7 @@ export type {
   FetchAllReviewsCounterOptions,
   FetchAllReviewsWidgetOptions,
   FetchFloatingReviewsTabOptions,
+  FetchJudgeMeMedalsOptions,
   FetchLegacyProductWidgetsOptions,
   FetchLegacyReviewWidgetOptions,
   FetchLegacyStorefrontWidgetsOptions,
@@ -109,6 +112,8 @@ export type {
   FloatingReviewsTabMarkup,
   FloatingReviewsTabSource,
   JudgeMeJsonValue,
+  JudgeMeMedalsData,
+  JudgeMeMedalsMarkup,
   JudgeMeRuntimeSettings,
   LegacyProductWidgetMarkup,
   LegacyProductWidgetsData,
@@ -122,6 +127,7 @@ export type {
   VerifiedReviewsCounterMarkup,
 } from "./legacy-api.js";
 export type { AllReviewsCounterProps } from "./all-reviews-counter.js";
+export type { JudgeMeMedalsProps } from "./judge-me-medals.js";
 export type { AiReviewsSummaryProps } from "./ai-reviews-summary.js";
 export type {
   AiReviewsSummaryAlignment,

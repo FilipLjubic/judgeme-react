@@ -394,6 +394,26 @@
       "current": "20260713T213007Z-2ac552901e85",
       "created_at": "2026-07-13T21:30:02Z",
       "updated_at": "2026-07-13T21:30:02Z"
+    },
+    {
+      "id": "0dad8792e5f80f59",
+      "label": "judge-me-medals",
+      "kind": "docs",
+      "url": "https://judge.me/help/en/articles/8420884-judge-me-medals",
+      "reason": null,
+      "current": "20260714T044140Z-981d365d6ef9",
+      "created_at": "2026-07-14T04:41:35Z",
+      "updated_at": "2026-07-14T04:41:35Z"
+    },
+    {
+      "id": "c9cf298ddd71a244",
+      "label": "judge-me-medals-spike-2026-07-14",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/judge-me-medals-spike-2026-07-14.md",
+      "reason": null,
+      "current": "20260714T045603Z-dc36bc0721b6",
+      "created_at": "2026-07-14T04:54:44Z",
+      "updated_at": "2026-07-14T04:56:03Z"
     }
   ]
 }

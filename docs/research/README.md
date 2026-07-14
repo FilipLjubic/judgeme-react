@@ -24,6 +24,7 @@
 | `review-snippets-spike-2026-07-13`               | notes | Tokenless snippet endpoint, exact extension module, preload bridge, block configuration, and Brave lightbox          |
 | `questions-and-answers-spike-2026-07-13`         | notes | Official nested placement, tokenless read/write routes, dashboard mapping, native React UI, and Free-plan limits      |
 | `verified-reviews-counter-spike-2026-07-13`      | notes | Exact public badge markup, eligibility/null contract, dashboard/runtime mapping, CSP, batching, and Brave validation |
+| `judge-me-medals-spike-2026-07-14`               | notes | Exact cache markup, verified stats, settings/CSS reuse, responsive rotation lifecycle, and Brave validation          |
 | `judge-me-platform-independent`                  | docs  | Official external-storefront installation path and limits                                                            |
 | `judge-me-widget-catalog`                        | docs  | Current official widget inventory and Shopify surface support                                                        |
 | `judge-me-api`                                   | docs  | Current public/private token guidance and API limitations                                                            |
@@ -38,6 +39,7 @@
 | `judge-me-cart-widgets`                          | docs  | Official cart-widget Review Snippets selection and ten-review behavior                                               |
 | `judge-me-questions-and-answers`                  | docs  | Official Q&A plan, placement, settings, moderation, and new Review Widget requirements                               |
 | `judge-me-verified-reviews-counter`               | docs  | Official eligibility, styles, orientation, colors, link behavior, and install requirements                           |
+| `judge-me-medals`                                 | docs  | Official medal eligibility, catalog, colors, verification summary, and Shopify install requirements                  |
 | `judge-me-hydrogen-npm-metadata`                 | docs  | Registry metadata for Judge.me's official Hydrogen package                                                           |
 | `judge-me-liquid-widgets`                        | docs  | Official Liquid markup and Judge.me metafield dependencies                                                           |
 | `shopify-theme-app-extensions`                   | docs  | Official Shopify app-block, app-embed, Liquid-scope, and CDN model                                                   |

@@ -7,6 +7,8 @@ import type {
 const JUDGE_ME_CDN_HOST = "https://cdnwidget.judge.me/";
 const JUDGE_ME_API_HOST = "https://api.judge.me";
 const JUDGE_ME_LOADER_URL = `${JUDGE_ME_CDN_HOST}loader.js`;
+const JUDGE_ME_PUBLIC_IMAGE_HOST =
+  "https://judgeme-public-images.imgix.net/judgeme/";
 const RUNTIME_SCRIPT_SELECTOR = "script[data-judgeme-react-runtime]";
 const SETUP_CLASS = "jdgm--done-setup";
 const SETUP_WIDGET_CLASS = "jdgm--done-setup-widget";
@@ -16,6 +18,7 @@ interface JudgeMeRuntime {
   API_HOST?: string;
   AllReviewsPage?: new (...args: unknown[]) => unknown;
   CDN_HOST?: string;
+  JM_PUBLIC_IMAGE_URL?: string;
   PLATFORM?: string;
   PUBLIC_TOKEN?: string;
   SHOP_DOMAIN?: string;
@@ -73,6 +76,7 @@ let runtimeShopDomain: string | undefined;
 let loaderPromise: Promise<void> | undefined;
 const floatingTabDisposers = new WeakMap<HTMLElement, () => void>();
 const allReviewsWidgetDisposers = new WeakMap<HTMLElement, () => void>();
+const medalsTimers = new WeakMap<HTMLElement, number>();
 
 export interface InitializeLegacyReviewWidgetOptions {
   container: HTMLElement;
@@ -104,6 +108,15 @@ export interface InitializeAllReviewsCounterOptions {
 
 export interface InitializeVerifiedReviewsCounterOptions {
   container: HTMLElement;
+  publicToken: string;
+  settings: JudgeMeRuntimeSettings;
+  shopDomain: string;
+}
+
+export interface InitializeJudgeMeMedalsOptions {
+  container: HTMLElement;
+  /** Prevents a stale React effect from mutating a remounted widget. */
+  isCurrent?: () => boolean;
   publicToken: string;
   settings: JudgeMeRuntimeSettings;
   shopDomain: string;
@@ -301,6 +314,77 @@ export async function initializeVerifiedReviewsCounter({
     "Judge.me did not finish initializing the Verified Reviews Counter.",
   );
   root.dataset.judgemeReactSetup = "true";
+}
+
+/** Loads Judge.me's public medal helpers and initializes one exact widget. */
+export async function initializeJudgeMeMedals({
+  container,
+  isCurrent,
+  publicToken,
+  settings,
+  shopDomain,
+}: InitializeJudgeMeMedalsOptions): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const runtimeWindow = configureRuntime({
+    publicToken,
+    settings,
+    shopDomain,
+  });
+
+  await loadRuntimeScript();
+  await waitFor(
+    () => isSecondaryWidgetLoaderReady(runtimeWindow.jdgm),
+    "Judge.me's Medals dependency loader did not become ready.",
+  );
+
+  // The component temporarily masks the three classes scanned by loader.js.
+  // This lets the public bundles expose their helpers without starting the
+  // untracked global autoplay interval used by their document-wide scan.
+  const dependencyRuntime = runtimeWindow.jdgm;
+  dependencyRuntime?.loadScript?.(`${JUDGE_ME_CDN_HOST}widget/others.js`);
+  dependencyRuntime?.loadScript?.(`${JUDGE_ME_CDN_HOST}widget/media.js`);
+  if (dependencyRuntime?.widgetPath) {
+    dependencyRuntime.loadCSS?.(dependencyRuntime.widgetPath("media.css"));
+  }
+
+  await waitFor(
+    () => isJudgeMeMedalsRuntimeReady(runtimeWindow.jdgm),
+    "Judge.me's Medals helpers did not become ready.",
+  );
+
+  if (isCurrent && !isCurrent()) return;
+
+  restorePendingMedalsClasses(container);
+  const root = container.querySelector<HTMLElement>(".jdgm-medals-wrapper");
+  const runtime = runtimeWindow.jdgm;
+
+  if (!root || !runtime || !isJudgeMeMedalsRuntimeReady(runtime)) {
+    throw new Error("Judge.me did not return a Medals root.");
+  }
+
+  prepareJudgeMeMedalsMarkup(container, root, settings, runtime);
+  await waitFor(
+    () => isJudgeMeMedalsPrepared(root),
+    "Judge.me did not finish initializing Medals.",
+  );
+
+  if (isCurrent && !isCurrent()) {
+    disposeJudgeMeMedals(container);
+    return;
+  }
+
+  root.classList.remove("jdgm-hidden");
+  root.dataset.judgemeReactSetup = "true";
+}
+
+/** Stops the component-scoped mobile medal rotation timer. */
+export function disposeJudgeMeMedals(container: HTMLElement): void {
+  const timer = medalsTimers.get(container);
+  if (timer !== undefined && typeof window !== "undefined") {
+    window.clearInterval(timer);
+  }
+  medalsTimers.delete(container);
 }
 
 /** Stops Judge.me's per-carousel auto-slide timer before React removes it. */
@@ -634,6 +718,14 @@ type VerifiedReviewsCounterRuntime = Required<
 > &
   JudgeMeRuntime;
 
+type JudgeMeMedalsRuntime = Required<
+  Pick<
+    JudgeMeRuntime,
+    "$" | "_loadSvg" | "_renderVerifiedByJudgeme" | "buildStarsFor"
+  >
+> &
+  JudgeMeRuntime;
+
 function isVerifiedReviewsCounterRuntimeReady(
   runtime: JudgeMeRuntime | undefined,
 ): runtime is VerifiedReviewsCounterRuntime {
@@ -642,6 +734,224 @@ function isVerifiedReviewsCounterRuntimeReady(
     typeof runtime.$ === "function" &&
     typeof runtime._loadSvg === "function",
   );
+}
+
+function isJudgeMeMedalsRuntimeReady(
+  runtime: JudgeMeRuntime | undefined,
+): runtime is JudgeMeMedalsRuntime {
+  return Boolean(
+    runtime &&
+    typeof runtime.$ === "function" &&
+    typeof runtime._loadSvg === "function" &&
+    typeof runtime._renderVerifiedByJudgeme === "function" &&
+    typeof runtime.buildStarsFor === "function",
+  );
+}
+
+function restorePendingMedalsClasses(container: HTMLElement): void {
+  const root = container.querySelector<HTMLElement>(
+    ".jdgm-react-medals-wrapper-pending",
+  );
+  root?.classList.replace(
+    "jdgm-react-medals-wrapper-pending",
+    "jdgm-medals-wrapper",
+  );
+
+  container
+    .querySelector<HTMLElement>(".jdgm-react-medals-pending")
+    ?.classList.replace("jdgm-react-medals-pending", "jdgm-medals");
+  container
+    .querySelectorAll<HTMLElement>(".jdgm-react-medal-image-pending")
+    .forEach((image) =>
+      image.classList.replace(
+        "jdgm-react-medal-image-pending",
+        "jdgm-medal__image",
+      ),
+    );
+}
+
+function prepareJudgeMeMedalsMarkup(
+  container: HTMLElement,
+  root: HTMLElement,
+  settings: JudgeMeRuntimeSettings,
+  runtime: JudgeMeMedalsRuntime,
+): void {
+  disposeJudgeMeMedals(container);
+
+  const medals = root.querySelector<HTMLElement>(".jdgm-medals");
+  const ratingStars = root.querySelector<HTMLElement>(
+    ".jdgm-rating__stars",
+  );
+  const medalImages = Array.from(
+    root.querySelectorAll<HTMLElement>(".jdgm-medal__image"),
+  );
+
+  if (!medals || !ratingStars || medalImages.length === 0) {
+    throw new Error("Judge.me returned incomplete Medals markup.");
+  }
+
+  const monochrome =
+    settings.medals_widget_use_monochromatic_version === true;
+  const rebranded = runtime.WIDGET_REBRANDING_ENABLED === true;
+  const publicImageHost = normalizeRuntimeAssetHost(
+    runtime.JM_PUBLIC_IMAGE_URL,
+    JUDGE_ME_PUBLIC_IMAGE_HOST,
+  );
+  const colorImageHost = `${publicImageHost}${rebranded ? "medals-v2-2025-rebranding/" : "medals-v2/"}`;
+  const monochromeImageHost = `${publicImageHost}${
+    rebranded ? "medals-mono-2025-rebranding/" : "medals-mono/"
+  }`;
+
+  for (const image of medalImages) {
+    const assetPath = image.dataset.url;
+    if (!assetPath || !/^[a-z0-9._/-]+$/i.test(assetPath)) {
+      throw new Error("Judge.me returned an invalid Medals asset path.");
+    }
+
+    runtime._loadSvg(
+      runtime.$(image),
+      colorImageHost,
+      monochromeImageHost,
+      monochrome,
+    );
+  }
+
+  prepareJudgeMeMedalsLinks(medals, settings);
+
+  if (!ratingStars.querySelector(".jdgm-star")) {
+    runtime.buildStarsFor(runtime.$(ratingStars));
+  }
+  runtime._renderVerifiedByJudgeme(
+    runtime.$(root),
+    monochrome,
+    true,
+    false,
+    rebranded,
+  );
+
+  root.classList.toggle("jdgm-medals-wrapper--rebranding", rebranded);
+  if (rebranded) prepareJudgeMeMedalsSeparator(root);
+  if (monochrome) prepareJudgeMeMedalsColors(root, settings);
+  prepareJudgeMeMedalsResponsiveLayout(container, root);
+}
+
+function prepareJudgeMeMedalsLinks(
+  medals: HTMLElement,
+  settings: JudgeMeRuntimeSettings,
+): void {
+  const configuredUrl = medals.dataset.link;
+  const shouldLink =
+    settings.can_be_branded === true &&
+    typeof configuredUrl === "string" &&
+    isSafeNavigationUrl(configuredUrl);
+
+  medals.querySelectorAll<HTMLAnchorElement>(".jdgm-medal").forEach((link) => {
+    if (shouldLink) {
+      link.href = configuredUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+    } else {
+      link.removeAttribute("href");
+      link.removeAttribute("target");
+      link.removeAttribute("rel");
+    }
+  });
+}
+
+function prepareJudgeMeMedalsColors(
+  root: HTMLElement,
+  settings: JudgeMeRuntimeSettings,
+): void {
+  if (root.querySelector("[data-judgeme-react-medals-colors]")) return;
+
+  const background = getRuntimeColor(settings.medals_widget_background_color);
+  const elements = getRuntimeColor(settings.medals_widget_elements_color);
+  if (!background || !elements) return;
+
+  const style = document.createElement("style");
+  style.dataset.judgemeReactMedalsColors = "true";
+  style.textContent = [
+    `.jdgm-medals-wrapper.jdgm-widget { background-color: ${background} !important; color: ${elements} !important; }`,
+    `.jdgm-medals-wrapper .jdgm-verified-wrapper { border-color: ${elements} !important; }`,
+    `.jdgm-medal__value, .jdgm-medals-wrapper .jdgm-star { color: ${elements} !important; }`,
+    `.jdgm-medals-wrapper .jdgm-svg__mono svg path, .jdgm-medals-wrapper .jdgm-svg__mono svg circle { fill: ${elements}; }`,
+  ].join("\n");
+  root.prepend(style);
+}
+
+function prepareJudgeMeMedalsSeparator(root: HTMLElement): void {
+  if (root.querySelector(".jdgm-medals-separator")) return;
+
+  const medals = root.querySelector<HTMLElement>(".jdgm-medals");
+  const verified = root.querySelector<HTMLElement>(".jdgm-verified-wrapper");
+  if (!medals || !verified) return;
+
+  const separator = document.createElement("div");
+  separator.className = "jdgm-medals-separator";
+  separator.setAttribute("aria-hidden", "true");
+  (verified.compareDocumentPosition(medals) & Node.DOCUMENT_POSITION_FOLLOWING
+    ? verified
+    : medals
+  ).after(separator);
+}
+
+function prepareJudgeMeMedalsResponsiveLayout(
+  container: HTMLElement,
+  root: HTMLElement,
+): void {
+  const availableWidth =
+    container.getBoundingClientRect().width ||
+    container.parentElement?.getBoundingClientRect().width ||
+    window.innerWidth;
+  if (availableWidth >= 680) return;
+
+  root.classList.add("jdgm-medals-wrapper--small");
+  const medals = root.querySelector<HTMLElement>(".jdgm-medals");
+  const rating = root.querySelector<HTMLElement>(".jdgm-rating");
+  const verifiedBy = root.querySelector<HTMLElement>(".jdgm-verified-by");
+  const medalContainer = root.querySelector<HTMLElement>(
+    ".jdgm-medals__container",
+  );
+  const medalCount = root.querySelectorAll(".jdgm-medal-wrapper").length;
+
+  if (!medals || !medalContainer || medalCount === 0) return;
+
+  if (rating) medals.before(rating);
+  if (verifiedBy) medals.after(verifiedBy);
+  medalContainer.style.width = `${96 * medalCount}px`;
+
+  if (medalCount <= 3) return;
+
+  let currentSlide = 1;
+  const totalSlides = medalCount - 2;
+  const timer = window.setInterval(() => {
+    medals.scrollTo({
+      behavior: "smooth",
+      left: (currentSlide - 1) * 96,
+    });
+    currentSlide = currentSlide === totalSlides ? 1 : currentSlide + 1;
+  }, 3_000);
+  medalsTimers.set(container, timer);
+}
+
+function isJudgeMeMedalsPrepared(root: HTMLElement): boolean {
+  const images = Array.from(
+    root.querySelectorAll<HTMLElement>(".jdgm-medal__image"),
+  );
+
+  return (
+    images.length > 0 &&
+    images.every((image) => Boolean(image.querySelector("img, svg"))) &&
+    Boolean(root.querySelector(".jdgm-rating__stars .jdgm-star"))
+  );
+}
+
+function normalizeRuntimeAssetHost(
+  value: string | undefined,
+  fallback: string,
+): string {
+  const host = value?.trim() || fallback;
+  return host.endsWith("/") ? host : `${host}/`;
 }
 
 function isVerifiedReviewsCounterPrepared(root: HTMLElement): boolean {
