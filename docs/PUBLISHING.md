@@ -65,6 +65,8 @@ For `1.0.0`, npm reported `latest: 1.0.0`. A clean external Bun project installe
 
 Version `1.0.1` was published under `latest` on 2026-07-14 as a documentation patch. npm reported `latest: 1.0.1`; the registry README contained the agent-first onboarding and `v3AssetBaseUrl` discovery guide, GitHub served the corrected Reviews Grid screenshot byte-for-byte, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.1` before passing typecheck and production build.
 
+Version `1.0.2` was published under `latest` on 2026-07-14 as a runtime hardening patch. It makes carousel language comparisons case-insensitive and owns the shared body-level Write a review overlay through v3 close and unmount. npm reported `latest: 1.0.2`; the 65-test release gate, package dry-run, and `publint` passed, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.2` before passing typecheck and production build.
+
 ## Future releases
 
 For every release:
