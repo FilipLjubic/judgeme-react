@@ -63,6 +63,8 @@ Then clone or copy `examples/hydrogen` outside the monorepo, run `bun install`, 
 
 For `1.0.0`, npm reported `latest: 1.0.0`. A clean external Bun project installed the registry package, compiled strict TypeScript imports from `judgeme-react/react` and `judgeme-react/server`, and loaded both entry points at runtime.
 
+Version `1.0.1` was published under `latest` on 2026-07-14 as a documentation patch. npm reported `latest: 1.0.1`; the registry README contained the agent-first onboarding and `v3AssetBaseUrl` discovery guide, GitHub served the corrected Reviews Grid screenshot byte-for-byte, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.1` before passing typecheck and production build.
+
 ## Future releases
 
 For every release:

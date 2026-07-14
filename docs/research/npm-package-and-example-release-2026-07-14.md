@@ -16,7 +16,7 @@ This split is an API organization and tooling boundary, not a security sandbox. 
 
 ## Example portability
 
-The example dependency now names exact version `1.0.0` instead of `*`. Bun satisfies that version from the workspace during development, while the same manifest resolves from npm when `examples/hydrogen` is copied elsewhere. There are no workspace-relative source imports in the app.
+The example dependency now names exact version `1.0.1` instead of `*`. Bun satisfies that version from the workspace during development, while the same manifest resolves from npm when `examples/hydrogen` is copied elsewhere. There are no workspace-relative source imports in the app.
 
 The example uses split subpath imports, generic placeholder environment values, one provider, automatic deployment discovery, the tested CSP, nullable per-widget composition, and one shared stylesheet mount. Its README maps the four most important integration files and documents how to run it inside or outside the monorepo.
 
@@ -43,6 +43,8 @@ After finalizing the `judgeme-react` name, MIT license, and stable `1.0.0` versi
 ## Registry status and finalized owner decisions
 
 On 2026-07-14, the initial unauthenticated registry lookup returned HTTP 404 for `judgeme-react` and `npm whoami` returned `ENEEDAUTH`. The public source repository was created at `https://github.com/FilipLjubic/judgeme-react`, npm browser authentication completed as `pandazaar`, and the first public publish succeeded as `judgeme-react@1.0.0`.
+
+The documentation overhaul was subsequently released as `judgeme-react@1.0.1` under `latest`. Registry metadata and the published README were verified directly, the corrected Reviews Grid image on GitHub matched the local SHA-256, and a copied Hydrogen example with no workspace lockfile or environment secrets installed the registry package before passing TypeScript and production build.
 
 The owner subsequently finalized:
 
