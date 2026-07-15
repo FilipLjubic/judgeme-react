@@ -73,6 +73,8 @@ Version `1.0.4` was published under `latest` on 2026-07-15 as a Happy Customers 
 
 Version `1.0.5` was published under `latest` on 2026-07-15 as an automatic style-ownership patch. Legacy and native components now own their required CSS, exact widgets load their deployment CSS and ensure shared dashboard/font styles before mounting, and loader-provided styles are an optional request optimization rather than manual correctness wiring. npm reported `latest: 1.0.5`; the 72-test release gate, 196-file package archive, and `publint` passed, registry shasum `c762e08937971ccf467062e96b82e1a5dc95ac7f` matched the published archive, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.5` before passing typecheck and production build.
 
+Version `1.0.6` was published under `latest` on 2026-07-15 as a source-map packaging patch. The npm archive now includes the TypeScript `src` files referenced by emitted JavaScript and declaration maps, and the release test validates that every emitted map source is embedded or covered by the package allowlist. npm reported `latest: 1.0.6`; the 73-test release gate, 244-file package archive, and `publint` passed, registry shasum `85a868f267846840bc0da6f8516b04958602e681` matched the published archive, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.6` before passing typecheck and production builds without missing-source sourcemap warnings.
+
 ## Future releases
 
 For every release:

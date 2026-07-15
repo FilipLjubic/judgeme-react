@@ -54,6 +54,8 @@ The Happy Customers write-review runtime fix was released as `judgeme-react@1.0.
 
 The automatic widget style-ownership hardening was released as `judgeme-react@1.0.5` under `latest` on 2026-07-15. The release commit is `d66f6fd` with annotated tag `v1.0.5`. The complete release gate passed with 72 tests, workspace lint/typecheck/build, a 196-file package archive, and `publint`. npm registry metadata reported `latest: 1.0.5`; its `c762e08937971ccf467062e96b82e1a5dc95ac7f` shasum matched the locally published archive. A clean out-of-workspace Hydrogen copy excluded environment files, installed `judgeme-react@1.0.5` from the registry, and completed typecheck and production build.
 
+The source-map packaging fix was released as `judgeme-react@1.0.6` under `latest` on 2026-07-15. The release commit is `e781a42` with annotated tag `v1.0.6`. The package now includes every TypeScript source referenced by emitted JavaScript and declaration maps, and its regression test checks every map against the npm `files` allowlist. The complete release gate passed with 73 tests, workspace lint/typecheck/build, a 244-file package archive, and `publint`. npm registry metadata reported `latest: 1.0.6`; its `85a868f267846840bc0da6f8516b04958602e681` shasum matched the published archive. Direct tarball inspection paired the reported map files with their `src` targets, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.6` before completing typecheck and production builds without missing-source sourcemap warnings.
+
 The owner subsequently finalized:
 
 1. unscoped npm package name `judgeme-react`;
