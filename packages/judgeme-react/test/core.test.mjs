@@ -141,7 +141,7 @@ test("publishes the final npm identity with matching MIT licenses", async () => 
   const exampleJson = JSON.parse(exampleJsonSource);
 
   assert.equal(packageJson.name, "judgeme-react");
-  assert.equal(packageJson.version, "1.0.6");
+  assert.equal(packageJson.version, "1.0.7");
   assert.equal(exampleJson.dependencies[packageJson.name], packageJson.version);
   assert.equal(packageJson.license, "MIT");
   assert.equal(packageJson.author, "Filip Ljubic");
@@ -408,6 +408,58 @@ test("discovers and manifest-validates the current Judge.me v3 deployment", asyn
   });
   assert.equal(cached.source, "cache");
   assert.equal(requests.length, 3);
+});
+
+test("retries a forbidden storefront request with browser navigation headers", async () => {
+  clearJudgeMeV3AssetDiscoveryCache();
+  const storefrontUrl = "https://store.example/products/example";
+  const judgeMeBase =
+    "https://cdn.shopify.com/extensions/deployment-2/judgeme-624/assets/";
+  const storefrontRequests = [];
+  const mockFetch = async (input, init) => {
+    const url = String(input);
+
+    if (url === storefrontUrl) {
+      storefrontRequests.push(new Headers(init?.headers));
+      if (storefrontRequests.length === 1) {
+        return new Response("forbidden", { status: 403 });
+      }
+
+      return new Response(`<script src="${judgeMeBase}loader.js"></script>`, {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      });
+    }
+
+    if (url === `${judgeMeBase}manifest.json`) {
+      return Response.json({
+        "review-widget/main.js": { file: "review-widget.js" },
+      });
+    }
+
+    throw new Error(`Unexpected request: ${url}`);
+  };
+
+  const deployment = await resolveJudgeMeV3AssetDeployment({
+    shopDomain: "store.myshopify.com",
+    storefrontUrl,
+    requiredManifestEntries: ["review-widget/main.js"],
+    fetch: mockFetch,
+  });
+
+  assert.equal(deployment.assetBaseUrl, judgeMeBase);
+  assert.equal(deployment.source, "discovered");
+  assert.equal(storefrontRequests.length, 2);
+  assert.equal(storefrontRequests[0].get("user-agent"), null);
+  assert.match(storefrontRequests[1].get("user-agent"), /^Mozilla\/5\.0/);
+  assert.equal(
+    storefrontRequests[1].get("accept-language"),
+    "en-US,en;q=0.9",
+  );
+  assert.equal(
+    storefrontRequests[1].get("upgrade-insecure-requests"),
+    "1",
+  );
 });
 
 test("uses a validated last-known deployment when storefront discovery fails", async () => {

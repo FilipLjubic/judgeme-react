@@ -73,7 +73,7 @@ const judgeMeAssets = await resolveJudgeMeAssets({
 const v3AssetBaseUrl = judgeMeAssets?.assetBaseUrl;
 ```
 
-The helper fetches the public theme page, finds its versioned Shopify-extension asset URLs, and validates each candidate's `manifest.json` before returning one. The product route then passes `judgeMeAssets?.assetBaseUrl` into widget data, while [`app/root.tsx`](app/root.tsx) passes the same value into `JudgeMeProvider`.
+The helper fetches the public theme page, finds its versioned Shopify-extension asset URLs, and validates each candidate's `manifest.json` before returning one. If the server runtime receives HTTP 403 for the initial theme request, discovery retries once with browser-navigation headers before using stale or last-known-good data. The product route then passes `judgeMeAssets?.assetBaseUrl` into widget data, while [`app/root.tsx`](app/root.tsx) passes the same value into `JudgeMeProvider`.
 
 The env variable is not passed straight to React. It is validated and used only when discovery fails. To keep a fallback, copy a previously discovered `judgeMeAssets.assetBaseUrl` into `JUDGEME_V3_ASSET_BASE_URL`; do not copy an individual `.js` file URL. Leave it blank when the public theme is reliably discoverable.
 

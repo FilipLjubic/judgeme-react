@@ -7,6 +7,17 @@ const DEFAULT_CACHE_TTL_MS = 15 * 60 * 1_000;
 const DEFAULT_STALE_IF_ERROR_MS = 24 * 60 * 60 * 1_000;
 const DEFAULT_TIMEOUT_MS = 5_000;
 const MAX_DURATION_MS = 7 * 24 * 60 * 60 * 1_000;
+const STOREFRONT_HTML_ACCEPT = "text/html,application/xhtml+xml";
+const STOREFRONT_BROWSER_RETRY_HEADERS = {
+  Accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Cache-Control": "no-cache",
+  Pragma: "no-cache",
+  "Upgrade-Insecure-Requests": "1",
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+} as const;
 
 export const JUDGE_ME_V3_MANIFEST_SENTINELS = [
   "review-widget/main.js",
@@ -236,11 +247,19 @@ async function discoverDeploymentWithSignal({
   try {
     response = await fetchImplementation(storefrontUrl, {
       headers: {
-        Accept: "text/html,application/xhtml+xml",
+        Accept: STOREFRONT_HTML_ACCEPT,
       },
       redirect: "follow",
       signal,
     });
+
+    if (response.status === 403) {
+      response = await fetchImplementation(storefrontUrl, {
+        headers: STOREFRONT_BROWSER_RETRY_HEADERS,
+        redirect: "follow",
+        signal,
+      });
+    }
   } catch (error) {
     throw new JudgeMeV3AssetDiscoveryError(
       "storefront-request-failed",

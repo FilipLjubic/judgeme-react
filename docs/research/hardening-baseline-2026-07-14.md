@@ -28,6 +28,8 @@ This hardening pass establishes four release foundations:
 
 The existing host-supplied URL remains useful. A direct server request to the current authorized store's `*.myshopify.com` product page returned HTTP 429 on 2026-07-14, while the configured deployment's public `manifest.json` remained readable and contained every sentinel. Automatic discovery therefore cannot be the only availability path; the last-known-good fallback and scheduled compatibility check are intentional parts of the contract.
 
+On 2026-07-15, the Moon Phase Prints Oxygen production worker returned HTTP 403 for the configured public theme product URL even though the same URL resolved from a local server and a normal browser. The root loader consequently omitted `v3AssetBaseUrl`, so exact widgets never mounted. Discovery now retries only that HTTP 403 case once with browser-navigation request headers, under the original timeout and abort signal. Other failure statuses keep their existing single-request behavior, and stale or last-known-good fallback behavior remains unchanged. This is regression-covered but still requires a published-package Oxygen verification because a local mock cannot reproduce Shopify's edge decision.
+
 Discovery is server-only. It rejects non-HTTPS and credential-bearing storefront URLs and should never receive a shopper-controlled URL. It does not use either Judge.me token or a Shopify Admin token.
 
 ## Lifecycle and error contract
@@ -106,6 +108,7 @@ Customer Account, checkout, Thank you, and Order status UI extensions remain a s
 - JSON-escaped asset URLs are recognized;
 - unrelated Shopify extensions are rejected;
 - a successful result is reused from cache;
+- an HTTP 403 storefront response receives one browser-navigation retry;
 - a rate-limited discovery can use a normalized fallback;
 - unsafe storefront URLs are rejected;
 - lifecycle cleanup suppresses stale readiness and runs once;
