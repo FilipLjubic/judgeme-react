@@ -16,7 +16,7 @@ This split is an API organization and tooling boundary, not a security sandbox. 
 
 ## Example portability
 
-The example dependency now names exact version `1.0.6` instead of `*`. Bun satisfies that version from the workspace during development, while the same manifest resolves from npm when `examples/hydrogen` is copied elsewhere. There are no workspace-relative source imports in the app.
+The example dependency now names exact version `1.0.7` instead of `*`. Bun satisfies that version from the workspace during development, while the same manifest resolves from npm when `examples/hydrogen` is copied elsewhere. There are no workspace-relative source imports in the app.
 
 The example uses split subpath imports, generic placeholder environment values, one provider, automatic deployment discovery, the tested CSP, nullable per-widget composition, and component-owned automatic style loading. Loader-provided shared CSS remains a request optimization for exact widgets rather than route-level correctness wiring. Its README maps the four most important integration files and documents how to run it inside or outside the monorepo.
 
@@ -55,6 +55,8 @@ The Happy Customers write-review runtime fix was released as `judgeme-react@1.0.
 The automatic widget style-ownership hardening was released as `judgeme-react@1.0.5` under `latest` on 2026-07-15. The release commit is `d66f6fd` with annotated tag `v1.0.5`. The complete release gate passed with 72 tests, workspace lint/typecheck/build, a 196-file package archive, and `publint`. npm registry metadata reported `latest: 1.0.5`; its `c762e08937971ccf467062e96b82e1a5dc95ac7f` shasum matched the locally published archive. A clean out-of-workspace Hydrogen copy excluded environment files, installed `judgeme-react@1.0.5` from the registry, and completed typecheck and production build.
 
 The source-map packaging fix was released as `judgeme-react@1.0.6` under `latest` on 2026-07-15. The release commit is `e781a42` with annotated tag `v1.0.6`. The package now includes every TypeScript source referenced by emitted JavaScript and declaration maps, and its regression test checks every map against the npm `files` allowlist. The complete release gate passed with 73 tests, workspace lint/typecheck/build, a 244-file package archive, and `publint`. npm registry metadata reported `latest: 1.0.6`; its `85a868f267846840bc0da6f8516b04958602e681` shasum matched the published archive. Direct tarball inspection paired the reported map files with their `src` targets, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.6` before completing typecheck and production builds without missing-source sourcemap warnings.
+
+The Oxygen storefront-discovery compatibility fix was released as `judgeme-react@1.0.7` under `latest` on 2026-07-15. The release commit is `be1ad10` with annotated tag `v1.0.7`. A storefront HTML request that receives HTTP 403 now retries once with browser-navigation headers while retaining the original timeout, abort signal, cache, stale-on-error, and last-known-good fallback behavior. The complete release gate passed with 74 tests, workspace lint/typecheck/build, a 244-file package archive, and `publint`. npm registry metadata reported `latest: 1.0.7`; its `b4592d751957fc1752fde90417e875fd8cb46620` shasum matched the locally published archive. Production Oxygen acceptance remains the next live verification step.
 
 The owner subsequently finalized:
 
