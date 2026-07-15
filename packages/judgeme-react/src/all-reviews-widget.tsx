@@ -17,7 +17,7 @@ export interface AllReviewsWidgetProps extends Omit<
   "children" | "dangerouslySetInnerHTML"
 > {
   data: AllReviewsWidgetData;
-  /** Skip the shared dashboard CSS when another widget renders the same styles. */
+  /** @deprecated Styles are loaded automatically. */
   includeStyles?: boolean;
 }
 
@@ -27,7 +27,7 @@ export interface AllReviewsWidgetProps extends Omit<
  */
 export function AllReviewsWidget({
   data,
-  includeStyles = true,
+  includeStyles: _includeStyles,
   ...sectionProps
 }: AllReviewsWidgetProps) {
   const containerRef = useRef<HTMLElement>(null);
@@ -96,9 +96,10 @@ export function AllReviewsWidget({
     >
       <div dangerouslySetInnerHTML={{ __html: data.html }} />
       <style
+        data-judgeme-react-dashboard-styles={meta.config.shopDomain}
         data-judgeme-react-styles="all-reviews-widget"
         dangerouslySetInnerHTML={{
-          __html: `${includeStyles ? data.styles : ""}\n${VISIBLE_WIDGET_STYLE}`,
+          __html: `${data.styles}\n${VISIBLE_WIDGET_STYLE}`,
         }}
       />
     </section>

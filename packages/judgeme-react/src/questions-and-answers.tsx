@@ -25,6 +25,7 @@ export interface QuestionsAndAnswersProps extends Omit<
   "children"
 > {
   data: QuestionsAndAnswersData;
+  /** @deprecated Styles are loaded automatically. */
   includeStyles?: boolean;
   /** Overrides the real POST for tests or a host-owned consent workflow. */
   onSubmitQuestion?: (input: SubmitQuestionInput) => Promise<void>;
@@ -41,7 +42,7 @@ export interface QuestionsAndAnswersProps extends Omit<
 export function QuestionsAndAnswers({
   className,
   data,
-  includeStyles = true,
+  includeStyles: _includeStyles,
   onQuestionSubmitted,
   onSubmitQuestion = submitQuestionToJudgeMe,
   style,
@@ -427,12 +428,10 @@ export function QuestionsAndAnswers({
         </div>
       ) : null}
 
-      {includeStyles ? (
-        <style
-          data-judgeme-react-styles="questions-and-answers"
-          dangerouslySetInnerHTML={{ __html: QUESTIONS_AND_ANSWERS_CSS }}
-        />
-      ) : null}
+      <style
+        data-judgeme-react-styles="questions-and-answers"
+        dangerouslySetInnerHTML={{ __html: QUESTIONS_AND_ANSWERS_CSS }}
+      />
     </>
   );
 }

@@ -11,7 +11,7 @@ export interface FloatingReviewsTabProps extends Omit<
   "children" | "dangerouslySetInnerHTML"
 > {
   data: FloatingReviewsTabData;
-  /** Skip the shared dashboard CSS when another widget renders the same styles. */
+  /** @deprecated Styles are loaded automatically. */
   includeStyles?: boolean;
   /** Mirrors the Shopify app-embed position setting. */
   position?: "bottom" | "left" | "right";
@@ -23,7 +23,7 @@ export interface FloatingReviewsTabProps extends Omit<
  */
 export function FloatingReviewsTab({
   data,
-  includeStyles = true,
+  includeStyles: _includeStyles,
   position = "bottom",
   ...containerProps
 }: FloatingReviewsTabProps) {
@@ -86,12 +86,11 @@ export function FloatingReviewsTab({
       data-judgeme-react-widget="floating-reviews-tab"
     >
       <div dangerouslySetInnerHTML={{ __html: data.html }} />
-      {includeStyles ? (
-        <style
-          data-judgeme-react-styles="legacy-widgets"
-          dangerouslySetInnerHTML={{ __html: data.styles }}
-        />
-      ) : null}
+      <style
+        data-judgeme-react-dashboard-styles={meta.config.shopDomain}
+        data-judgeme-react-styles="legacy-widgets"
+        dangerouslySetInnerHTML={{ __html: data.styles }}
+      />
     </div>
   );
 }

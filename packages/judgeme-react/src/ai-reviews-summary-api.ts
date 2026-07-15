@@ -66,6 +66,8 @@ export interface AiReviewsSummaryData {
   settings: JudgeMeRuntimeSettings;
   shopDomain: string;
   source: AiReviewsSummarySource;
+  /** Shared dashboard CSS used by Judge.me's exact runtime and icon fonts. */
+  styles?: string;
 }
 
 export interface AiReviewsSummaryStatus {
@@ -79,6 +81,7 @@ export interface CreateAiReviewsSummaryDataOptions {
   settings: JudgeMeRuntimeSettings;
   shopDomain: string;
   source?: AiReviewsSummarySource;
+  styles?: string;
 }
 
 export interface FetchAiReviewsSummaryStatusOptions {
@@ -181,6 +184,7 @@ export function createAiReviewsSummaryData({
   settings,
   shopDomain,
   source = "metafield",
+  styles,
 }: CreateAiReviewsSummaryDataOptions): AiReviewsSummaryData | null {
   const payload = parseAiReviewsSummaryMetafield(metafieldValue);
   if (!payload) return null;
@@ -191,6 +195,7 @@ export function createAiReviewsSummaryData({
     settings,
     shopDomain: normalizeShopDomain(shopDomain),
     source,
+    styles,
   };
 }
 

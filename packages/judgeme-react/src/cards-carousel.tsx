@@ -25,7 +25,7 @@ export interface CardsCarouselProps extends Omit<
   "children"
 > {
   data: CardsCarouselData;
-  /** Skip the shared Judge.me core CSS when another widget renders it. */
+  /** @deprecated Styles are loaded automatically. */
   includeStyles?: boolean;
 }
 
@@ -33,7 +33,7 @@ export interface CardsCarouselProps extends Omit<
 export function CardsCarousel({
   className,
   data,
-  includeStyles = true,
+  includeStyles: _includeStyles,
   style,
   ...sectionProps
 }: CardsCarouselProps) {
@@ -186,8 +186,9 @@ export function CardsCarousel({
           </div>
         ) : null}
       </section>
-      {includeStyles && data.styles ? (
+      {data.styles ? (
         <style
+          data-judgeme-react-dashboard-styles={meta.config.shopDomain}
           data-judgeme-react-styles="cards-carousel"
           dangerouslySetInnerHTML={{ __html: data.styles }}
         />

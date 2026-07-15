@@ -25,7 +25,7 @@ export interface VideosCarouselProps extends Omit<
   "children"
 > {
   data: VideosCarouselData;
-  /** Skip the shared Judge.me core CSS when another widget renders it. */
+  /** @deprecated Styles are loaded automatically. */
   includeStyles?: boolean;
 }
 
@@ -33,7 +33,7 @@ export interface VideosCarouselProps extends Omit<
 export function VideosCarousel({
   className,
   data,
-  includeStyles = true,
+  includeStyles: _includeStyles,
   style,
   ...sectionProps
 }: VideosCarouselProps) {
@@ -207,8 +207,9 @@ export function VideosCarousel({
           </div>
         ) : null}
       </section>
-      {includeStyles && data.styles ? (
+      {data.styles ? (
         <style
+          data-judgeme-react-dashboard-styles={meta.config.shopDomain}
           data-judgeme-react-styles="videos-carousel"
           dangerouslySetInnerHTML={{ __html: data.styles }}
         />

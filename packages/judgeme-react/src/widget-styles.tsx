@@ -12,9 +12,8 @@ export interface JudgeMeWidgetStylesProps
 /**
  * Mounts Judge.me's shared dashboard CSS once for a group of widgets.
  *
- * Use this when each widget in a batched response has `includeStyles={false}`.
- * The stylesheet also contains Judge.me's star icon font, which current exact
- * widgets can reference even though they load their own extension CSS.
+ * @deprecated Widget components now load their required CSS automatically.
+ * This remains available as a backwards-compatible eager style hint.
  */
 export function JudgeMeWidgetStyles({
   data,

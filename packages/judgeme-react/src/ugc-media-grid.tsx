@@ -21,7 +21,7 @@ export interface UgcMediaGridProps extends Omit<
   "children" | "dangerouslySetInnerHTML"
 > {
   data: UgcMediaGridData;
-  /** Skip shared dashboard CSS when another widget already renders it. */
+  /** @deprecated Styles are loaded automatically. */
   includeStyles?: boolean;
 }
 
@@ -31,7 +31,7 @@ export interface UgcMediaGridProps extends Omit<
  */
 export function UgcMediaGrid({
   data,
-  includeStyles = true,
+  includeStyles: _includeStyles,
   ...containerProps
 }: UgcMediaGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -83,12 +83,11 @@ export function UgcMediaGrid({
       data-judgeme-react-widget="ugc-media-grid"
     >
       <div dangerouslySetInnerHTML={{ __html: mountHtml }} />
-      {includeStyles ? (
-        <style
-          data-judgeme-react-styles="ugc-media-grid"
-          dangerouslySetInnerHTML={{ __html: data.styles }}
-        />
-      ) : null}
+      <style
+        data-judgeme-react-dashboard-styles={meta.config.shopDomain}
+        data-judgeme-react-styles="ugc-media-grid"
+        dangerouslySetInnerHTML={{ __html: data.styles }}
+      />
     </div>
   );
 }

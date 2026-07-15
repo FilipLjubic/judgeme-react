@@ -21,7 +21,6 @@ import {
   FloatingReviewsTab,
   HappyCustomers,
   JudgeMeMedals,
-  JudgeMeWidgetStyles,
   LegacyReviewWidget,
   PopupReviews,
   QuestionsAndAnswers,
@@ -372,6 +371,7 @@ async function loadJudgeMeWidgets({
               settings: legacyWidgets.resources.settings,
               shopDomain,
               source: 'metafield',
+              styles: legacyWidgets.resources.styles,
             }),
           )
         : null,
@@ -404,6 +404,7 @@ async function loadJudgeMeWidgets({
             productId: numericProductId,
             settings: legacyWidgets.resources.settings,
             shopDomain,
+            styles: legacyWidgets.resources.styles,
           }),
         )
       : null,
@@ -419,6 +420,7 @@ async function loadJudgeMeWidgets({
             shopAggregate: aggregate,
             shopDomain,
             shopReviewsCount: happyCustomersPage?.numberOfShopReviews ?? 0,
+            styles: legacyWidgets.resources.styles,
           }),
         )
       : null,
@@ -433,6 +435,7 @@ async function loadJudgeMeWidgets({
             previewWhenDisabled: true,
             settings: legacyWidgets.resources.settings,
             shopDomain,
+            styles: legacyWidgets.resources.styles,
           }),
         )
       : null,
@@ -445,6 +448,7 @@ async function loadJudgeMeWidgets({
             productId: numericProductId,
             settings: legacyWidgets.resources.settings,
             shopDomain,
+            styles: legacyWidgets.resources.styles,
           }),
         )
       : null,
@@ -481,6 +485,7 @@ async function loadJudgeMeWidgets({
             previewWhenDisabled: true,
             settings: legacyWidgets.resources.settings,
             shopDomain,
+            styles: legacyWidgets.resources.styles,
           }),
         )
       : null,
@@ -552,9 +557,6 @@ export default function Product() {
 
   return (
     <div className="product">
-      {judgeMeWidgets ? (
-        <JudgeMeWidgetStyles data={judgeMeWidgets.resources} />
-      ) : null}
       <ProductImage image={selectedVariant?.image} />
       <div className="product-main">
         <h1>{title}</h1>
@@ -565,7 +567,6 @@ export default function Product() {
               ...judgeMeWidgets.starRatingBadge,
               ...judgeMeWidgets.resources,
             }}
-            includeStyles={false}
           />
         ) : null}
         <ProductPrice
@@ -595,7 +596,6 @@ export default function Product() {
                 ...judgeMeWidgets.verifiedReviewsCounter,
                 ...judgeMeWidgets.resources,
               }}
-              includeStyles={false}
             />
           ) : null}
           {judgeMeWidgets.medals ? (
@@ -605,7 +605,6 @@ export default function Product() {
                 ...judgeMeWidgets.medals,
                 ...judgeMeWidgets.resources,
               }}
-              includeStyles={false}
             />
           ) : null}
           {judgeMeWidgets.trustBadge ? (
@@ -625,7 +624,6 @@ export default function Product() {
                 ...judgeMeWidgets.ugcMediaGrid,
                 ...judgeMeWidgets.resources,
               }}
-              includeStyles={false}
             />
           ) : null}
           {judgeMeWidgets.allReviewsCounter ? (
@@ -635,7 +633,6 @@ export default function Product() {
                 ...judgeMeWidgets.allReviewsCounter,
                 ...judgeMeWidgets.resources,
               }}
-              includeStyles={false}
             />
           ) : null}
           {judgeMeWidgets.happyCustomers ? (
@@ -670,21 +667,18 @@ export default function Product() {
             <CardsCarousel
               className="product-cards-carousel"
               data={judgeMeWidgets.cardsCarousel}
-              includeStyles={false}
             />
           ) : null}
           {judgeMeWidgets.testimonialsCarousel ? (
             <TestimonialsCarousel
               className="product-testimonials-carousel"
               data={judgeMeWidgets.testimonialsCarousel}
-              includeStyles={false}
             />
           ) : null}
           {judgeMeWidgets.videosCarousel ? (
             <VideosCarousel
               className="product-videos-carousel"
               data={judgeMeWidgets.videosCarousel}
-              includeStyles={false}
             />
           ) : null}
           {judgeMeWidgets.reviewsCarousel ? (
@@ -694,7 +688,6 @@ export default function Product() {
                 ...judgeMeWidgets.reviewsCarousel,
                 ...judgeMeWidgets.resources,
               }}
-              includeStyles={false}
             />
           ) : null}
           {judgeMeWidgets.reviewWidgetV3 ? (
@@ -713,7 +706,6 @@ export default function Product() {
                 ...judgeMeWidgets.reviewWidget,
                 ...judgeMeWidgets.resources,
               }}
-              includeStyles={false}
             />
           ) : null}
           {judgeMeWidgets.allReviewsWidget ? (
@@ -723,7 +715,6 @@ export default function Product() {
                 ...judgeMeWidgets.allReviewsWidget,
                 ...judgeMeWidgets.resources,
               }}
-              includeStyles={false}
             />
           ) : null}
           {judgeMeWidgets.reviewsGrid ? (
@@ -740,7 +731,6 @@ export default function Product() {
             ...judgeMeWidgets.floatingReviewsTab,
             ...judgeMeWidgets.resources,
           }}
-          includeStyles={false}
           position="right"
         />
       ) : null}

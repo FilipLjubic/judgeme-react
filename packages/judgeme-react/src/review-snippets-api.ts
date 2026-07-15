@@ -72,6 +72,8 @@ export interface ReviewSnippetsData {
   productId?: string;
   settings: JudgeMeRuntimeSettings;
   shopDomain: string;
+  /** Shared dashboard CSS used by Judge.me's exact runtime and icon fonts. */
+  styles?: string;
 }
 
 export interface FetchReviewSnippetsPageOptions {
@@ -92,6 +94,7 @@ export interface CreateReviewSnippetsDataOptions {
   productId?: string;
   settings: JudgeMeRuntimeSettings;
   shopDomain: string;
+  styles?: string;
 }
 
 const DEFAULT_REVIEW_SNIPPETS_CONFIG: ReviewSnippetsConfig = {
@@ -218,6 +221,7 @@ export async function fetchReviewSnippets({
     productId,
     settings: counter?.settings ?? EMPTY_JUDGE_ME_SETTINGS,
     shopDomain,
+    styles: counter?.styles,
   });
 }
 
@@ -228,6 +232,7 @@ export function createReviewSnippetsData({
   productId,
   settings,
   shopDomain,
+  styles,
 }: CreateReviewSnippetsDataOptions): ReviewSnippetsData {
   const context = normalizeReviewSnippetsContext({
     config: configInput,
@@ -249,6 +254,7 @@ export function createReviewSnippetsData({
     productId: context.productId,
     settings,
     shopDomain: context.shopDomain,
+    styles,
   };
 }
 

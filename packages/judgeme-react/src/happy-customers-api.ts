@@ -69,6 +69,8 @@ export interface HappyCustomersData {
   settings: JudgeMeRuntimeSettings;
   shopDomain: string;
   source: HappyCustomersSource;
+  /** Shared dashboard CSS used by Judge.me's exact runtime and icon fonts. */
+  styles?: string;
 }
 
 export interface FetchHappyCustomersPageOptions {
@@ -91,6 +93,7 @@ export interface CreateHappyCustomersDataOptions {
   previewWhenDisabled?: boolean;
   settings: JudgeMeRuntimeSettings;
   shopDomain: string;
+  styles?: string;
 }
 
 const DEFAULT_HAPPY_CUSTOMERS_CONFIG: HappyCustomersConfig = {
@@ -201,6 +204,7 @@ export async function fetchHappyCustomers({
     previewWhenDisabled,
     settings,
     shopDomain,
+    styles: legacyWidget?.styles,
   });
 }
 
@@ -213,6 +217,7 @@ export function createHappyCustomersData({
   previewWhenDisabled = false,
   settings,
   shopDomain,
+  styles,
 }: CreateHappyCustomersDataOptions): HappyCustomersData | null {
   const config = normalizeHappyCustomersConfig(configInput);
   const expectedReviewType = getInitialReviewType(config);
@@ -239,6 +244,7 @@ export function createHappyCustomersData({
     settings,
     shopDomain: normalizeShopDomain(shopDomain),
     source: enabled ? "cdn-fallback" : "disabled-preview",
+    styles,
   };
 }
 

@@ -134,8 +134,8 @@ Server data
 
 Styles and rendering
 
-21. Mount JudgeMeWidgetStyles exactly once for a shared legacy batch. Pass includeStyles={false} to every legacy component receiving those shared resources.
-22. Keep that shared style mount even when the route displays ReviewWidgetV3. Judge.me's current v3 Review Widget references the JudgemeStar font declared by the shared dashboard CSS; omitting it can produce empty boxes instead of stars.
+21. Do not manually match styles to components, mount JudgeMeWidgetStyles, or pass includeStyles. Current components own their required legacy, native, or exact-extension CSS automatically.
+22. When a create*Data helper accepts styles, pass the shared resources.styles value already fetched by the loader. This avoids a browser request. If it is omitted, the exact runtime must be allowed to read the same public dashboard/font CSS from cache.judge.me before mounting; this fallback prevents missing JudgemeStar glyphs.
 23. Render StarRatingBadge near the product title. Render normal content widgets one below another in ordinary document flow below the main product content.
 24. Do not make the product information sticky as part of this integration.
 25. Mount FloatingReviewsTab and PopupReviews outside the vertical stack because they are global overlays.

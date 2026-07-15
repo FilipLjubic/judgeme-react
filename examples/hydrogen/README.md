@@ -139,13 +139,19 @@ bun run dev
 
 It has no `workspace:` imports or private workspace aliases.
 
+### Development port
+
+Both committed `dev` scripts bind the example to `http://localhost:3000`. That is the documented local URL and must remain the default in published examples.
+
+When another project already owns port 3000, pass an unused number to Shopify CLI's `--port` flag only as a one-off local override instead of editing the scripts. Stop that temporary server after verification. An override does not change the example's configured or documented default port.
+
 ## How the route is put together
 
 The product loader starts with `fetchLegacyStorefrontWidgets`. That call shares Judge.me's large settings/CSS response across legacy widgets and gives each optional endpoint its own nullable slot.
 
 The newer components then fetch only what they need. For example, the v3 Review Widget, Reviews Grid, and carousel adapters combine one page-specific tokenless response with the shared settings and current extension deployment. A malformed or disabled widget returns `null`; it does not reject the route.
 
-`JudgeMeWidgetStyles` mounts the shared dashboard stylesheet once. Every legacy component in that batch uses `includeStyles={false}`. Keep the shared style mount even when the page prefers `ReviewWidgetV3`: Judge.me's current v3 CSS references the `JudgemeStar` font from that payload.
+Every component owns its style loading. Legacy and native widgets emit their required CSS automatically; exact widgets select their own extension-manifest CSS and install the shared dashboard/font CSS before mounting. The loader passes `resources.styles` into exact-widget data to avoid a browser request, but the runtime safely falls back to Judge.me's public storefront cache if that field is omitted. There is no route-level `JudgeMeWidgetStyles` mount and no `includeStyles` bookkeeping.
 
 Normal components are stacked in `.product-widgets`. The product information is not sticky. `FloatingReviewsTab` and `PopupReviews` sit outside the stack because they are viewport overlays.
 

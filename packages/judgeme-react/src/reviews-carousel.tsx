@@ -21,7 +21,7 @@ export interface ReviewsCarouselProps
     "children" | "dangerouslySetInnerHTML"
   > {
   data: ReviewsCarouselData;
-  /** Skip the shared dashboard CSS when another widget renders the same styles. */
+  /** @deprecated Styles are loaded automatically. */
   includeStyles?: boolean;
 }
 
@@ -31,7 +31,7 @@ export interface ReviewsCarouselProps
  */
 export function ReviewsCarousel({
   data,
-  includeStyles = true,
+  includeStyles: _includeStyles,
   ...containerProps
 }: ReviewsCarouselProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -87,12 +87,11 @@ export function ReviewsCarousel({
           __html: CAROUSEL_LAYOUT_COMPATIBILITY_STYLE,
         }}
       />
-      {includeStyles ? (
-        <style
-          data-judgeme-react-styles="legacy-widgets"
-          dangerouslySetInnerHTML={{__html: data.styles}}
-        />
-      ) : null}
+      <style
+        data-judgeme-react-dashboard-styles={meta.config.shopDomain}
+        data-judgeme-react-styles="legacy-widgets"
+        dangerouslySetInnerHTML={{__html: data.styles}}
+      />
     </div>
   );
 }

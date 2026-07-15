@@ -5,6 +5,7 @@ import {
   createReviewSnippetsPreloadedResponse,
   shouldUpdateCarouselHeaderText,
 } from "../dist/exact-runtime.js";
+import { ensureJudgeMeDashboardStyles } from "../dist/dashboard-styles.js";
 import { createReviewWidgetV3OverlayController } from "../dist/review-widget-v3-overlay.js";
 import { startJudgeMeRuntime } from "../dist/runtime-lifecycle.js";
 import {
@@ -94,7 +95,7 @@ test("publishes the final npm identity with matching MIT licenses", async () => 
   const exampleJson = JSON.parse(exampleJsonSource);
 
   assert.equal(packageJson.name, "judgeme-react");
-  assert.equal(packageJson.version, "1.0.4");
+  assert.equal(packageJson.version, "1.0.5");
   assert.equal(exampleJson.dependencies[packageJson.name], packageJson.version);
   assert.equal(packageJson.license, "MIT");
   assert.equal(packageJson.author, "Filip Ljubic");
@@ -119,20 +120,23 @@ test("initializes Happy Customers core before configuring its exact runtime", as
   assert.notEqual(initializerEnd, -1);
 
   const initializer = source.slice(initializerStart, initializerEnd);
-  const ensureCore = initializer.indexOf("await ensureJudgeMeCoreRuntime({");
+  const ensureCore = initializer.indexOf("ensureJudgeMeCoreRuntime({");
+  const ensureStyles = initializer.indexOf("ensureJudgeMeDashboardStyles({");
   const configureExact = initializer.indexOf(
     "const runtimeWindow = configureExactRuntime({",
   );
 
   assert.notEqual(ensureCore, -1);
+  assert.notEqual(ensureStyles, -1);
   assert.ok(configureExact > ensureCore);
+  assert.ok(configureExact > ensureStyles);
   assert.match(
     initializer,
-    /await ensureJudgeMeCoreRuntime\(\{\s+publicToken,\s+settings: data\.settings,\s+shopDomain: data\.shopDomain,\s+\}\);/,
+    /ensureJudgeMeCoreRuntime\(\{\s+publicToken,\s+settings: data\.settings,\s+shopDomain: data\.shopDomain,\s+\}\)/,
   );
 });
 
-test("renders the batched Judge.me dashboard styles through an explicit mount", () => {
+test("keeps the explicit dashboard style mount for backwards compatibility", () => {
   const element = JudgeMeWidgetStyles({
     data: {
       styles: "@font-face{font-family:'JudgemeStar'}",
@@ -147,6 +151,117 @@ test("renders the batched Judge.me dashboard styles through an explicit mount", 
   );
   assert.equal(JudgeMeWidgetStyles({data: {styles: ""}}), null);
 });
+
+test("installs loader-provided dashboard styles without a browser request", async () => {
+  const {document, styles} = createStyleDocument();
+  let requests = 0;
+
+  await ensureJudgeMeDashboardStyles({
+    document,
+    fetch: async () => {
+      requests += 1;
+      throw new Error("unexpected request");
+    },
+    shopDomain: "inline-styles.myshopify.com",
+    styles: "@font-face{font-family:'JudgemeStar'}",
+  });
+  await ensureJudgeMeDashboardStyles({
+    document,
+    shopDomain: "inline-styles.myshopify.com",
+  });
+
+  assert.equal(requests, 0);
+  assert.equal(styles.length, 1);
+  assert.equal(
+    styles[0].dataset.judgemeReactDashboardStyles,
+    "inline-styles.myshopify.com",
+  );
+  assert.match(styles[0].textContent, /JudgemeStar/);
+});
+
+test("falls back to Judge.me's public cache for exact-widget dashboard CSS", async () => {
+  const {document, styles} = createStyleDocument("csp-nonce");
+  const requests = [];
+
+  await ensureJudgeMeDashboardStyles({
+    document,
+    fetch: async (input) => {
+      requests.push(String(input));
+      return new Response(
+        JSON.stringify({
+          settings: "<style>.jdgm-star{font-family:JudgemeStar}</style>",
+          html_miracle: "<style>@font-face{font-family:JudgemeStar}</style>",
+        }),
+        {status: 200, headers: {"Content-Type": "application/json"}},
+      );
+    },
+    publicToken: "public-token",
+    shopDomain: "fallback-styles.myshopify.com",
+  });
+
+  assert.equal(requests.length, 1);
+  assert.match(
+    requests[0],
+    /^https:\/\/cache\.judge\.me\/widgets\/shopify\/fallback-styles\.myshopify\.com\?public_token=public-token$/,
+  );
+  assert.equal(styles.length, 1);
+  assert.equal(styles[0].nonce, "csp-nonce");
+  assert.match(styles[0].textContent, /\.jdgm-star/);
+  assert.match(styles[0].textContent, /@font-face/);
+});
+
+test("widget components no longer let includeStyles disable required CSS", async () => {
+  const componentSources = await Promise.all(
+    [
+      "all-reviews-counter.tsx",
+      "all-reviews-widget.tsx",
+      "cards-carousel.tsx",
+      "floating-reviews-tab.tsx",
+      "judge-me-medals.tsx",
+      "legacy-review-widget.tsx",
+      "popup-reviews.tsx",
+      "questions-and-answers.tsx",
+      "reviews-carousel.tsx",
+      "star-rating-badge.tsx",
+      "testimonials-carousel.tsx",
+      "ugc-media-grid.tsx",
+      "verified-reviews-counter.tsx",
+      "videos-carousel.tsx",
+    ].map((file) =>
+      readFile(new URL(`../src/${file}`, import.meta.url), "utf8"),
+    ),
+  );
+
+  for (const source of componentSources) {
+    assert.doesNotMatch(source, /includeStyles\s+\?/);
+    assert.doesNotMatch(source, /includeStyles\s*&&/);
+    assert.match(source, /@deprecated Styles are loaded automatically\./);
+  }
+});
+
+function createStyleDocument(nonce = "") {
+  const styles = [];
+  const document = {
+    createElement(tagName) {
+      assert.equal(tagName, "style");
+      return {dataset: {}, textContent: ""};
+    },
+    head: {
+      appendChild(style) {
+        styles.push(style);
+        return style;
+      },
+    },
+    querySelector() {
+      return nonce ? {nonce} : null;
+    },
+    querySelectorAll() {
+      return styles;
+    },
+  };
+
+  return {document, styles};
+}
 
 test("normalizes the permanent Shopify domain", () => {
   assert.deepEqual(

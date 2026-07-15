@@ -258,12 +258,19 @@ Every widget result is nullable. Keep that property when composing larger loader
 
 ### 3. Mount the provider and components
 
-Mount `JudgeMeProvider` once near the app root. A batched legacy response should also mount `JudgeMeWidgetStyles` once, even if the page prefers the v3 Review Widget; Judge.me's current v3 styles still reference the shared star font.
+Mount `JudgeMeProvider` once near the app root. Components own their required styles; callers do not select or match a stylesheet to a widget.
+
+| Widget implementation | How its styles load |
+| --- | --- |
+| Legacy Judge.me markup | The component emits the dashboard CSS carried by its data |
+| Native React adapter | The component emits its package-owned CSS |
+| Exact extension widget | The runtime resolves that widget's recursive CSS graph from the current deployment manifest, then ensures the shared dashboard/font CSS exists before mounting |
+
+For exact widgets, loader-supplied shared CSS is installed immediately when available. If it was omitted, the browser makes one public Judge.me storefront-cache request per shop and installs the returned CSS with the current document CSP nonce. No private token is used. You do not need to mount `JudgeMeWidgetStyles` or set `includeStyles`.
 
 ```tsx
 import {
   JudgeMeProvider,
-  JudgeMeWidgetStyles,
   LegacyReviewWidget,
   StarRatingBadge,
 } from "judgeme-react/react";
@@ -275,23 +282,21 @@ import {
     v3AssetBaseUrl, // judgeMeAssets.assetBaseUrl from the server loader
   }}
 >
-  <JudgeMeWidgetStyles data={judgeMe.resources} />
-
   {judgeMe.starRatingBadge ? (
     <StarRatingBadge
       data={{...judgeMe.starRatingBadge, ...judgeMe.resources}}
-      includeStyles={false}
     />
   ) : null}
 
   {judgeMe.reviewWidget ? (
     <LegacyReviewWidget
       data={{...judgeMe.reviewWidget, ...judgeMe.resources}}
-      includeStyles={false}
     />
   ) : null}
 </JudgeMeProvider>
 ```
+
+When composing exact widget data from a shared batch, passing `resources.styles` to its `create*Data` helper avoids that fallback browser request. It is an optional request optimization, not correctness wiring: forgetting it is safe because the exact runtime retrieves the public CSS before mounting. `JudgeMeWidgetStyles` and `includeStyles` remain accepted only for compatibility with earlier releases; `includeStyles` no longer disables required CSS.
 
 Use the split entry points to keep the security boundary obvious:
 

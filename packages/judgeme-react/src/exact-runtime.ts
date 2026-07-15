@@ -19,6 +19,7 @@ import type { HappyCustomersData } from "./happy-customers-api.js";
 import type { ReviewWidgetV3Data } from "./review-widget-v3-api.js";
 import { ensureJudgeMeCoreRuntime } from "./legacy-runtime.js";
 import { bindReviewWidgetV3OverlayLifecycle } from "./review-widget-v3-overlay.js";
+import { ensureJudgeMeDashboardStyles } from "./dashboard-styles.js";
 
 const JUDGE_ME_API_HOST = "https://api.judge.me";
 const JUDGE_ME_CDN_API_HOST = "https://cdn.judge.me/";
@@ -788,6 +789,12 @@ async function initializeAiReviewsSummaryRoot({
 }: InitializeAiReviewsSummaryOptions): Promise<void> {
   if (typeof window === "undefined") return;
 
+  await ensureJudgeMeDashboardStyles({
+    publicToken,
+    shopDomain: data.shopDomain,
+    styles: data.styles,
+  });
+
   const runtimeWindow = configureExactRuntime({
     assetBaseUrl,
     settings: data.settings,
@@ -827,6 +834,12 @@ async function initializeReviewSnippetsRoot({
 }: InitializeReviewSnippetsOptions): Promise<void> {
   if (typeof window === "undefined") return;
 
+  await ensureJudgeMeDashboardStyles({
+    publicToken,
+    shopDomain: data.shopDomain,
+    styles: data.styles,
+  });
+
   const runtimeWindow = configureExactRuntime({
     assetBaseUrl,
     settings: data.settings,
@@ -864,6 +877,12 @@ async function initializeReviewsGridRoot({
   publicToken,
 }: InitializeReviewsGridOptions): Promise<void> {
   if (typeof window === "undefined") return;
+
+  await ensureJudgeMeDashboardStyles({
+    publicToken,
+    shopDomain: data.shopDomain,
+    styles: data.styles,
+  });
 
   const runtimeWindow = configureExactRuntime({
     assetBaseUrl,
@@ -903,6 +922,12 @@ async function initializeTrustBadgeRoot({
 }: InitializeTrustBadgeOptions): Promise<void> {
   if (typeof window === "undefined") return;
 
+  await ensureJudgeMeDashboardStyles({
+    publicToken,
+    shopDomain: data.shopDomain,
+    styles: data.styles,
+  });
+
   const runtimeWindow = configureExactRuntime({
     assetBaseUrl,
     settings: data.settings,
@@ -937,11 +962,18 @@ async function initializeHappyCustomersRoot({
 }: InitializeHappyCustomersOptions): Promise<void> {
   if (typeof window === "undefined") return;
 
-  await ensureJudgeMeCoreRuntime({
-    publicToken,
-    settings: data.settings,
-    shopDomain: data.shopDomain,
-  });
+  await Promise.all([
+    ensureJudgeMeCoreRuntime({
+      publicToken,
+      settings: data.settings,
+      shopDomain: data.shopDomain,
+    }),
+    ensureJudgeMeDashboardStyles({
+      publicToken,
+      shopDomain: data.shopDomain,
+      styles: data.styles,
+    }),
+  ]);
 
   const runtimeWindow = configureExactRuntime({
     assetBaseUrl,
@@ -994,11 +1026,18 @@ async function initializeReviewWidgetV3Root({
     registerReviewWidgetV3PreviewResponse(container, data);
   }
 
-  await ensureJudgeMeCoreRuntime({
-    publicToken,
-    settings: data.settings,
-    shopDomain: data.shopDomain,
-  });
+  await Promise.all([
+    ensureJudgeMeCoreRuntime({
+      publicToken,
+      settings: data.settings,
+      shopDomain: data.shopDomain,
+    }),
+    ensureJudgeMeDashboardStyles({
+      publicToken,
+      shopDomain: data.shopDomain,
+      styles: data.styles,
+    }),
+  ]);
 
   // The legacy core snapshots `.jdgm-review-widget` roots during startup and
   // later hands each one to its old modal-form setup. Add the official class
@@ -1071,6 +1110,12 @@ async function initializeCardsCarouselRoot({
   publicToken,
 }: InitializeCardsCarouselOptions): Promise<void> {
   if (typeof window === "undefined") return;
+
+  await ensureJudgeMeDashboardStyles({
+    publicToken,
+    shopDomain: data.shopDomain,
+    styles: data.styles,
+  });
 
   const runtimeWindow = configureExactRuntime({
     assetBaseUrl,
@@ -1164,6 +1209,12 @@ async function initializeTestimonialsCarouselRoot({
 }: InitializeTestimonialsCarouselOptions): Promise<void> {
   if (typeof window === "undefined") return;
 
+  await ensureJudgeMeDashboardStyles({
+    publicToken,
+    shopDomain: data.shopDomain,
+    styles: data.styles,
+  });
+
   const runtimeWindow = configureExactRuntime({
     assetBaseUrl,
     settings: data.settings,
@@ -1247,6 +1298,12 @@ async function initializeVideosCarouselRoot({
   publicToken,
 }: InitializeVideosCarouselOptions): Promise<void> {
   if (typeof window === "undefined") return;
+
+  await ensureJudgeMeDashboardStyles({
+    publicToken,
+    shopDomain: data.shopDomain,
+    styles: data.styles,
+  });
 
   const runtimeWindow = configureExactRuntime({
     assetBaseUrl,

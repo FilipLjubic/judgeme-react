@@ -20,6 +20,7 @@ export interface PopupReviewsProps extends Omit<
   data: PopupReviewsData;
   /** Current storefront page. `auto` infers standard Shopify-style paths. */
   pageType?: PopupReviewsPageType;
+  /** @deprecated Styles are loaded automatically. */
   includeStyles?: boolean;
 }
 
@@ -27,7 +28,7 @@ export interface PopupReviewsProps extends Omit<
 export function PopupReviews({
   className,
   data,
-  includeStyles = true,
+  includeStyles: _includeStyles,
   pageType = "auto",
   style,
   ...divProps
@@ -134,12 +135,10 @@ export function PopupReviews({
           />
         ) : null}
       </div>
-      {includeStyles ? (
-        <style
-          data-judgeme-react-styles="pop-up-reviews"
-          dangerouslySetInnerHTML={{ __html: POPUP_REVIEWS_CSS }}
-        />
-      ) : null}
+      <style
+        data-judgeme-react-styles="pop-up-reviews"
+        dangerouslySetInnerHTML={{ __html: POPUP_REVIEWS_CSS }}
+      />
     </>
   );
 }

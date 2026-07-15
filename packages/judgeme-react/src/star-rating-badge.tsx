@@ -9,7 +9,7 @@ export interface StarRatingBadgeProps
     "children" | "dangerouslySetInnerHTML"
   > {
   data: StarRatingBadgeData;
-  /** Skip the shared dashboard CSS when another widget renders the same styles. */
+  /** @deprecated Styles are loaded automatically. */
   includeStyles?: boolean;
 }
 
@@ -19,7 +19,7 @@ export interface StarRatingBadgeProps
  */
 export function StarRatingBadge({
   data,
-  includeStyles = true,
+  includeStyles: _includeStyles,
   ...containerProps
 }: StarRatingBadgeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -72,12 +72,11 @@ export function StarRatingBadge({
         data-id={data.productId}
         dangerouslySetInnerHTML={{__html: data.html}}
       />
-      {includeStyles ? (
-        <style
-          data-judgeme-react-styles="legacy-widgets"
-          dangerouslySetInnerHTML={{__html: data.styles}}
-        />
-      ) : null}
+      <style
+        data-judgeme-react-dashboard-styles={meta.config.shopDomain}
+        data-judgeme-react-styles="legacy-widgets"
+        dangerouslySetInnerHTML={{__html: data.styles}}
+      />
     </div>
   );
 }

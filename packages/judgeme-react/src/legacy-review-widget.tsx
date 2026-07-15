@@ -19,7 +19,7 @@ export interface LegacyReviewWidgetProps
     "children" | "dangerouslySetInnerHTML"
   > {
   data: LegacyReviewWidgetData;
-  /** Skip the shared dashboard CSS when `JudgeMeWidgetStyles` renders it. */
+  /** @deprecated Styles are loaded automatically. */
   includeStyles?: boolean;
 }
 
@@ -30,7 +30,7 @@ export interface LegacyReviewWidgetProps
  */
 export function LegacyReviewWidget({
   data,
-  includeStyles = true,
+  includeStyles: _includeStyles,
   ...sectionProps
 }: LegacyReviewWidgetProps) {
   const containerRef = useRef<HTMLElement>(null);
@@ -96,9 +96,10 @@ export function LegacyReviewWidget({
         dangerouslySetInnerHTML={{ __html: data.html }}
       />
       <style
+        data-judgeme-react-dashboard-styles={meta.config.shopDomain}
         data-judgeme-react-styles="review-widget"
         dangerouslySetInnerHTML={{
-          __html: `${includeStyles ? data.styles : ""}\n${VISIBLE_WIDGET_STYLE}`,
+          __html: `${data.styles}\n${VISIBLE_WIDGET_STYLE}`,
         }}
       />
     </section>

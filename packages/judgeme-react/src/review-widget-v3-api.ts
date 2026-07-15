@@ -71,6 +71,8 @@ export interface ReviewWidgetV3Data {
   shopDomain: string;
   shopReviewsCount: number;
   source: ReviewWidgetV3Source;
+  /** Shared dashboard CSS used by Judge.me's star icon font. */
+  styles?: string;
 }
 
 export interface FetchReviewWidgetV3PageOptions {
@@ -99,6 +101,7 @@ export interface CreateReviewWidgetV3DataOptions {
   shopAggregate: ReviewWidgetV3Data["shopAggregate"];
   shopDomain: string;
   shopReviewsCount: number;
+  styles?: string;
 }
 
 const DEFAULT_REVIEW_WIDGET_V3_CONFIG: ReviewWidgetV3Config = {
@@ -201,6 +204,7 @@ export async function fetchReviewWidgetV3({
       : fallbackAggregate,
     shopDomain,
     shopReviewsCount: allReviewsPage?.numberOfShopReviews ?? 0,
+    styles: counter?.styles,
   });
 }
 
@@ -215,6 +219,7 @@ export function createReviewWidgetV3Data({
   shopAggregate,
   shopDomain,
   shopReviewsCount,
+  styles,
 }: CreateReviewWidgetV3DataOptions): ReviewWidgetV3Data {
   const config = normalizeReviewWidgetV3Config(configInput);
   const normalizedProductId = getShopifyNumericId(productId);
@@ -246,6 +251,7 @@ export function createReviewWidgetV3Data({
       "store-review count",
     ),
     source: page.source,
+    styles,
   };
 }
 

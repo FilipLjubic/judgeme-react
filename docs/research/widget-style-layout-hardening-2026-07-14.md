@@ -1,6 +1,7 @@
 # Widget stylesheet and classic carousel sizing investigation
 
 Date: 2026-07-14
+Updated: 2026-07-15
 
 ## Scope
 
@@ -17,7 +18,23 @@ The storefront batch returns one shared `resources.styles` string. Its current C
 
 The Hydrogen route had set `includeStyles={false}` on every legacy component because the legacy Review Widget used to emit the shared CSS. Once the route preferred `ReviewWidgetV3`, `LegacyReviewWidget` was absent and no component emitted `resources.styles`. The private-use star characters consequently fell through to the system font and appeared as boxes. Whether the failure appeared depended on which review-widget implementation the route selected, not on React stripping CSS.
 
-The durable contract is now explicit: render `JudgeMeWidgetStyles` once for the batch and pass `includeStyles={false}` to every legacy component, including `LegacyReviewWidget`. Standalone legacy components retain `includeStyles=true` by default.
+The first hardening pass made that dependency explicit by mounting `JudgeMeWidgetStyles` once and setting `includeStyles={false}` on every legacy component. That fixed the immediate page but remained caller-owned and easy to forget. The 2026-07-15 automatic ownership change below supersedes that integration contract.
+
+## Automatic style ownership (2026-07-15)
+
+The route-level style switch has been removed as a correctness requirement:
+
+- legacy components always emit the dashboard CSS already present in their data;
+- native React widgets always emit their package-owned CSS;
+- exact extension widgets resolve their own recursive CSS graph from the current deployment manifest;
+- before an exact widget mounts, the runtime also ensures the shared dashboard/font CSS exists;
+- loader-supplied `styles` is installed immediately when available;
+- when it is absent, a once-per-shop browser read of the public `https://cache.judge.me/widgets/shopify/<shop>` response extracts CSS from `settings` and `html_miracle` before the widget manager mounts;
+- the dynamically installed fallback style copies the current document nonce so strict host CSP does not reject it.
+
+The public cache returned CORS permission for the local Hydrogen origin on 2026-07-15 and did not require a private token. The public Widget token is added when configured, but no private/Admin credential enters this path. Components still accept `includeStyles` and export `JudgeMeWidgetStyles` for source compatibility, but `includeStyles` is deprecated and ignored so it cannot silently remove required CSS.
+
+For request efficiency, server combiners should continue passing the batch's `resources.styles` into exact-widget `create*Data` helpers. The public cache is a correctness fallback, not an extra request on the healthy full route.
 
 ## Clipped classic carousel cards
 
@@ -34,10 +51,11 @@ The React adapter now supplies `box-sizing: border-box` only to the classic caro
 
 ## Regression expectations
 
-- A batched route emits one `style[data-judgeme-react-styles="legacy-widgets"]` even if only exact v3 review UI is visible.
+- Components render correctly without a route-level `JudgeMeWidgetStyles` mount or `includeStyles` bookkeeping.
+- Exact widgets use loader-provided dashboard CSS when available and make at most one public cache fallback read per shop when it is absent.
 - Review Widget v3 star rows render star shapes rather than missing-glyph boxes at narrow widths.
 - Classic card-theme carousel reviewer names and timestamps remain within each card at desktop widths.
-- Standalone legacy components continue to emit the shared CSS by default.
+- Legacy and native components cannot have their required CSS disabled through the deprecated `includeStyles` prop.
 - The carousel compatibility rule remains scoped to `[data-judgeme-react-widget="reviews-carousel"]`.
 
 ## Brave verification
@@ -48,9 +66,13 @@ At a 400px mobile viewport, the document contained exactly one shared stylesheet
 
 At a 1400px desktop viewport, the first three classic carousel cards computed to `border-box`. Each reviewer block's bottom edge was inside both its card and inner-wrapper bottom edge, and the visual capture showed the reviewer names and dates fully contained within all three cards.
 
+On 2026-07-15, the updated Hydrogen example was loaded directly in Brave on a clean product-page reload. Port 3000 was already occupied by an unrelated local storefront, so this verification used port 3010 as a temporary command-line override; the committed example scripts and documented default remained on port 3000, and no process was left listening on port 3010 afterward. The product badge and exact widgets rendered star shapes, the v3 Review Widget rendered its review cards and controls, and its **Write a review** overlay opened and closed successfully. No late runtime errors appeared on the direct reload. A preceding client-navigation run produced two legacy initializer timeouts despite rendered widgets; the required direct reload did not reproduce them, so that SPA-only observation is not attributed to the style-ownership change.
+
 ## Evidence
 
 - Authorized `featured_carousel` response inspected on 2026-07-14 using the current store and public Widget API token.
 - Authorized shared `html_miracle`/settings styles inspected on 2026-07-14; they contained the `JudgemeStar` embedded font and `.jdgm-star` font-family rule.
 - Judge.me public v3 base CSS: <https://cdnwidget.judge.me/widget_v3/base.css>
+- Judge.me public storefront cache: `https://cache.judge.me/widgets/shopify/<shop>` (CORS and CSS payload checked 2026-07-15).
 - Brave responsive and desktop reproductions supplied and rechecked on 2026-07-14, including computed font and element-bound measurements through Brave DevTools Protocol.
+- Brave direct product-page reload and v3 review-form interaction checked 2026-07-15 against the local Hydrogen example.

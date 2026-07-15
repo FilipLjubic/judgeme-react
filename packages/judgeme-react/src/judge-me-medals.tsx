@@ -22,7 +22,7 @@ export interface JudgeMeMedalsProps extends Omit<
   "children" | "dangerouslySetInnerHTML"
 > {
   data: JudgeMeMedalsData;
-  /** Skip the shared dashboard CSS when another widget renders the same styles. */
+  /** @deprecated Styles are loaded automatically. */
   includeStyles?: boolean;
 }
 
@@ -32,7 +32,7 @@ export interface JudgeMeMedalsProps extends Omit<
  */
 export function JudgeMeMedals({
   data,
-  includeStyles = true,
+  includeStyles: _includeStyles,
   ...containerProps
 }: JudgeMeMedalsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -88,12 +88,11 @@ export function JudgeMeMedals({
       data-judgeme-react-widget="medals"
     >
       <div dangerouslySetInnerHTML={{ __html: mountHtml }} />
-      {includeStyles ? (
-        <style
-          data-judgeme-react-styles="medals"
-          dangerouslySetInnerHTML={{ __html: data.styles }}
-        />
-      ) : null}
+      <style
+        data-judgeme-react-dashboard-styles={meta.config.shopDomain}
+        data-judgeme-react-styles="medals"
+        dangerouslySetInnerHTML={{ __html: data.styles }}
+      />
     </div>
   );
 }

@@ -77,6 +77,8 @@ export interface ReviewsGridData {
   productId?: string;
   settings: JudgeMeRuntimeSettings;
   shopDomain: string;
+  /** Shared dashboard CSS used by Judge.me's exact runtime and icon fonts. */
+  styles?: string;
 }
 
 export interface FetchReviewsGridPageOptions {
@@ -98,6 +100,7 @@ export interface CreateReviewsGridDataOptions {
   productId?: string;
   settings: JudgeMeRuntimeSettings;
   shopDomain: string;
+  styles?: string;
 }
 
 const DEFAULT_REVIEWS_GRID_CONFIG: ReviewsGridConfig = {
@@ -244,6 +247,7 @@ export async function fetchReviewsGrid({
     productId,
     settings: counter?.settings ?? EMPTY_JUDGE_ME_SETTINGS,
     shopDomain,
+    styles: counter?.styles,
   });
 }
 
@@ -255,6 +259,7 @@ export function createReviewsGridData({
   productId,
   settings,
   shopDomain,
+  styles,
 }: CreateReviewsGridDataOptions): ReviewsGridData {
   const config = normalizeReviewsGridConfig(configInput);
   const normalizedProductId = productId
@@ -281,6 +286,7 @@ export function createReviewsGridData({
     productId: normalizedProductId,
     settings,
     shopDomain: normalizeShopDomain(shopDomain),
+    styles,
   };
 }
 

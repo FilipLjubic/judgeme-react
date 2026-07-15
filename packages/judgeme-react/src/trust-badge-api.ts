@@ -122,6 +122,8 @@ export interface TrustBadgeData {
   shopDefaults: TrustBadgeShopDefaults;
   shopDomain: string;
   source: TrustBadgeSource;
+  /** Shared dashboard CSS used by Judge.me's exact runtime and icon fonts. */
+  styles?: string;
 }
 
 export interface FetchTrustBadgeMetafieldsOptions {
@@ -141,6 +143,7 @@ export interface CreateTrustBadgeDataOptions {
   previewWhenDisabled?: boolean;
   settings: JudgeMeRuntimeSettings;
   shopDomain: string;
+  styles?: string;
 }
 
 const DEFAULT_TRUST_BADGE_CONFIG: TrustBadgeConfig = {
@@ -248,6 +251,7 @@ export function createTrustBadgeData({
   previewWhenDisabled = false,
   settings,
   shopDomain,
+  styles,
 }: CreateTrustBadgeDataOptions): TrustBadgeData | null {
   if (!metafields) return null;
 
@@ -311,6 +315,7 @@ export function createTrustBadgeData({
     shopDefaults,
     shopDomain: normalizedShopDomain,
     source: enabled ? "metafield" : "disabled-preview",
+    styles,
   };
 }
 

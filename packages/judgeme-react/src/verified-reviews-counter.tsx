@@ -8,7 +8,7 @@ export interface VerifiedReviewsCounterProps extends Omit<
   "children" | "dangerouslySetInnerHTML"
 > {
   data: VerifiedReviewsCounterData;
-  /** Skip the shared dashboard CSS when another widget renders the same styles. */
+  /** @deprecated Styles are loaded automatically. */
   includeStyles?: boolean;
 }
 
@@ -18,7 +18,7 @@ export interface VerifiedReviewsCounterProps extends Omit<
  */
 export function VerifiedReviewsCounter({
   data,
-  includeStyles = true,
+  includeStyles: _includeStyles,
   ...containerProps
 }: VerifiedReviewsCounterProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -80,9 +80,10 @@ export function VerifiedReviewsCounter({
     >
       <div dangerouslySetInnerHTML={{ __html: data.html }} />
       <style
+        data-judgeme-react-dashboard-styles={meta.config.shopDomain}
         data-judgeme-react-styles="verified-reviews-counter"
         dangerouslySetInnerHTML={{
-          __html: `${includeStyles ? data.styles : ""}\n${visibleStyle}`,
+          __html: `${data.styles}\n${visibleStyle}`,
         }}
       />
     </div>
