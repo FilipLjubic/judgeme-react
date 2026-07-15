@@ -71,6 +71,8 @@ Version `1.0.3` was published under `latest` on 2026-07-14 as a Review Snippets 
 
 Version `1.0.4` was published under `latest` on 2026-07-15 as a Happy Customers write-review runtime patch. It waits for Judge.me's shared core before configuring the exact extension runtime, ensuring `window.jdgm.widgetPath` is available when the form opens. npm reported `latest: 1.0.4`; the 69-test release gate, 192-file package archive, and `publint` passed, registry shasum `be1823a41cef9f10048c1d9012aa228118aa4319` matched the published archive, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.4` before passing typecheck and production build.
 
+Version `1.0.5` was published under `latest` on 2026-07-15 as an automatic style-ownership patch. Legacy and native components now own their required CSS, exact widgets load their deployment CSS and ensure shared dashboard/font styles before mounting, and loader-provided styles are an optional request optimization rather than manual correctness wiring. npm reported `latest: 1.0.5`; the 72-test release gate, 196-file package archive, and `publint` passed, registry shasum `c762e08937971ccf467062e96b82e1a5dc95ac7f` matched the published archive, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.5` before passing typecheck and production build.
+
 ## Future releases
 
 For every release:

@@ -52,6 +52,8 @@ The Review Snippets public-data fallback was released as `judgeme-react@1.0.3` u
 
 The Happy Customers write-review runtime fix was released as `judgeme-react@1.0.4` under `latest` on 2026-07-15. The release commit is `6a4571e` with annotated tag `v1.0.4`. The complete release gate passed with 69 tests, workspace lint/typecheck/build, a 192-file package archive, and `publint`. npm registry metadata reported `latest: 1.0.4`; its `be1823a41cef9f10048c1d9012aa228118aa4319` shasum matched the locally published archive. A clean out-of-workspace Hydrogen copy excluded environment files, installed `judgeme-react@1.0.4` from the registry, and completed typecheck and production build.
 
+The automatic widget style-ownership hardening was released as `judgeme-react@1.0.5` under `latest` on 2026-07-15. The release commit is `d66f6fd` with annotated tag `v1.0.5`. The complete release gate passed with 72 tests, workspace lint/typecheck/build, a 196-file package archive, and `publint`. npm registry metadata reported `latest: 1.0.5`; its `c762e08937971ccf467062e96b82e1a5dc95ac7f` shasum matched the locally published archive. A clean out-of-workspace Hydrogen copy excluded environment files, installed `judgeme-react@1.0.5` from the registry, and completed typecheck and production build.
+
 The owner subsequently finalized:
 
 1. unscoped npm package name `judgeme-react`;
