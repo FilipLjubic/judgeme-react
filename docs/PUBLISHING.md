@@ -16,14 +16,14 @@ The first publish established these release decisions:
 ## Release contract
 
 - Package: `judgeme-react` from `packages/judgeme-react`
-- Current version: `1.0.5`
+- Current version: `1.0.6`
 - Registry access: public
 - Runtime: ESM, React 18.3 or 19
 - Entry points:
   - `judgeme-react/server`
   - `judgeme-react/react`
   - `judgeme-react` compatibility barrel
-- Published files: compiled `dist`, package README, setup prompt, package metadata, and MIT license
+- Published files: compiled `dist`, matching TypeScript `src` for resolvable source maps, package README, setup prompt, package metadata, and MIT license
 
 Keep the version in `examples/hydrogen/package.json` synchronized with the library version. The exact version is intentional: example installs should not silently drift to a different compatibility build.
 
@@ -38,7 +38,7 @@ bun run release:check
 
 That command runs the library tests, all workspace lint/type checks, the Hydrogen production build, a package dry-run, and `publint`. Runtime/CDN changes additionally require the Brave checks described in `AGENTS.md`.
 
-Inspect the dry-run file list. It must include `dist/index.js`, `dist/index.d.ts`, `dist/react.js`, `dist/react.d.ts`, `dist/server.js`, `dist/server.d.ts`, `README.md`, `SETUP_PROMPT.md`, and `LICENSE`. It must not include `.env`, tokens, research fixtures, the Hydrogen app, source-only test data, or a second lockfile.
+Inspect the dry-run file list. It must include `dist/index.js`, `dist/index.d.ts`, `dist/react.js`, `dist/react.d.ts`, `dist/server.js`, `dist/server.d.ts`, the matching `src` files referenced by source maps, `README.md`, `SETUP_PROMPT.md`, and `LICENSE`. It must not include `.env`, tokens, research fixtures, the Hydrogen app, test data, or a second lockfile.
 
 ## First stable publish
 

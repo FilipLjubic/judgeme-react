@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
+import { relative } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   createReviewSnippetsPreloadedResponse,
   shouldUpdateCarouselHeaderText,
@@ -80,6 +82,50 @@ test("publishes separate React and server entry points", async () => {
   assert.equal("JudgeMeProvider" in serverEntry, false);
 });
 
+test("publishes resolvable source maps", async () => {
+  const packageUrl = new URL("../", import.meta.url);
+  const distUrl = new URL("../dist/", import.meta.url);
+  const packageJson = JSON.parse(
+    await readFile(new URL("package.json", packageUrl), "utf8"),
+  );
+  const files = await readdir(distUrl);
+  const sourceMapFiles = files.filter((file) => file.endsWith(".map"));
+
+  assert.ok(sourceMapFiles.length > 0, "expected the build to emit source maps");
+
+  for (const file of sourceMapFiles) {
+    const sourceMapUrl = new URL(file, distUrl);
+    const sourceMap = JSON.parse(
+      await readFile(sourceMapUrl, "utf8"),
+    );
+
+    assert.ok(
+      Array.isArray(sourceMap.sources) && sourceMap.sources.length > 0,
+      `${file} must reference at least one source`,
+    );
+    for (const [index, source] of sourceMap.sources.entries()) {
+      if (typeof sourceMap.sourcesContent?.[index] === "string") continue;
+
+      const sourceUrl = new URL(source, sourceMapUrl);
+      const packagePath = relative(
+        fileURLToPath(packageUrl),
+        fileURLToPath(sourceUrl),
+      ).replaceAll("\\", "/");
+
+      assert.ok(
+        !packagePath.startsWith("../") &&
+          packageJson.files.some(
+            (publishedPath) =>
+              packagePath === publishedPath ||
+              packagePath.startsWith(`${publishedPath}/`),
+          ),
+        `${file} source ${source} must be covered by the npm files allowlist`,
+      );
+      await readFile(sourceUrl, "utf8");
+    }
+  }
+});
+
 test("publishes the final npm identity with matching MIT licenses", async () => {
   const [packageJsonSource, exampleJsonSource, packageLicense, repositoryLicense] =
     await Promise.all([
@@ -95,7 +141,7 @@ test("publishes the final npm identity with matching MIT licenses", async () => 
   const exampleJson = JSON.parse(exampleJsonSource);
 
   assert.equal(packageJson.name, "judgeme-react");
-  assert.equal(packageJson.version, "1.0.5");
+  assert.equal(packageJson.version, "1.0.6");
   assert.equal(exampleJson.dependencies[packageJson.name], packageJson.version);
   assert.equal(packageJson.license, "MIT");
   assert.equal(packageJson.author, "Filip Ljubic");
