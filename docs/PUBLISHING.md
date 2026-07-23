@@ -77,6 +77,8 @@ Version `1.0.6` was published under `latest` on 2026-07-15 as a source-map packa
 
 Version `1.0.7` was published under `latest` on 2026-07-15 as an Oxygen storefront-discovery compatibility patch. A forbidden initial theme request now retries once with browser-navigation headers while preserving the existing timeout, abort, cache, stale-on-error, and last-known-good behavior. npm reported `latest: 1.0.7`; the 74-test release gate, 244-file package archive, and `publint` passed, and registry shasum `b4592d751957fc1752fde90417e875fd8cb46620` matched the locally published archive.
 
+Version `1.0.8` was published under `latest` on 2026-07-23 as a review-image CSP documentation and Hydrogen example patch. It documents and allows Judge.me's current `https://review-images.judgeme.com` media origin, which is distinct from `*.judge.me`. npm reported `latest: 1.0.8`; the 75-test release gate, 244-file package archive, and `publint` passed, registry shasum `cf2818cdbcf7d6fde70aa743453dc508cb2208ac` matched the published archive, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.8` before passing typecheck and production build.
+
 ## Future releases
 
 For every release:
