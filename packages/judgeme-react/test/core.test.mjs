@@ -141,12 +141,35 @@ test("publishes the final npm identity with matching MIT licenses", async () => 
   const exampleJson = JSON.parse(exampleJsonSource);
 
   assert.equal(packageJson.name, "judgeme-react");
-  assert.equal(packageJson.version, "1.0.7");
+  assert.equal(packageJson.version, "1.0.8");
   assert.equal(exampleJson.dependencies[packageJson.name], packageJson.version);
   assert.equal(packageJson.license, "MIT");
   assert.equal(packageJson.author, "Filip Ljubic");
   assert.equal(packageLicense, repositoryLicense);
   assert.match(repositoryLicense, /Copyright \(c\) 2026 Filip Ljubic/);
+});
+
+test("documents the current Judge.me review image CSP origin", async () => {
+  const requiredOrigin = "https://review-images.judgeme.com";
+  const [example, readme, setupPrompt] = await Promise.all([
+    readFile(
+      new URL("../../../examples/hydrogen/app/entry.server.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../README.md", import.meta.url), "utf8"),
+    readFile(new URL("../SETUP_PROMPT.md", import.meta.url), "utf8"),
+  ]);
+
+  for (const source of [example, readme]) {
+    assert.ok(
+      source.includes(requiredOrigin),
+      `${requiredOrigin} must remain in the documented img-src allowlist`,
+    );
+  }
+  assert.ok(
+    setupPrompt.includes("review-images.judgeme.com"),
+    "the setup prompt must retain the review image host",
+  );
 });
 
 test("initializes Happy Customers core before configuring its exact runtime", async () => {

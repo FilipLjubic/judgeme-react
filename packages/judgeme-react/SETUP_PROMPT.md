@@ -172,7 +172,7 @@ Content Security Policy
     style: cdnwidget.judge.me, cdn2.judge.me, cdn.shopify.com
     connect: judge.me, *.judge.me, judgeme-public-images.imgix.net, cdn.shopify.com, vimeo.com
     font: data:, cdnwidget.judge.me, cdn2.judge.me, cdn.shopify.com
-    image: self, data:, judge.me, *.judge.me, judgeme.imgix.net, judgeme-public-images.imgix.net, i.vimeocdn.com, i.ibb.co, s3.amazonaws.com, cdn.shopify.com, *.cdninstagram.com, *.fbcdn.net
+    image: self, data:, judge.me, *.judge.me, judgeme.imgix.net, review-images.judgeme.com, judgeme-public-images.imgix.net, i.vimeocdn.com, i.ibb.co, s3.amazonaws.com, cdn.shopify.com, *.cdninstagram.com, *.fbcdn.net
     media: *.judge.me, cdn.shopify.com, *.cdninstagram.com, *.fbcdn.net
     frame: *.judge.me, *.cdninstagram.com, *.fbcdn.net, www.youtube.com, player.vimeo.com
 46. Preserve the package's component-scoped javascript:void(0) sanitizer where used; Judge.me can create those links after initialization.

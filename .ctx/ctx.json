@@ -664,6 +664,16 @@
       "current": "20260714T195005Z-79f879cbe88f",
       "created_at": "2026-07-14T19:50:00Z",
       "updated_at": "2026-07-14T19:50:05Z"
+    },
+    {
+      "id": "a470de8bc96f8a48",
+      "label": "review-image-csp-origin-2026-07-23",
+      "kind": "notes",
+      "url": "file:///Users/panda/Code/judgeme-react/docs/research/review-image-csp-origin-2026-07-23.md",
+      "reason": "Keep the CSP allowlist change traceable to live storefront evidence",
+      "current": "20260723T094425Z-229d77025323",
+      "created_at": "2026-07-23T09:44:25Z",
+      "updated_at": "2026-07-23T09:44:25Z"
     }
   ]
 }

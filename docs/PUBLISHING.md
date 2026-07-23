@@ -16,7 +16,7 @@ The first publish established these release decisions:
 ## Release contract
 
 - Package: `judgeme-react` from `packages/judgeme-react`
-- Current version: `1.0.6`
+- Current version: `1.0.8`
 - Registry access: public
 - Runtime: ESM, React 18.3 or 19
 - Entry points:
@@ -74,6 +74,8 @@ Version `1.0.4` was published under `latest` on 2026-07-15 as a Happy Customers 
 Version `1.0.5` was published under `latest` on 2026-07-15 as an automatic style-ownership patch. Legacy and native components now own their required CSS, exact widgets load their deployment CSS and ensure shared dashboard/font styles before mounting, and loader-provided styles are an optional request optimization rather than manual correctness wiring. npm reported `latest: 1.0.5`; the 72-test release gate, 196-file package archive, and `publint` passed, registry shasum `c762e08937971ccf467062e96b82e1a5dc95ac7f` matched the published archive, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.5` before passing typecheck and production build.
 
 Version `1.0.6` was published under `latest` on 2026-07-15 as a source-map packaging patch. The npm archive now includes the TypeScript `src` files referenced by emitted JavaScript and declaration maps, and the release test validates that every emitted map source is embedded or covered by the package allowlist. npm reported `latest: 1.0.6`; the 73-test release gate, 244-file package archive, and `publint` passed, registry shasum `85a868f267846840bc0da6f8516b04958602e681` matched the published archive, and a clean out-of-workspace Hydrogen copy installed `judgeme-react@1.0.6` before passing typecheck and production builds without missing-source sourcemap warnings.
+
+Version `1.0.7` was published under `latest` on 2026-07-15 as an Oxygen storefront-discovery compatibility patch. A forbidden initial theme request now retries once with browser-navigation headers while preserving the existing timeout, abort, cache, stale-on-error, and last-known-good behavior. npm reported `latest: 1.0.7`; the 74-test release gate, 244-file package archive, and `publint` passed, and registry shasum `b4592d751957fc1752fde90417e875fd8cb46620` matched the locally published archive.
 
 ## Future releases
 

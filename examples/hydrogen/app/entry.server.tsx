@@ -51,6 +51,7 @@ export default async function handleRequest(
       'https://judge.me',
       'https://*.judge.me',
       'https://judgeme.imgix.net',
+      'https://review-images.judgeme.com',
       'https://judgeme-public-images.imgix.net',
       'https://i.vimeocdn.com',
       'https://i.ibb.co',

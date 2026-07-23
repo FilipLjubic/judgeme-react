@@ -1,6 +1,6 @@
 {
   "name": "judgeme-react",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "React adapters for Judge.me widgets across Shopify headless storefronts.",
   "license": "MIT",
   "author": "Filip Ljubic",

@@ -179,7 +179,7 @@ The consuming app owns Content Security Policy. The tested configuration is in [
 - keeps `'self'` in `scriptSrc`;
 - uses `workerSrc: ["'self'", "blob:"]` for Vite without adding `blob:` to `scriptSrc`;
 - allows `cdn.shopify.com` in script, style, connect, font, and image directives;
-- includes Judge.me API/CDN origins, both Judge.me imgix hosts, the legacy S3 badge host, Instagram media hosts, and Vimeo/YouTube media and frame hosts.
+- includes Judge.me API/CDN origins, the separate `review-images.judgeme.com` review-photo host, both Judge.me imgix hosts, the legacy S3 badge host, Instagram media hosts, and Vimeo/YouTube media and frame hosts.
 
 Merge those sources into the host's existing policy. Do not replace checkout, analytics, or storefront sources. CSP headers are document-scoped, so perform a full page reload after changing them; hot module replacement cannot update the policy on the current document.
 

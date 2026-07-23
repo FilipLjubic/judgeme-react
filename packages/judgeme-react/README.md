@@ -310,6 +310,8 @@ Use the split entry points to keep the security boundary obvious:
 
 The host application owns Content Security Policy. Exact widgets need Judge.me APIs and media plus the store's current `cdn.shopify.com` extension assets. Video, Instagram, reviewer avatars, and branded verification marks add their own origins.
 
+Review photos can use `https://review-images.judgeme.com`. That origin is not covered by `https://*.judge.me` and must be allowed explicitly in the host's `img-src`.
+
 Do not guess the list from an error at a time. Copy the tested policy from the example's [`entry.server.tsx`](https://github.com/FilipLjubic/judgeme-react/blob/main/examples/hydrogen/app/entry.server.tsx), then merge it with the storefront's existing checkout, analytics, and platform sources. Hydrogen/Vite must keep `'self'` in `scriptSrc` and use `workerSrc: ["'self'", "blob:"]`; do not add `blob:` to `scriptSrc`.
 
 ## Pick your widgets
